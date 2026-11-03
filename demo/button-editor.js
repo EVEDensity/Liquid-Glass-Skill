@@ -1,30 +1,5 @@
 import { en, zh } from './language.js';
-
-const files = {
-  renderer: '../assets/liquid-glass-renderer.js',
-  runtime: './demo.js',
-  css: './demo.css',
-  backdrop: '../assets/glass-grid.svg',
-  license: '../LICENSE'
-};
-
-async function loadRuntime() {
-  const entries = await Promise.all(Object.entries(files).map(async ([key,path]) => {
-    const response = await fetch(new URL(path,import.meta.url));
-    if (!response.ok) throw new Error('Could not load '+path);
-    return [key,await response.text()];
-  }));
-  return Object.fromEntries(entries);
-}
-
-function portableScene(config, sources) {
-  const backdrop = 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(sources.backdrop);
-  return {
-    config: {...config,backdrop},
-    css: sources.css.replace('../assets/glass-grid.svg',backdrop),
-    runtime: sources.renderer+'\n'+sources.runtime.replace(/^import .*;\r?\n/gm,'')
-  };
-}
+import { loadReplicaSources, mountReplica, portableScene } from './replica.js';
 
 function portableHTML(config, sources) {
   const scene = portableScene(config,sources);
@@ -42,42 +17,6 @@ function portableHTML(config, sources) {
     '<script type="module">\n'+scene.runtime+'\n</script>',
     '</html>'
   ].join('\n');
-}
-
-// Use a separate document so host styles cannot change the captured scene.
-function mountReplica(target, {config,css,runtime}) {
-  const frame = target.ownerDocument.createElement('iframe');
-  const button = config.buttons.find(item=>item.id===config.selected);
-  frame.title = button.text || (config.language==='zh'?'液态玻璃按钮':'Liquid glass button');
-  frame.width = config.stage.width;
-  frame.height = config.stage.height;
-  Object.assign(frame.style,{
-    display:'block',border:'0',width:config.stage.width+'px',height:config.stage.height+'px'
-  });
-  target.append(frame);
-  const doc = frame.contentDocument;
-  doc.documentElement.lang = config.language==='zh'?'zh-CN':'en';
-  doc.documentElement.setAttribute('data-glass-export','');
-  const style = doc.createElement('style');
-  style.textContent = css;
-  doc.head.append(style);
-  const stage = doc.createElement('main');
-  stage.id = 'stage';
-  const canvas = doc.createElement('canvas');
-  canvas.id = 'scene';
-  canvas.setAttribute('aria-hidden','true');
-  const controls = doc.createElement('section');
-  controls.id = 'controls';
-  stage.append(canvas,controls);
-  const state = doc.createElement('script');
-  state.type = 'application/json';
-  state.id = 'glass-button-config';
-  state.textContent = JSON.stringify(config);
-  const script = doc.createElement('script');
-  script.type = 'module';
-  script.textContent = runtime;
-  doc.body.append(stage,state,script);
-  return frame;
 }
 
 function portableJS(config, sources) {
@@ -220,7 +159,7 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
     const config = snapshot(selected);
     button.disabled = true;
     try {
-      runtime ??= loadRuntime();
+      runtime ??= loadReplicaSources();
       await copyText(serialize(config,await runtime),status);
     } catch {
       runtime = undefined;
