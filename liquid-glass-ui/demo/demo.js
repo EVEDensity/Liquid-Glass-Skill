@@ -244,7 +244,7 @@ function show(name) {
   if (name === 'merge') status.textContent = 'Drag the circle over a white knob, then over its track.';
   else status.textContent = 'Drag the glass. Buttons respond to touch.';
   pieces = [...root.children];
-  pieces.forEach(piece => presses.set(piece, { x: 0, y: 0, scale: 0, sx: 0, sy: 0, tx: 0, ty: 0, base: piece.style.transform }));
+  pieces.forEach(piece => presses.set(piece, { x: 0, y: 0, scale: 0, sx: 0, sy: 0, tx: 0, ty: 0, lens: piece.matches('.probe, .lens'), base: piece.style.transform }));
   document.querySelectorAll('#layouts [data-layout]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.layout === name)));
   bind();
   schedule();
@@ -347,7 +347,7 @@ function draw() {
     geometry.width *= grow;
     geometry.height *= grow;
     const radius = piece.matches('.card, .panel') ? Math.min(26, geometry.height / 2) : Math.min(geometry.width, geometry.height) / 2;
-    return liquidSurface({...geometry,radius});
+    return liquidSurface({...geometry,radius},state.lens ? {surface:'lens'} : {});
   });
   if (opaque) return;
   scene.setSliderTrack(track);
@@ -372,7 +372,7 @@ function animatePress(now) {
     const elapsed = state.lastFrame == null ? 16 : now - state.lastFrame;
     const ease = 1 - Math.exp(-elapsed / 56);
     state.scale = reduced.matches ? target : state.scale + (target - state.scale) * ease;
-    if (!drag || drag.piece !== piece || now - drag.time > 105 || reduced.matches) state.tx = state.ty = 0;
+    if (!drag || drag.piece !== piece || now - drag.time > (state.lens ? 160 : 105) || reduced.matches) state.tx = state.ty = 0;
     // Damped spring: the tail lags the cursor, overshoots slightly, then settles.
     for (const [value, goal, velocity] of [['sx', 'tx', 'vx'], ['sy', 'ty', 'vy']]) {
       let speed = state[velocity] || 0;
@@ -380,8 +380,10 @@ function animatePress(now) {
         const dt = Math.min(elapsed, 64) / 1000;
         const steps = Math.max(1, Math.ceil(dt / .008));
         const step = dt / steps;
+        const stiffness = state.lens ? 300 : 390;
+        const damping = state.lens ? 18 : 22;
         for (let i = 0; i < steps; i++) {
-          speed += (390 * (state[goal] - state[value]) - 22 * speed) * step;
+          speed += (stiffness * (state[goal] - state[value]) - damping * speed) * step;
           state[value] += speed * step;
         }
       }
@@ -429,14 +431,18 @@ function bind() {
       const now = performance.now();
       const elapsed = Math.max(8, now - drag.time);
       const dx = event.clientX - drag.lastX, dy = event.clientY - drag.lastY;
-      const factor = Math.min(31 / elapsed, 42 / Math.max(1, Math.hypot(dx, dy)));
       const state = presses.get(piece);
+      const distance = Math.hypot(dx,dy);
+      const factor = state.lens
+        ? Math.min(68, 48*Math.sqrt(distance/elapsed)) / Math.max(1,distance)
+        : Math.min(31/elapsed, 42/Math.max(1,distance));
       if (!reduced.matches) {
         state.tx = dx * factor;
         state.ty = dy * factor;
         // Apply part of the impulse immediately so short gestures still deform the contour.
-        state.sx += (state.tx - state.sx) * .48;
-        state.sy += (state.ty - state.sy) * .42;
+        const impulse = state.lens ? .62 : .45;
+        state.sx += (state.tx - state.sx) * impulse;
+        state.sy += (state.ty - state.sy) * impulse;
       }
       state.contactX = event.clientX;
       state.contactY = event.clientY;

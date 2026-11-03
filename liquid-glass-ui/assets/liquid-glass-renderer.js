@@ -95,15 +95,22 @@ float shapeDistance(vec2 p,int i){
   float stretch=length(u_stretch[i]);
   if(stretch>.001){
     vec2 direction=u_stretch[i]/stretch;
-    float halfSpan=dot(abs(direction),s.zw*.5);
+    bool lens=u_surface[i]==4.;
+    float halfSpan=lens ? min(s.z,s.w)*.5 : dot(abs(direction),s.zw*.5);
     float axis=dot(q,direction);
     // Deform the trailing half more than the leading face.
     float back=1.-smoothstep(-halfSpan*.6,halfSpan*.55,axis);
-    float extension=stretch*mix(.13,.87,back);
+    float extension=stretch*mix(.13,lens ? 1.14 : .87,back);
     q-=direction*axis*extension/(halfSpan+extension);
     // The rear narrows as it stretches, instead of elongating a rigid capsule.
     vec2 across=vec2(-direction.y,direction.x);
-    q+=across*dot(q,across)*back*min(.42,stretch/max(36.,halfSpan*2.)*.7);
+    float narrowing=back*min(.42,stretch/max(36.,halfSpan*2.)*.7);
+    if(lens){
+      // Compress the droplet across its direction of travel and taper its tail.
+      float strain=min(1.,stretch/max(1.,halfSpan));
+      narrowing=(.13+.48*back)*strain;
+    }
+    q+=across*dot(q,across)*narrowing;
   }
   return roundedBox(q,s.zw*.5,u_radii[i]);
 }
@@ -284,7 +291,7 @@ export class GlassScene {
       this.contextLost=event=>{event.preventDefault();this.available=false;canvas.dispatchEvent(new Event('glassfallback'));};canvas.addEventListener('webglcontextlost',this.contextLost);
     } catch(error){this.error=error.message;this.destroy();} finally {shaders.forEach(shader=>gl.deleteShader(shader));}
   }
-  setShapes(shapes){this.shapes=shapes.slice(0,8).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1),slider:s.slider===true,motion:clamp(Number(s.motion)||0,0,1),surface:s.surface,contactX:Number.isFinite(s.contactX)?s.contactX:Number(s.x)||0,contactY:Number.isFinite(s.contactY)?s.contactY:Number(s.y)||0,stretchX:clamp(Number(s.stretchX)||0,-48,48),stretchY:clamp(Number(s.stretchY)||0,-48,48)};});}
+  setShapes(shapes){this.shapes=shapes.slice(0,8).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1),slider:s.slider===true,motion:clamp(Number(s.motion)||0,0,1),surface:s.surface,contactX:Number.isFinite(s.contactX)?s.contactX:Number(s.x)||0,contactY:Number.isFinite(s.contactY)?s.contactY:Number(s.y)||0,stretchX:clamp(Number(s.stretchX)||0,s.surface==='lens'?-80:-48,s.surface==='lens'?80:48),stretchY:clamp(Number(s.stretchY)||0,s.surface==='lens'?-80:-48,s.surface==='lens'?80:48)};});}
   setSliderTrack(track){
     this.sliderTrack=track && [track.x,track.y,track.width,track.height,track.fillX].every(Number.isFinite)
       && track.width>0 && track.height>0 ? {...track,height:Math.min(track.height,track.width)} : null;
@@ -311,7 +318,7 @@ export class GlassScene {
     if(!this.available||this.destroyed||!this.source)return;const gl=this.gl,box=this.canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
     const scale=Math.min(dpr,1);const width=Math.max(1,Math.round(box.width*scale)),height=Math.max(1,Math.round(box.height*scale));if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
-    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24);const pixelScale=width/Math.max(1,box.width);this.shapes.forEach((s,i)=>{shapes.set([s.x*pixelScale,s.y*pixelScale,s.width*pixelScale,s.height*pixelScale],i*4);radii[i]=s.radius*pixelScale;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:0;stretch.set([s.stretchX*pixelScale,s.stretchY*pixelScale],i*2);contacts.set([s.contactX*pixelScale,s.contactY*pixelScale],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
+    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24);const pixelScale=width/Math.max(1,box.width);this.shapes.forEach((s,i)=>{shapes.set([s.x*pixelScale,s.y*pixelScale,s.width*pixelScale,s.height*pixelScale],i*4);radii[i]=s.radius*pixelScale;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:0;stretch.set([s.stretchX*pixelScale,s.stretchY*pixelScale],i*2);contacts.set([s.contactX*pixelScale,s.contactY*pixelScale],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
     const {toggle,segment}=this.controlBases;
     const base=(key,b)=>gl.uniform4f(this.uniforms[key],(b?.x??0)*pixelScale,(b?.y??0)*pixelScale,(b?.width??0)*pixelScale,(b?.height??0)*pixelScale);
     base('switchBase',toggle);base('segmentBase',segment);gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);

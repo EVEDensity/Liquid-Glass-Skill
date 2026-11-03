@@ -187,7 +187,9 @@ try {
   const rest = await sliderState();
   const origin = await page.locator('#scene').boundingBox();
   await page.mouse.move(origin.x + rest.knob.x, origin.y + rest.knob.y);
+  assert.equal(await range.evaluate(input=>getComputedStyle(input).cursor),'grab');
   await page.mouse.down();
+  assert.equal(await range.evaluate(input=>getComputedStyle(input).cursor),'grabbing');
   await page.waitForFunction(() => window.glassDemo.slider?.knob.press === 1);
   assert.equal((await sliderState()).knob.motion, 0, 'Holding the same value must not add color');
   const held = await sliderState();
@@ -323,7 +325,7 @@ try {
   },oldKnob.x);
   record('Switch drag previews only the knob and commits once on release');
   const beforeDrag = await testScene();
-  assert.deepEqual(beforeDrag.shapes.map(shape => shape.surface ?? (shape.slider ? 'slider' : 'glass')), ['switch', 'slider', 'selection', 'glass']);
+  assert.deepEqual(beforeDrag.shapes.map(shape => shape.surface ?? (shape.slider ? 'slider' : 'glass')), ['switch', 'slider', 'selection', 'lens']);
   assert.equal(beforeDrag.bases.toggle.width, 102);
   assert.equal(beforeDrag.bases.segment.width, 432);
   const probe = page.locator('.probe');
@@ -333,7 +335,7 @@ try {
   await page.mouse.move(probeBox.x + 25, probeBox.y + 100);
   await page.waitForFunction(() => {
     const circle = window.glassDemo.shapes.at(-1);
-    return Math.hypot(circle.stretchX, circle.stretchY) > 8;
+    return Math.hypot(circle.stretchX, circle.stretchY) > 22;
   });
   await page.mouse.up();
   await page.waitForFunction(() => {
@@ -345,7 +347,7 @@ try {
   assert.deepEqual(afterDrag.shapes.slice(0, 3), beforeDrag.shapes.slice(0, 3));
   assert.ok(Math.abs(afterDrag.shapes[3].x - beforeDrag.shapes[3].x + 35) < 1);
   assert.ok(Math.abs(afterDrag.shapes[3].y - beforeDrag.shapes[3].y - 40) < 1);
-  record('The Merge test stretches and settles the dragged glass without moving the controls');
+  record('The round lens visibly stretches and settles without moving the controls');
 
   const fusion = await page.evaluate(async () => {
     const { GlassScene } = await import('/assets/liquid-glass-renderer.js');
