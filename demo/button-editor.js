@@ -32,33 +32,27 @@ function portableJS(config, sources) {
   ].join('\n');
 }
 
-function aiSpec(config) {
-  const button = config.buttons.find(item=>item.id===config.selected);
-  const repo = 'https://github.com/EVEDensity/Liquid-Glass-Skill';
-  const runtime = repo+'/tree/6721e538ec29bb4d25cacf32e3a32a7978155b9d';
+function aiSpec(config, strings) {
+  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/tree/56306702d8fcedad47ca23e555ea6782a0685894';
   return [
-    'Recreate the button from the JSON below. Reuse assets/liquid-glass-renderer.js, demo/demo.js and demo/demo.css at the pinned revision. Keep the stage and backdrop for matching refraction, and preserve native button semantics.',
-    'Runtime and integration: '+runtime,
-    JSON.stringify({
-      version:config.version, button, material:config.material,
-      stage:config.stage, scene:{controls:config.controls,buttons:config.buttons.filter(item=>item.id!==config.selected)},
-      backdrop:'assets/glass-grid.svg', language:config.language,
-      rendering:{pixelUnits:'CSS px',opacity:'clear at rest',pressScale:button.shape==='circle'?1.3:1.15,
-        font:'650 15px/1.35 "Segoe UI", sans-serif',textColor:'#17242b',
-        behavior:['press and release','drag with spring stretch','merge with nearby glass']}
-    },null,2)
-  ].join('\n\n');
+    strings.handoffTask,
+    runtime,
+    strings.handoffFiles,
+    strings.handoffMount,
+    '',
+    'liquid-glass.json',
+    JSON.stringify(config)
+  ].join('\n');
 }
 
 export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButton,snapshot,onLanguageChange}) {
   const textTool = document.querySelector('#text-tool');
-  const form = document.querySelector('#text-editor');
+  const textEditor = document.querySelector('#text-editor');
   const text = document.querySelector('#button-text');
-  const picker = document.querySelector('#selected-button');
   const shape = document.querySelector('#button-shape');
   const width = document.querySelector('#button-width');
   const height = document.querySelector('#button-height');
-  const copy = document.querySelector('#copy-button');
+  const copyJS = document.querySelector('#copy-button');
   const copyReplica = document.querySelector('#copy-replica');
   const copyHTML = document.querySelector('#copy-html');
   const widthRange = document.querySelector('#width-range');
@@ -73,17 +67,11 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
   let strings = en;
 
   function sync() {
-    const buttons = [...root.querySelectorAll('.probe')];
     const rect = selected.getBoundingClientRect();
-    picker.replaceChildren(...buttons.map((button,index) =>
-      new Option((index+1)+'. '+(button.textContent || strings[button.dataset.shape]),button.dataset.buttonId)
-    ));
-    picker.value = selected.dataset.buttonId;
-    text.value = selected.textContent;
     shape.value = selected.dataset.shape;
     syncSize(rect);
     sizeLink.hidden = !equalSides();
-    add.disabled = buttons.length >= 5;
+    add.disabled = root.querySelectorAll('.probe').length >= 5;
     add.title = add.disabled ? strings.limit : '';
   }
   function syncSize(rect) {
@@ -94,15 +82,17 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
   }
   function select(button) {
     if (!button || selected === button) return;
+    selected?.removeAttribute('aria-current');
     selected = button;
+    selected.setAttribute('aria-current','true');
+    text.value = selected.textContent;
     message.textContent = '';
     sync();
   }
   function setTextEditor(open) {
-    form.hidden = !open;
+    textEditor.hidden = !open;
     textTool.setAttribute('aria-expanded',String(open));
     if (open) {
-      text.value = selected.textContent;
       text.select();
     }
   }
@@ -119,19 +109,12 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
     setButtonGeometry(selected,shape.value,linked ? side : w,linked ? side : h);
     syncSize(selected.getBoundingClientRect());
   }
-  picker.addEventListener('change',()=>select([...root.querySelectorAll('.probe')].find(button=>button.dataset.buttonId===picker.value)));
   root.addEventListener('pointerdown',event=>select(event.target.closest('.probe')));
   root.addEventListener('focusin',event=>select(event.target.closest('.probe')));
-  textTool.addEventListener('click',()=>setTextEditor(form.hidden));
-  form.addEventListener('submit',event=>{
-    event.preventDefault();
-    setButtonText(selected,text.value);
-    setTextEditor(false);
-    sync();
-    textTool.focus();
-  });
-  form.addEventListener('keydown',event=>{
-    if (event.key!=='Escape') return;
+  textTool.addEventListener('click',()=>setTextEditor(textEditor.hidden));
+  text.addEventListener('input',()=>setButtonText(selected,text.value));
+  text.addEventListener('keydown',event=>{
+    if (event.isComposing || !['Enter','Escape'].includes(event.key)) return;
     setTextEditor(false);
     textTool.focus();
   });
@@ -154,7 +137,7 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
       copySource.select();
     }
   }
-  copy.addEventListener('click',()=>copyText(aiSpec(snapshot(selected)),'copiedSpec'));
+  copyReplica.addEventListener('click',()=>copyText(aiSpec(snapshot(selected),strings),'copiedSpec'));
   async function copyExport(button, serialize, status) {
     const config = snapshot(selected);
     button.disabled = true;
@@ -168,7 +151,7 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
       button.disabled = false;
     }
   }
-  copyReplica.addEventListener('click',()=>copyExport(copyReplica,portableJS,'copiedReplica'));
+  copyJS.addEventListener('click',()=>copyExport(copyJS,portableJS,'copiedReplica'));
   copyHTML.addEventListener('click',()=>copyExport(copyHTML,portableHTML,'copiedHTML'));
   function setLanguage(language) {
     strings = language==='zh' ? zh : en;

@@ -28,9 +28,11 @@ Open the [single glass scene](http://localhost:4173/demo/). Switch among six pre
 
 ### Edit and copy a button
 
-Select a glass shape on the canvas or in the Button panel. Use **T** in the panel to edit its text. Drag the width and height sliders to preview changes around the button center, or enter precise pixel values. Switch between English and Simplified Chinese at the top left.
+Click a glass shape on the canvas to edit it. Use **T** in the panel to edit its text live. Drag the width and height sliders to preview changes around the button center, or enter precise pixel values. Switch between English and Simplified Chinese at the top left.
 
-**Copy exact replica · JS** copies a self-contained JavaScript module. Paste it into a project as `glass-button.js` and mount it into an existing element:
+**Copy for AI** gives your coding agent the selected shape and full scene configuration, an immutable source revision, and the exact integration call. The agent can copy the named runtime files into the project and pass the configuration directly to `mountLiquidGlassReplica(container, config)`.
+
+The copy icon exports a self-contained offline JavaScript module. Paste it into a project as `glass-button.js` and mount it into an existing element:
 
 ```js
 import { mountLiquidGlassButton } from './glass-button.js';
@@ -41,7 +43,7 @@ const replica = mountLiquidGlassButton(document.querySelector('#preview'));
 
 The replica keeps the captured scene at its original size in a separate frame. It embeds the backdrop, surrounding controls, selected button, and rendering code. This keeps the same pixels available for refraction and merging and isolates the rendering from the host page's CSS. The browser needs WebGL2 for refraction, and the host's content security policy must allow the frame's inline script and styles. Fonts and display scale still affect rendered pixels.
 
-Use the copy icon for a compact AI prompt and JSON specification. **Copy HTML** exports a standalone offline preview.
+**Copy HTML** exports a standalone offline preview.
 
 Development checks:
 

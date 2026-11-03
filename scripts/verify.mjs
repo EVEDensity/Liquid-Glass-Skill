@@ -133,8 +133,15 @@ try {
   await page.locator('#presets-panel').getByRole('button',{name:'Edit button text',exact:true}).click();
   const label='保存 </script> & Go';
   await page.getByLabel('Button text',{exact:true}).fill(label);
-  await page.getByRole('button',{name:'Apply',exact:true}).click();
   const edited=page.getByRole('button',{name:label,exact:true});
+  await edited.waitFor();
+  assert.equal(await page.getByRole('button',{name:'Apply',exact:true}).count(),0);
+  assert.equal(await page.locator('#selected-button').count(),0);
+  await page.locator('#controls .probe').first().click();
+  assert.equal(await page.locator('#button-text').inputValue(),'');
+  await edited.click();
+  assert.equal(await page.locator('#button-text').inputValue(),label);
+  await page.locator('#button-text').press('Enter');
   const editedBounds=await edited.boundingBox();
   assert.deepEqual([editedBounds.width,editedBounds.height],[183,74]);
   await page.waitForFunction(()=>window.glassDemo.shapes.length===5);
@@ -143,22 +150,39 @@ try {
   assert.equal(await page.locator('html').getAttribute('lang'),'zh-CN');
   await page.getByRole('button',{name:'周',exact:true}).waitFor();
   await page.getByRole('button',{name:'编辑按钮文字',exact:true}).waitFor();
-  await page.getByRole('button',{name:'一键复刻 · 复制 JS',exact:true}).waitFor();
+  await page.getByRole('button',{name:'复制给 AI',exact:true}).waitFor();
   assert.equal(await edited.textContent(),label);
   await page.getByRole('button',{name:'EN',exact:true}).click();
   await page.getByRole('button',{name:'Week',exact:true}).waitFor();
-  record('Horizontal resizing previews immediately around the center and language changes preserve custom text');
-  await page.getByRole('button',{name:'Copy AI spec',exact:true}).click();
-  await page.getByRole('status').getByText('AI spec copied.').waitFor();
+  record('Canvas selection, live text and horizontal sizing work in both editor languages');
+  await page.getByRole('button',{name:'Copy for AI',exact:true}).click();
+  await page.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
   const handoff=await page.evaluate(()=>navigator.clipboard.readText());
   const spec=JSON.parse(handoff.slice(handoff.indexOf('{')));
   assert.ok(handoff.length<2400);
   assert.match(handoff,/github\.com\/EVEDensity\/Liquid-Glass-Skill\/tree\/[a-f0-9]{40}/);
+  assert.match(handoff,/await mountLiquidGlassReplica\(container, config\)/);
   assert.equal(spec.material.name,'Prism');
-  assert.deepEqual([spec.button.width,spec.button.height,spec.button.shape,spec.button.text],[183,74,'rounded',label]);
-  record('Copy AI spec includes exact button dimensions, text and material with a pinned runtime');
-  await page.locator('#copy-replica').click();
-  await page.getByRole('status').getByText('Replica copied. Paste it into your project as a JavaScript module.').waitFor();
+  const selectedButton = spec.buttons.find(button=>button.id===spec.selected);
+  assert.deepEqual([selectedButton.width,selectedButton.height,selectedButton.shape,selectedButton.text],[183,74,'rounded',label]);
+  const compactPage = await context.newPage();
+  const compactURL = new URL('/replica-test',url).href;
+  await compactPage.route(compactURL,route=>route.fulfill({
+    contentType:'text/html',body:'<!doctype html><style>body{margin:0}</style><main></main>'
+  }));
+  await compactPage.goto(compactURL);
+  await compactPage.evaluate(async config=>{
+    const {mountLiquidGlassReplica} = await import('/demo/replica.js');
+    await mountLiquidGlassReplica(document.querySelector('main'),config);
+  },spec);
+  const compact = compactPage.frames()[1];
+  await compact.waitForFunction(()=>window.glassDemo?.available&&window.glassDemo?.source&&window.glassDemo.shapes.length===5);
+  const originalPixels = await page.locator('#stage').screenshot({style:'.language-tools { visibility: hidden; }'});
+  assert.ok(originalPixels.equals(await compact.locator('#stage').screenshot()));
+  await compactPage.close();
+  record('The compact AI handoff mounts an identical scene by passing its JSON directly to the runtime');
+  await page.getByRole('button',{name:'Copy offline JS',exact:true}).click();
+  await page.getByRole('status').getByText('Offline JavaScript copied.').waitFor();
   const moduleCode = await page.evaluate(()=>navigator.clipboard.readText());
   const replicaPage = await context.newPage();
   const replicaRequests = [];
@@ -180,7 +204,6 @@ try {
   assert.deepEqual(await replicaButton.boundingBox(),editedBounds);
   assert.equal(await replicaButton.textContent(),label);
   assert.deepEqual(await replica.evaluate(()=>window.glassDemo.material),await page.evaluate(()=>window.glassDemo.material));
-  const originalPixels = await page.locator('#stage').screenshot({style:'.language-tools { visibility: hidden; }'});
   const replicaPixels = await replica.locator('#stage').screenshot();
   if (!originalPixels.equals(replicaPixels)) {
     await writeFile(resolve(evidence,'replica-original.png'),originalPixels);

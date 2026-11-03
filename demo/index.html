@@ -24,22 +24,18 @@
         <h2 id="button-title" data-i18n="button">Button</h2>
         <div class="inspector-actions">
           <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" aria-expanded="false" title="Edit text" data-aria="editText" data-title="editText">T</button>
-          <button id="copy-button" type="button" aria-label="Copy AI spec" title="Copy AI spec" data-aria="copySpec" data-title="copySpec">
+          <button id="copy-button" type="button" aria-label="Copy offline JS" title="Copy offline JS" data-aria="copyJS" data-title="copyJS">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
               <rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
             </svg>
           </button>
         </div>
       </header>
-      <form id="text-editor" hidden>
+      <p class="selection-hint" data-i18n="selectionHint">Click a glass shape on the canvas to edit it.</p>
+      <div id="text-editor" hidden>
         <label for="button-text" data-i18n="buttonText">Button text</label>
-        <div class="text-input-row">
-          <input id="button-text" maxlength="100">
-          <button type="submit" data-i18n="apply">Apply</button>
-        </div>
-      </form>
-      <label for="selected-button" data-i18n="selected">Selected button</label>
-      <select id="selected-button"></select>
+        <input id="button-text" maxlength="100">
+      </div>
       <label for="button-shape" data-i18n="shape">Shape</label>
       <select id="button-shape">
         <option value="circle" data-i18n="circle">Circle</option>
@@ -62,7 +58,7 @@
         </div>
       </div>
       <p id="size-link" data-i18n="linkedSize">Width and height are linked.</p>
-      <button id="copy-replica" type="button" data-i18n="copyReplica">Copy exact replica · JS</button>
+      <button id="copy-replica" type="button" data-i18n="copyReplica">Copy for AI</button>
       <div class="inspector-footer">
         <button id="add-button" type="button" data-i18n="add">Add shape</button>
         <button id="copy-html" type="button" data-i18n="copyHTML">Copy HTML</button>

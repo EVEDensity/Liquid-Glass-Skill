@@ -114,18 +114,19 @@ body {
   display: flex; gap: 2px; padding: 4px; border-radius: 14px;
   background: #f8f7f2;
 }
-.language-tools button, .inspector-actions button, #text-editor button, #add-button {
+.language-tools button, .inspector-actions button, #add-button {
   min-height: 44px; min-width: 44px; padding: 6px 12px;
   border: 1px solid #d2ccbc; border-radius: 10px; background: #fff;
   color: #192529; cursor: pointer; font: inherit;
 }
 .language-tools button { border-color: transparent; background: transparent; }
 .language-tools button[aria-pressed="true"] { background: #22323c; color: #fff; }
-.inspector-actions, .text-input-row, .inspector-footer { display: flex; gap: 8px; align-items: center; }
+.inspector-actions, .inspector-footer { display: flex; gap: 8px; align-items: center; }
 .inspector-actions button { display: grid; place-items: center; }
 #text-tool { font-weight: 750; font-size: 20px; }
 #text-editor { margin: 4px 0 10px; }
-.text-input-row { margin-top: 4px; }
+.selection-hint { margin: 0 0 10px; color: #4e5e60; font-size: 13px; }
+#button-text { margin-top: 4px; }
 .button-inspector { border-top: 1px solid #ddd8cb; padding-top: 14px; }
 .button-inspector header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .button-inspector h2 { margin: 0; font-size: 18px; }
@@ -152,7 +153,6 @@ body {
   border: 1px solid #284e52; border-radius: 10px; background: #284e52;
   color: #fff; font: inherit; font-weight: 600; cursor: pointer;
 }
-#copy-replica:disabled { opacity: .65; cursor: wait; }
 .inspector-footer { justify-content: space-between; }
 #copy-html {
   min-height: 44px; padding: 0 8px; border: 0; background: transparent;
