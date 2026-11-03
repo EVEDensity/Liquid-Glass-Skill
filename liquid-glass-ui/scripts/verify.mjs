@@ -120,6 +120,39 @@ try {
   assert.equal(interaction.status, 'Week selected.');
   assert.equal(interaction.week, 'true');
   record('Panel, lens, morph, switch, slider, and segment animate');
+  // Sample the actual rendered selector, rather than the CSS transition or its target.
+  await page.getByRole('button',{name:'iOS controls',exact:true}).click();
+  await page.waitForFunction(()=>window.glassDemo.shapes.some(s=>s.surface==='selection'));
+  const flow = await page.evaluate(async () => {
+    const shape = () => window.glassDemo.shapes.find(s=>s.surface==='selection');
+    const frame = () => new Promise(requestAnimationFrame);
+    const buttons = document.querySelectorAll('.segment button');
+    const start = shape();
+    const base = window.glassDemo.bases.segment;
+    const samples = [];
+    buttons[2].click();
+    const deadline = performance.now()+850;
+    while(performance.now()<deadline){
+      await frame();
+      samples.push(shape());
+    }
+    return {start,end:shape(),base,finalBase:window.glassDemo.bases.segment,
+      peak:Math.max(...samples.map(s=>s.width)),thin:Math.min(...samples.map(s=>s.height)),
+      intermediate:samples.filter(s=>s.x>start.x+15&&s.x<shape().x-15).length};
+  });
+  assert.ok(flow.intermediate>=2, 'Selector must move through intermediate positions');
+  assert.ok(flow.peak > flow.start.width*1.55, 'Selector must stretch between distant cells');
+  assert.ok(flow.thin < flow.start.height-3, 'Selector must become thinner while stretched');
+  assert.equal(flow.end.width,flow.start.width);
+  assert.equal(flow.end.height,flow.start.height);
+  assert.ok(flow.end.x>flow.start.x+250);
+  assert.deepEqual(flow.base,flow.finalBase);
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.getByRole('button',{name:'Day',exact:true}).evaluate(b=>b.click());
+  await page.waitForFunction(x=>Math.abs(window.glassDemo.shapes.find(s=>s.surface==='selection').x-x)<.5,flow.start.x);
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  record('Segment lens stretches, thins and settles while its track stays fixed');
+
   await page.getByRole('button', { name: 'Slider', exact: true }).click();
   const range = page.getByRole('slider', { name: 'Glass level' });
   await range.focus();

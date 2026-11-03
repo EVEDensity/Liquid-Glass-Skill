@@ -122,6 +122,21 @@ function makeSegment(selected) {
   segment.removeAttribute('tabindex');
   segment.setAttribute('role', 'group');
   segment.setAttribute('aria-label', 'Period');
+  // Keep the ends in segment units so a resize also resizes an in-flight lens.
+  let travel = { left: selected, right: selected+1, to: selected, started: 0, duration: 0 };
+  const ease = progress => {
+    const t = Math.max(0,Math.min(1,progress));
+    return t*t*(3-2*t);
+  };
+  segment.selectionAt = now => {
+    const t = reduced.matches || !travel.duration ? 1 : Math.min(1,(now-travel.started)/travel.duration);
+    const leading = ease(t/.69);
+    const trailing = ease((t-.22)/.78);
+    const rightward = travel.to+.5 >= (travel.left+travel.right)/2;
+    const left = travel.left + (travel.to-travel.left)*(rightward ? trailing : leading);
+    const right = travel.right + (travel.to+1-travel.right)*(rightward ? leading : trailing);
+    return {left,right,moving:t<1};
+  };
   const names = ['Day', 'Week', 'Month'];
   const buttons = names.map((name, index) => {
     const button = document.createElement('button');
@@ -130,9 +145,14 @@ function makeSegment(selected) {
     button.setAttribute('aria-pressed', String(index === selected));
     button.addEventListener('click', () => {
       buttons.forEach((item, i) => item.setAttribute('aria-pressed', String(index === i)));
-      segment.style.setProperty('--selection-offset', (index * 100 / 3) + '%');
+      if (index !== travel.to) {
+        const now = performance.now();
+        const { left, right } = segment.selectionAt(now);
+        const distance = Math.abs(index+.5-(left+right)/2);
+        travel = {left,right,to:index,started:now,duration:Math.min(500,350+distance*65)};
+        schedule();
+      }
       status.textContent = name + ' selected.';
-      followTransition();
     });
     return button;
   });
@@ -216,13 +236,13 @@ function draw() {
       const dx = state.sampleX == null ? 0 : geometry.x-state.sampleX;
       const motion = motionAt(geometry.x,geometry.y);
       // Moving selectors leave a short tail, while their native track stays fixed.
-      if (extra.slider || extra.surface) {
+      if (extra.slider || extra.surface === 'switch') {
         const target = reduced.matches ? 0 : Math.max(-21,Math.min(21,dx*1.5));
         state.knobTail = (state.knobTail || 0) + (target-(state.knobTail || 0))*.42;
         if (reduced.matches || Math.abs(state.knobTail)<.16) state.knobTail=0;
         colorSettling ||= state.knobTail!==0;
       }
-      return {...geometry,...extra,...touch,press,motion,stretchX:extra.slider||extra.surface ? state.knobTail : state.sx,stretchY:state.sy};
+      return {...geometry,...extra,...touch,press,motion,stretchX:extra.slider||extra.surface==='switch' ? state.knobTail : state.sx,stretchY:state.sy};
     };
     const touch = press > 0 ? {contactX: state.contactX - box.left, contactY: state.contactY - box.top} : {};
     if (piece.matches('.slider')) {
@@ -243,9 +263,24 @@ function draw() {
       const base = boxFor(rect);
       if (toggle) bases.toggle = { ...base, on: piece.getAttribute('aria-checked') === 'true' };
       else bases.segment = base;
-      const knob = boxFor(piece.querySelector(toggle ? '.knob' : '.selection').getBoundingClientRect());
-      knob.width += (toggle ? 24 : 27) * press;
-      knob.height += 9 * press;
+      let knob;
+      if (toggle) {
+        knob = boxFor(piece.querySelector('.knob').getBoundingClientRect());
+        knob.width += 24*press;
+        knob.height += 9*press;
+      } else {
+        const {left,right,moving} = piece.selectionAt(now);
+        const extension = Math.max(0,right-left-1);
+        const cell = rect.width/3;
+        const width = Math.max(24,(right-left)*cell-6) + 27*press;
+        const height = 52 + 9*press - Math.min(9,extension*9);
+        const center = (left+right)*cell/2;
+        knob = {x:rect.left-box.left+center,y:base.y,width,height};
+        piece.style.setProperty('--selection-offset', (center-width/2-3) + 'px');
+        piece.style.setProperty('--selection-width', width + 'px');
+        piece.style.setProperty('--selection-height', height + 'px');
+        if (moving) schedule();
+      }
       const surface = liquidSurface({...knob,radius:knob.height/2},{surface:toggle?'switch':'selection'});
       if (segment) piece.style.setProperty('--selection-ink', Math.max(press,surface.motion) > .58 ? '#fff' : '#202427');
       return surface;
