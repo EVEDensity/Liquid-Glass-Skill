@@ -18,7 +18,7 @@ const icons = {
 const layouts = {
   scene() {
     return [
-      glass('lens', '', '9%', '18%'),
+      glass('lens', '', '58%', '18%'),
       glass('switch', '<span class="track"></span><span class="knob"></span>', '39%', '27%'),
       glass('slider', '<span class="track"></span><span class="thumb"></span><input aria-label="Glass level" type="range" min="0" max="100" value="28">', '12%', '57%'),
       glass('panel', '', '43%', '43%'),
@@ -34,7 +34,7 @@ const layouts = {
       glass('mini', `${icon(icons.plus, 'Add')}${icon(icons.more, 'More')}`, 'auto', '28px', '28px', '28px')
     ];
   },
-  panel() { return [glass('panel', '<span class="text"><strong>Liquid glass</strong><small>Drag me around</small></span>', '50%', '46%')]; },
+  panel() { return [glass('panel', '<span class="text"><strong>Liquid glass</strong><small>Drag me around</small></span>', '50%', '34%')]; },
   lens() { return [glass('lens', '', '50%', '48%')]; },
   morph() {
     const more = glass('mini', icon(icons.more, 'More'), 'auto', '28px', '28px', '28px');
@@ -76,7 +76,7 @@ function glass(kind, html, x, y, bottom = '', right = '') {
   element.style.left = x; element.style.top = y;
   if (bottom) element.style.bottom = bottom;
   if (right) element.style.right = right;
-  if (x === '50%') element.style.translate = '-50% 0';
+  if (x === '50%') element.style.transform = 'translate(-50%, -50%)';
   return element;
 }
 let pieces = [];
@@ -108,7 +108,7 @@ function draw() {
     const press = presses.get(piece)?.scale || 0;
     const grow = 1 + press * .08;
     piece.style.scale = grow.toFixed(3);
-    return { x: rect.left + rect.width / 2 - box.left, y: rect.top + rect.height / 2 - box.top, width: rect.width * grow, height: rect.height * grow, radius: Math.min(rect.width, rect.height) / 2, press };
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, width: rect.width * grow, height: rect.height * grow, radius: Math.min(rect.width, rect.height) / 2, press };
   }));
   scene.setMaterial(PRESETS.apple);
   scene.render();
@@ -131,7 +131,7 @@ function startPress() { if (!pressFrame) pressFrame = requestAnimationFrame(anim
 function movePiece(piece, x, y) {
   const state = presses.get(piece);
   state.x = x; state.y = y;
-  piece.style.translate = `${x}px ${y}px`;
+  piece.style.transform = `translate(${x}px, ${y}px)`;
   schedule();
 }
 function bind() {
@@ -140,7 +140,8 @@ function bind() {
       if (event.button !== 0 || event.target.closest('#layouts')) return;
       if (event.target.closest('button, input') && !piece.matches('.switch, .segment')) return;
       const state = presses.get(piece);
-      drag = { piece, pointerId: event.pointerId, x: event.clientX, y: event.clientY, originX: state.x, originY: state.y };
+      const base = piece.style.left === '50%' ? { x: -piece.offsetWidth / 2, y: -piece.offsetHeight / 2 } : { x: 0, y: 0 };
+      drag = { piece, pointerId: event.pointerId, x: event.clientX, y: event.clientY, originX: state.x + base.x, originY: state.y + base.y };
       if (event.pointerId) piece.setPointerCapture(event.pointerId);
     });
     piece.addEventListener('pointermove', event => {

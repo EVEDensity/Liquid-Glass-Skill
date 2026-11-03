@@ -54,9 +54,9 @@ void main(){
   vec3 base=sampleAt(p);
   if(field>2.){float shadow=exp(-max(field,0.)/15.)*u_shadow*.5;color=vec4(base*(1.-shadow),1.);return;}
   vec2 q=p-centre,n=length(gradient)>.001?normalize(gradient):normalFor(q,halfSize,radius);
-  float edge=1.-smoothstep(0.,max(u_bezel*scale*(1.+press*.25),1.),max(-field,0.));
+  float edge=1.-smoothstep(0.,max(u_bezel*scale*.55*(1.+press*.25),1.),max(-field,0.));
   float profile=u_edge>0.?edge*(1.-edge*edge):edge*edge;
-  vec2 bend=n*u_refraction*scale*(1.+press*.45)*profile;
+  vec2 bend=n*u_refraction*scale*.75*(1.+press*.45)*profile;
   float zoom=max(u_magnify+press*.16,1.);
   vec2 centerPull=(p-centre)*(1.-1./zoom)*(1.-edge);
   vec2 at=p-bend-centerPull;
@@ -134,7 +134,7 @@ export class GlassScene {
     if(!this.available||this.destroyed||!this.source)return;const gl=this.gl,box=this.canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
     const scale=Math.min(dpr,.6);const width=Math.max(1,Math.round(box.width*scale)),height=Math.max(1,Math.round(box.height*scale));if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
-    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12);this.shapes.forEach((s,i)=>{shapes.set([s.x*dpr,s.y*dpr,s.width*dpr,s.height*dpr],i*4);radii[i]=s.radius*dpr;press[i]=s.press;});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);
+    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12);const pixelScale=width/Math.max(1,box.width);this.shapes.forEach((s,i)=>{shapes.set([s.x*pixelScale,s.y*pixelScale,s.width*pixelScale,s.height*pixelScale],i*4);radii[i]=s.radius*pixelScale;press[i]=s.press;});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);
     const m=this.material;for(const key of ['refraction','bezel','blur','rimWidth','merge'])gl.uniform1f(this.uniforms[key],m[key]*dpr);for(const key of numeric.filter(key=>!['refraction','bezel','blur','rimWidth','merge'].includes(key)))gl.uniform1f(this.uniforms[key],m[key]);
     gl.uniform1f(this.uniforms.edge,m.edge==='lip'?1:0);gl.uniform1f(this.uniforms.sizeScale,m.sizeScale?1:0);gl.uniform1f(this.uniforms.appearance,m.appearance==='light'?0:m.appearance==='dark'?1:2);gl.uniform3fv(this.uniforms.tint,hexToRgb(m.tint));gl.drawArrays(gl.TRIANGLES,0,6);
   }

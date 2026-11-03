@@ -13,10 +13,10 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
 .dock { width: min(268px, calc(100vw - 120px)); height: 62px; justify-content: space-around; }
 .dock button, .search, .mini button { width: 44px; height: 44px; }
 .search { width: 62px; height: 62px; }
-.lens { width: min(168px, 28vw); height: min(168px, 28vw); }
+.lens { width: min(132px, 22vw); height: min(132px, 22vw); }
 .mini { width: 112px; height: 48px; justify-content: space-around; }
-.panel { width: min(330px, 48vw); height: min(190px, 30vh); border-radius: 34px; }
-.panel .text { display: flex; flex-direction: column; gap: 4px; } .panel strong { font-size: 18px; }
+.panel { width: min(250px, 42vw); height: 92px; align-items: center; justify-content: flex-start; padding: 0 24px; }
+.panel .text { display: flex; flex-direction: column; } .panel strong { font-size: 16px; } .panel small { opacity: .75; }
 .pill { width: min(250px, 36vw); height: 74px; }
 .switch { width: 112px; height: 54px; justify-content: flex-start; background: transparent; }
 .switch .track { position: absolute; inset: 7px 8px auto 8px; height: 40px; border-radius: 999px; background: #e25b49; transition: background-color 240ms ease; }
