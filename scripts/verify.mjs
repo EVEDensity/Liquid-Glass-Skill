@@ -143,6 +143,7 @@ try {
   assert.equal(await page.locator('html').getAttribute('lang'),'zh-CN');
   await page.getByRole('button',{name:'周',exact:true}).waitFor();
   await page.getByRole('button',{name:'编辑按钮文字',exact:true}).waitFor();
+  await page.getByRole('button',{name:'一键复刻 · 复制 JS',exact:true}).waitFor();
   assert.equal(await edited.textContent(),label);
   await page.getByRole('button',{name:'EN',exact:true}).click();
   await page.getByRole('button',{name:'Week',exact:true}).waitFor();
@@ -156,6 +157,47 @@ try {
   assert.equal(spec.material.name,'Prism');
   assert.deepEqual([spec.button.width,spec.button.height,spec.button.shape,spec.button.text],[183,74,'rounded',label]);
   record('Copy AI spec includes exact button dimensions, text and material with a pinned runtime');
+  await page.locator('#copy-replica').click();
+  await page.getByRole('status').getByText('Replica copied. Paste it into your project as a JavaScript module.').waitFor();
+  const moduleCode = await page.evaluate(()=>navigator.clipboard.readText());
+  const replicaPage = await context.newPage();
+  const replicaRequests = [];
+  replicaPage.on('request',request=>{if(/^https?:/.test(request.url()))replicaRequests.push(request.url());});
+  replicaPage.on('pageerror',error=>errors.push(error.message));
+  await replicaPage.addStyleTag({content:'body { margin: 0; } button { display: none !important; }'});
+  await replicaPage.evaluate(async code=>{
+    const url = URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
+    try {
+      const {mountLiquidGlassButton} = await import(url);
+      mountLiquidGlassButton(document.body);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  },moduleCode);
+  const replica = replicaPage.frames()[1];
+  await replica.waitForFunction(()=>window.glassDemo?.available&&window.glassDemo?.source&&window.glassDemo.shapes.length===5);
+  const replicaButton = replica.locator('[data-export-selected]');
+  assert.deepEqual(await replicaButton.boundingBox(),editedBounds);
+  assert.equal(await replicaButton.textContent(),label);
+  assert.deepEqual(await replica.evaluate(()=>window.glassDemo.material),await page.evaluate(()=>window.glassDemo.material));
+  const originalPixels = await page.locator('#stage').screenshot({style:'.language-tools { visibility: hidden; }'});
+  const replicaPixels = await replica.locator('#stage').screenshot();
+  if (!originalPixels.equals(replicaPixels)) {
+    await writeFile(resolve(evidence,'replica-original.png'),originalPixels);
+    await writeFile(resolve(evidence,'replica-pasted.png'),replicaPixels);
+  }
+  assert.ok(originalPixels.equals(replicaPixels),'JavaScript replica should render the captured scene pixel for pixel');
+  await replicaButton.click();
+  await replica.waitForFunction(()=>window.glassDemo.shapes.at(-1).press>.3);
+  await replicaPage.mouse.move(editedBounds.x+editedBounds.width/2,editedBounds.y+editedBounds.height/2);
+  await replicaPage.mouse.down();
+  await replicaPage.mouse.move(editedBounds.x+editedBounds.width/2+36,editedBounds.y+editedBounds.height/2+20,{steps:5});
+  await replicaPage.mouse.up();
+  const dragged = await replicaButton.boundingBox();
+  assert.deepEqual([dragged.x,dragged.y],[editedBounds.x+36,editedBounds.y+20]);
+  assert.deepEqual(replicaRequests,[]);
+  await replicaPage.close();
+  record('Copied JavaScript renders a pixel-identical, interactive replica without network requests');
   await page.getByRole('button',{name:'Copy HTML',exact:true}).click();
   await page.getByRole('status').getByText('Offline HTML copied.').waitFor();
   const html=await page.evaluate(()=>navigator.clipboard.readText());

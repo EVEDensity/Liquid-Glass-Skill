@@ -17,11 +17,18 @@ async function loadRuntime() {
   return Object.fromEntries(entries);
 }
 
-function portableHTML(config, sources) {
+function portableScene(config, sources) {
   const backdrop = 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(sources.backdrop);
-  const json = JSON.stringify({...config,backdrop},null,2).replaceAll('<','\u005Cu003c');
-  const css = sources.css.replace('../assets/glass-grid.svg',backdrop);
-  const runtime = sources.runtime.replace(/^import .*;\r?\n/gm,'');
+  return {
+    config: {...config,backdrop},
+    css: sources.css.replace('../assets/glass-grid.svg',backdrop),
+    runtime: sources.renderer+'\n'+sources.runtime.replace(/^import .*;\r?\n/gm,'')
+  };
+}
+
+function portableHTML(config, sources) {
+  const scene = portableScene(config,sources);
+  const json = JSON.stringify(scene.config,null,2).replaceAll('<','\u005Cu003c');
   return [
     '<!doctype html>',
     '<!-- Liquid Glass UI, MIT. The selected ID identifies the button to reproduce. Keep the stage, backdrop and renderer for matching refraction and merge behavior. -->',
@@ -29,11 +36,60 @@ function portableHTML(config, sources) {
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     '<title>Liquid Glass button</title>',
     '<!--\n'+sources.license.trim()+'\n-->',
-    '<style>'+css+'</style>',
+    '<style>'+scene.css+'</style>',
     '<main id="stage"><canvas id="scene" aria-hidden="true"></canvas><section id="controls"></section></main>',
     '<script id="glass-button-config" type="application/json">'+json+'</script>',
-    '<script type="module">\n'+sources.renderer+'\n'+runtime+'\n</script>',
+    '<script type="module">\n'+scene.runtime+'\n</script>',
     '</html>'
+  ].join('\n');
+}
+
+// Use a separate document so host styles cannot change the captured scene.
+function mountReplica(target, {config,css,runtime}) {
+  const frame = target.ownerDocument.createElement('iframe');
+  const button = config.buttons.find(item=>item.id===config.selected);
+  frame.title = button.text || (config.language==='zh'?'液态玻璃按钮':'Liquid glass button');
+  frame.width = config.stage.width;
+  frame.height = config.stage.height;
+  Object.assign(frame.style,{
+    display:'block',border:'0',width:config.stage.width+'px',height:config.stage.height+'px'
+  });
+  target.append(frame);
+  const doc = frame.contentDocument;
+  doc.documentElement.lang = config.language==='zh'?'zh-CN':'en';
+  doc.documentElement.setAttribute('data-glass-export','');
+  const style = doc.createElement('style');
+  style.textContent = css;
+  doc.head.append(style);
+  const stage = doc.createElement('main');
+  stage.id = 'stage';
+  const canvas = doc.createElement('canvas');
+  canvas.id = 'scene';
+  canvas.setAttribute('aria-hidden','true');
+  const controls = doc.createElement('section');
+  controls.id = 'controls';
+  stage.append(canvas,controls);
+  const state = doc.createElement('script');
+  state.type = 'application/json';
+  state.id = 'glass-button-config';
+  state.textContent = JSON.stringify(config);
+  const script = doc.createElement('script');
+  script.type = 'module';
+  script.textContent = runtime;
+  doc.body.append(stage,state,script);
+  return frame;
+}
+
+function portableJS(config, sources) {
+  const scene = JSON.stringify(portableScene(config,sources)).replaceAll('<','\u005Cu003c');
+  return [
+    '// Save as glass-button.js. Import and call mountLiquidGlassButton(targetElement).',
+    '// The returned iframe contains the original backdrop and neighboring controls for matching optics.',
+    '/*\n'+sources.license.trim()+'\n*/',
+    mountReplica.toString(),
+    'export function mountLiquidGlassButton(target) {',
+    '  return mountReplica(target, '+scene+');',
+    '}'
   ].join('\n');
 }
 
@@ -64,6 +120,7 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
   const width = document.querySelector('#button-width');
   const height = document.querySelector('#button-height');
   const copy = document.querySelector('#copy-button');
+  const copyReplica = document.querySelector('#copy-replica');
   const copyHTML = document.querySelector('#copy-html');
   const widthRange = document.querySelector('#width-range');
   const heightRange = document.querySelector('#height-range');
@@ -159,19 +216,21 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
     }
   }
   copy.addEventListener('click',()=>copyText(aiSpec(snapshot(selected)),'copiedSpec'));
-  copyHTML.addEventListener('click',async()=>{
+  async function copyExport(button, serialize, status) {
     const config = snapshot(selected);
-    copyHTML.disabled = true;
+    button.disabled = true;
     try {
       runtime ??= loadRuntime();
-      await copyText(portableHTML(config,await runtime),'copiedHTML');
+      await copyText(serialize(config,await runtime),status);
     } catch {
       runtime = undefined;
       message.textContent = strings.copyError;
     } finally {
-      copyHTML.disabled = false;
+      button.disabled = false;
     }
-  });
+  }
+  copyReplica.addEventListener('click',()=>copyExport(copyReplica,portableJS,'copiedReplica'));
+  copyHTML.addEventListener('click',()=>copyExport(copyHTML,portableHTML,'copiedHTML'));
   function setLanguage(language) {
     strings = language==='zh' ? zh : en;
     document.documentElement.lang = language==='zh' ? 'zh-CN' : 'en';

@@ -30,7 +30,18 @@ Open the [single glass scene](http://localhost:4173/demo/). Switch among six pre
 
 Select a glass shape on the canvas or in the Button panel. Use **T** in the panel to edit its text. Drag the width and height sliders to preview changes around the button center, or enter precise pixel values. Switch between English and Simplified Chinese at the top left.
 
-Use the copy icon to get a short AI prompt and a versioned JSON specification with the selected button's label, geometry, material, scene context, and a pinned link to the WebGL2 runtime. Paste it into an AI chat with repository access. **Copy HTML** includes that scene and its rendering code in a standalone file. Save it as `button.html` and open it in a WebGL2 browser for an offline replay. Refraction depends on the backdrop, and matching pixels also depend on the font, display scale, and browser.
+**Copy exact replica · JS** copies a self-contained JavaScript module. Paste it into a project as `glass-button.js` and mount it into an existing element:
+
+```js
+import { mountLiquidGlassButton } from './glass-button.js';
+
+const replica = mountLiquidGlassButton(document.querySelector('#preview'));
+// Call replica.remove() to unmount it.
+```
+
+The replica keeps the captured scene at its original size in a separate frame. It embeds the backdrop, surrounding controls, selected button, and rendering code. This keeps the same pixels available for refraction and merging and isolates the rendering from the host page's CSS. The browser needs WebGL2 for refraction, and the host's content security policy must allow the frame's inline script and styles. Fonts and display scale still affect rendered pixels.
+
+Use the copy icon for a compact AI prompt and JSON specification. **Copy HTML** exports a standalone offline preview.
 
 Development checks:
 

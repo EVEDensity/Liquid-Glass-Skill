@@ -147,6 +147,12 @@ body {
 .size-field input[type="number"] { font-variant-numeric: tabular-nums; }
 .size-field span { font-size: 12px; color: #4e5e60; }
 #size-link { margin: -6px 0 12px; font-size: 12px; color: #4e5e60; }
+#copy-replica {
+  width: 100%; min-height: 44px; margin-bottom: 8px; padding: 6px 12px;
+  border: 1px solid #284e52; border-radius: 10px; background: #284e52;
+  color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+}
+#copy-replica:disabled { opacity: .65; cursor: wait; }
 .inspector-footer { justify-content: space-between; }
 #copy-html {
   min-height: 44px; padding: 0 8px; border: 0; background: transparent;
