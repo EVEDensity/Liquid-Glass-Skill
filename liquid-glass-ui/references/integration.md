@@ -50,7 +50,7 @@ function schedule() {
 
 Call `schedule()` after a drag step, arrow-key move, scroll, resize, or preset change. `ResizeObserver` inside `GlassScene` redraws after canvas size changes, but it does not know when a control moves.
 
-Ignore pointer events that begin on `button`, `a`, `input`, or `label`, so actions inside the glass still work. Clamp movement to the viewport. Arrow keys move 8px, or 24px with Shift.
+Preserve native inputs and keyboard actions. For a draggable glass button, distinguish activation from dragging by waiting for a small pointer movement before capturing the pointer and suppressing its click. Arrow keys move standalone glass by 8px, or 24px with Shift.
 
 ## Material keys
 
@@ -98,6 +98,14 @@ With `slider: true`, the knob has a milky resting surface and a clearer held len
 Verify all three states on the same grid. Holding the same value should change only the knob and the pixels it covers. Dragging can change the filled length without moving the rail.
 
 
+## Which parts merge
+
+Use `setControlBases({ toggle, segment })` for fixed sampled surfaces. The toggle base takes `{ x, y, width, height, on }`; the segment base takes `{ x, y, width, height }`. Coordinates are CSS pixels from the canvas origin; these two boxes are centered on `x, y`. Clear them with `setControlBases()`. Use `setSliderTrack` for the rail.
+
+Give the actual knob shapes `surface: 'switch'`, `slider: true`, or `surface: 'selection'`. The renderer blends both the contour and the material at a junction. An inactive track must not be added to `setShapes`. Its color still appears in a lens that crosses it. The demo's **Merge test** makes the difference visible on an original grid.
+
+Free glass can pass `stretchX` and `stretchY` in CSS pixels for deformation along the drag direction. Apply the stretch to the shader geometry around the actual control; do not scale its DOM translation. Reset stretch on release and keep reduced motion free of drag deformation.
+
 ## Dynamic sources
 
 For a playing video or a canvas that changes, upload the current frame before drawing:
@@ -134,4 +142,4 @@ If `scene.available` is false, or the canvas emits `glassfallback`, hide the can
 
 ## Limits
 
-At most 12 shapes. Each shape accepts `press` from 0 to 1; the Apple preset uses it to scale the control, increase refraction, and brighten the rim. The merge is a 2D smooth union of rounded rectangles, not a liquid simulation. Rotated controls are not represented accurately. The shader cannot see HTML outside its texture.
+The shader renders up to eight shapes. Each shape accepts `press` from 0 to 1; the Apple preset uses it to scale the control, increase refraction, and brighten the rim. The merge is a 2D smooth union of rounded rectangles, not a liquid simulation. Rotated controls are not represented accurately. The shader cannot see HTML outside its texture.

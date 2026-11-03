@@ -25,3 +25,9 @@ The public preset values can match while the output differs. The local suite pas
 Start with one slider and one isolated lens on the shared grid. Draw the slider track into the texture sampled by the glass, while retaining the native input above it. Give the knob its own resting and held geometry and material; keep the track fixed during the press. Match the lens's interior softness and tune a directional rim with a working width control. Then repeat the same captures for switch and segment before propagating the recipe into the skill and demo.
 
 Compare grid continuity, rim width, resting and held knob bounds, and return to rest. Use normal, reduced-motion, and no-WebGL runs to check the interaction and fallback. If an effect still cannot be explained by these comparisons, inspect only the relevant public shader or runtime path for diagnosis and record the behavior in original terms. A general HTML/CSS export cannot capture the appearance drawn inside the canvas.
+
+## Button behavior checked on the grid
+
+In **Controls**, drag the search button toward the dock. The reference moves from two separate outlines to a narrow bridge and then a shared contour; it separates again when pulled away. A held or moving button changes shape and brightness, while the neighboring dock stays anchored.
+
+In **iOS controls**, add a Circle through the public shape picker. Move it toward the white switch knob, the slider knob, and the selected segment. Each can join the circle. Cross the exposed red switch base, the empty slider rail, or the unselected dark segment track: each colors the circle without joining its contour. These observations are the basis for the local **Merge test** layout and its positive and negative cases.

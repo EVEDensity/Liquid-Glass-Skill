@@ -2,7 +2,8 @@
 html, body { margin: 0; height: 100%; }
 body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "Segoe UI", sans-serif; }
 #stage { position: relative; min-height: 100svh; overflow: hidden; background: #d7e4c8 url('../assets/glass-backdrop.svg') center/cover no-repeat; }
-#scene { position: absolute; inset: 0; width: 100%; height: 100%; }
+#stage[data-layout="merge"] { background-image: url('../assets/glass-grid.svg'); }
+#scene { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #controls { position: absolute; inset: 0; }
 .glass { position: absolute; display: flex; align-items: center; justify-content: center; color: #17321f; background: transparent; border: 0; padding: 0; touch-action: none; cursor: grab; }
 .glass:active { cursor: grabbing; }
@@ -15,12 +16,15 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
 .search { width: 62px; height: 62px; }
 .lens { width: min(132px, 22vw); height: min(132px, 22vw); }
 .mini { width: 112px; height: 48px; justify-content: space-around; }
+.probe { width: 120px; height: 120px; border-radius: 50%; }
 .panel, .pill { background: transparent; }
-.switch { justify-content: flex-start; background: transparent; }
-.switch .track { position: absolute; inset: 0; border-radius: 999px; background: #e25b49; transition: background-color 240ms ease; }
-.switch[aria-pressed="true"] .track { background: #68756d; }
-.knob { width: 46%; height: calc(100% - 4px); margin-left: 2px; border-radius: 999px; background: rgb(255 245 242 / .92); translate: 100% 0; transition: translate 240ms cubic-bezier(.2,.8,.2,1); z-index: 1; }
-.switch[aria-pressed="true"] .knob { translate: 8px 0; }
+.switch { width: 102px; height: 45px; cursor: pointer; }
+.switch .track { position: absolute; inset: 0; border-radius: 999px; }
+.switch .knob { position: absolute; left: 3px; top: 3px; width: 60px; height: 39px; border-radius: 999px; transition: translate 220ms cubic-bezier(.2,.8,.2,1); }
+.switch[aria-checked="true"] .knob { translate: 36px 0; }
+#stage.fallback .glass.switch { background: #69756d; border-radius: 999px; }
+#stage.fallback .glass.switch[aria-checked="true"] { background: #b63c27; }
+#stage.fallback .switch .knob { background: #fff; }
 .slider { width: min(416px, calc(100% - 64px)); height: 52px; background: transparent; }
 .slider .track, .slider .thumb { display: none; position: absolute; top: 50%; translate: 0 -50%; border-radius: 999px; pointer-events: none; }
 .slider .track { left: 0; right: 0; height: 9px; background: #67716c; }
@@ -37,9 +41,16 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
   #stage .slider .track::before { background: Highlight; }
   #stage .slider .thumb { background: ButtonFace; border-color: ButtonText; }
 }
-.segment { padding: 4px; border-radius: 999px; background: #24282b; color: white; }
+.segment { width: min(432px, calc(100% - 48px)); height: 58px; border-radius: 999px; color: white; font-weight: 600; }
 .segment button { position: relative; z-index: 1; flex: 1; height: 100%; border-radius: 999px; background: transparent; }
-.segment .selection { position: absolute; left: 4px; top: 4px; width: calc((100% - 8px) / 3); height: calc(100% - 8px); border-radius: 999px; background: rgb(226 229 232 / .9); transition: translate 240ms cubic-bezier(.2,.8,.2,1); }
+.segment .selection { position: absolute; left: calc(3px + var(--selection-offset, 0%)); top: 3px; width: calc(100% / 3 - 6px); height: 52px; border-radius: 999px; transition: left 220ms cubic-bezier(.2,.8,.2,1); }
+#stage.fallback .glass.segment { background: #24282b; border-radius: 999px; }
+#stage.fallback .segment .selection { background: #e5e7e9; }
+@media (forced-colors: active) {
+  #stage.fallback .glass:is(.switch, .segment) { background: Canvas; border: 1px solid ButtonText; color: ButtonText; }
+  #stage.fallback :is(.switch .knob, .segment .selection) { background: Highlight; }
+  #stage .segment button[aria-pressed="true"] { color: HighlightText; }
+}
 .segment button[aria-pressed="true"] { color: #202427; }
 .layouts { position: absolute; z-index: 4; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 6px; width: max-content; max-width: calc(100% - 20px); overflow: auto; padding: 6px; border-radius: 16px; background: rgb(247 244 236 / .94); }
 .layouts button { min-height: 44px; border: 0; border-radius: 10px; background: transparent; font: inherit; padding: 8px 12px; cursor: pointer; }
@@ -47,7 +58,7 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
 #status { position: absolute; z-index: 4; left: 16px; top: 16px; margin: 0; padding: 7px 10px; border-radius: 10px; background: rgb(247 244 236 / .9); font-size: 13px; }
 :focus-visible { outline: 3px solid #083f67; outline-offset: 4px; }
 #stage.fallback .glass { background: rgb(236 247 248 / .9); border-radius: 28px; }
-#stage.fallback .search, #stage.fallback .lens { border-radius: 50%; }
+#stage.fallback .search, #stage.fallback .lens, #stage.fallback .probe { border-radius: 50%; }
 @media (max-width: 720px) { .layouts { justify-content: flex-start; } .panel { height: 180px; } }
-@media (prefers-reduced-motion: reduce) { .switch, .knob, .segment button { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .switch .knob, .segment .selection { transition: none; } }
 @media (forced-colors: active) { #scene { display: none; } #stage, .layouts, #status { background: Canvas; color: CanvasText; } .glass { border: 1px solid ButtonText; background: Canvas; } }

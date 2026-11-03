@@ -10,13 +10,13 @@ Reusable UI skill for refractive glass controls. The visual direction is informe
 
 ## What to build
 
-Reproduce the lab as five layouts, not one glass style: Controls, Panel, Lens, Morph, and iOS controls. Controls combines a media card, a dock, a separate search circle, and a small action capsule. Panel is one rounded rectangle. Lens is a large circle. Morph splits one capsule into separate pieces and joins them back. iOS controls contains a switch, slider, and segmented control. Every piece is draggable, and shapes closer than `merge` melt together.
+Start with the demo layout that matches the request. **Controls** has a glass dock and search button. **Merge test** has a movable circle, a switch, a slider, and a segmented control on a grid. Test glass against both a movable white part and its fixed base.
 
 Use the WebGL2 renderer whenever the backdrop is an image, canvas, or video that this page controls. CSS blur is only the fallback when WebGL2, reduced transparency, or forced colors make refraction unavailable. Neither mode refracts arbitrary DOM behind the canvas.
 
 Do the integration directly. Do not add remote fonts, CDNs, or runtime dependencies.
 
-For a liquid-glass slider, keep the native range input and follow the [slider integration](references/integration.md#liquid-glass-slider). Put the fixed rail in the backdrop sampled by the knob so it bends through the held glass.
+For a liquid-glass slider, keep the native range input and follow the [slider integration](references/integration.md#liquid-glass-slider). Put fixed bases and rails in the backdrop sampled by the glass. Only freestanding glass, the switch and slider knobs, and the segmented selection belong to the merge field. A base may show through the glass without forming a bridge.
 
 ## Workflow
 
@@ -24,7 +24,7 @@ For a liquid-glass slider, keep the native range input and follow the [slider in
 2. **Choose the backdrop.** Use an authorized image or `assets/glass-backdrop.svg`. The backdrop needs visible contrast so refraction is readable.
 3. **Mount the renderer.** Copy `assets/` into the app, create one full-size canvas, load the source, then call `setSource`, `setMaterial(PRESETS.apple)`, `setShapes`, and `render`. Map each control from its center: `left + width / 2` and `top + height / 2`, relative to the canvas.
 4. **Animate every click.** Pointer dragging and arrow keys move a piece. Pressing scales it and strengthens the lens, then eases back. The switch knob slides, the slider updates while dragged, the segment selection moves, and Morph visibly splits or rejoins. Re-render on every animation frame.
-5. **Keep text in DOM.** The canvas is decorative and `aria-hidden`. Labels, icons, and buttons sit above it and receive pointer events. Inner buttons must not start a drag.
+5. **Keep text in DOM.** The canvas is decorative and `aria-hidden`. Labels, icons, and buttons sit above it and receive pointer events. Treat a tap on an inner button as activation. On a draggable glass button, start the drag only after a movement threshold and suppress the click once the drag starts.
 6. **Verify.** Check dragging, merging, keyboard movement, light and dark theme, 320px width, reduced transparency, forced colors, and the no-WebGL fallback.
 
 Read [references/design-system.md](references/design-system.md) before choosing materials, [references/integration.md](references/integration.md) for the API, and [references/acceptance.md](references/acceptance.md) before delivery.
@@ -74,7 +74,7 @@ Also ship `clear`, `thick`, `frosted`, `plain`, and `prism`. Copy and paste must
 ## Renderer contract
 
 - `new GlassScene(canvas, options)`; read `.available` before use.
-- `setShapes([{ x, y, width, height, radius }])`: center coordinates, at most 12 shapes. Overlapping shapes form one merged field.
+- `setShapes([{ x, y, width, height, radius }])`: center coordinates, up to eight rendered shapes. Overlapping glass shapes share a contour; do not submit base tracks as shapes.
 - `setMaterial(values)` accepts any subset of the preset keys.
 - `setSource(image | canvas | video)` after the source has pixels. Call it again for every video or canvas frame, then `render()`.
 - `render()` draws once. Resize observation is internal; movement still needs an explicit render.
@@ -85,7 +85,7 @@ Also ship `clear`, `thick`, `frosted`, `plain`, and `prism`. Copy and paste must
 - Text contrast is at least 4.5:1, large text and essential non-text contrast at least 3:1, measured against the worst backdrop.
 - Controls are at least 44 by 44 CSS pixels and usable at 320px width.
 - Reduced motion, reduced transparency, forced colors, and missing WebGL all leave a readable interface.
-- Dragging and arrow keys move the selected piece. Pieces within `merge` pixels visibly join.
+- Dragging and arrow keys move the selected piece. Nearby glass surfaces visibly join; rails and inactive tracks keep their own silhouettes.
 - Do not claim pixel parity with the reference page or call this an official Apple material.
 
 ## Local preview

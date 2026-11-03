@@ -24,7 +24,7 @@ The visual direction is informed by [Good Machines — Liquid Glass](https://goo
 node scripts/serve.mjs
 ```
 
-Open <http://localhost:4173/demo/>. Switch among Controls, Panel, Lens, Morph, Slider, and iOS controls. The Slider layout isolates the knob and fixed rail: hold or drag to see the rail refract through the wider, clearer knob. Drag any piece; nearby pieces melt together. Clicking scales the glass, Morph splits and rejoins, and the switch, slider, and segment animate.
+Open <http://localhost:4173/demo/>. Switch among Controls, Panel, Lens, Morph, Slider, and iOS controls. The Slider layout isolates the knob and fixed rail: hold or drag to see the rail refract through the wider, clearer knob. In **Controls**, drag the search icon toward the dock. In **Merge test**, drag the circle toward the white switch knob, slider knob, or selected segment to form a bridge. Drag it over a colored base or empty rail to see that layer bend through the glass without merging. Clicking scales the glass, Morph splits and rejoins, and the switch, slider, and segment animate.
 
 Development checks:
 

@@ -66,14 +66,25 @@ try {
   assert.ok(dragResult >= 90, `Search glass only moved ${dragResult}px`);
   record('Pointer dragging and keyboard movement');
   const home = page.locator('.dock button').first();
-  await home.dispatchEvent('pointerdown');
-  await page.waitForTimeout(350);
-  await page.waitForTimeout(300);
-  const pressed = await page.evaluate(() => getComputedStyle(document.querySelector('.dock')).scale);
-  assert.ok(Number.parseFloat(pressed) > 1.05, `Expected press scale, got ${pressed}`);
-  await home.dispatchEvent('pointerup');
-  await page.waitForFunction(() => getComputedStyle(document.querySelector('.dock')).scale === '1');
-  record('Button press scales the glass and releases');
+  const homeBox = await home.boundingBox();
+  await page.mouse.move(homeBox.x + homeBox.width / 2, homeBox.y + homeBox.height / 2);
+  await page.mouse.down();
+  await page.waitForFunction(() => window.glassDemo.shapes[1]?.press > .8);
+  await page.mouse.up();
+  await page.waitForFunction(() => window.glassDemo.shapes[1]?.press === 0);
+  record('Button press grows its glass and releases');
+  await page.getByRole('button', { name: 'Controls', exact: true }).click();
+  const searchButton = page.getByRole('button', { name: 'Search', exact: true });
+  const iconBounds = await searchButton.boundingBox();
+  const px = iconBounds.x + iconBounds.width / 2, py = iconBounds.y + iconBounds.height / 2;
+  await page.mouse.move(px, py);
+  await page.mouse.down();
+  await page.mouse.move(px - 34, py, { steps: 5 });
+  await page.mouse.up();
+  await page.waitForFunction(() => window.glassDemo.shapes[2]?.press === 0);
+  const movedIcon = await searchButton.boundingBox();
+  assert.ok(Math.abs(movedIcon.x - iconBounds.x + 34) < 1, 'Dragging directly on the icon must move the glass');
+  record('The search button can be dragged from its icon');
   await page.emulateMedia({ reducedMotion: 'reduce', forcedColors: 'none', colorScheme: 'dark' });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   record('System preference changes keep the page usable');
@@ -100,12 +111,12 @@ try {
     slider.dispatchEvent(new Event('input', { bubbles: true }));
     document.querySelectorAll('.segment button')[1].click();
     return {
-      toggle: toggle.getAttribute('aria-pressed'),
+      toggle: toggle.getAttribute('aria-checked'),
       status: document.querySelector('#status').textContent,
       week: document.querySelectorAll('.segment button')[1].getAttribute('aria-pressed')
     };
   });
-  assert.equal(interaction.toggle, 'true');
+  assert.equal(interaction.toggle, 'false');
   assert.equal(interaction.status, 'Week selected.');
   assert.equal(interaction.week, 'true');
   record('Panel, lens, morph, switch, slider, and segment animate');
@@ -187,6 +198,86 @@ try {
   assert.ok(rail.bent > 25, `Lens failed to bend the track on a solid backdrop: ${rail.bent}px`);
   assert.ok(rail.transparency > 100, 'Held glass should reveal substantially more of the backdrop');
   record(`Slider glass refracts its track (${rail.bent} pixels) and becomes clearer on hold`);
+
+
+  await page.getByRole('button', { name: 'Merge test', exact: true }).click();
+  await page.waitForFunction(() => window.glassDemo.source && window.glassDemo.shapes.length === 4);
+  const testScene = () => page.evaluate(() => ({ shapes: window.glassDemo.shapes, bases: window.glassDemo.bases }));
+  const beforeDrag = await testScene();
+  assert.deepEqual(beforeDrag.shapes.map(shape => shape.surface ?? (shape.slider ? 'slider' : 'glass')), ['switch', 'slider', 'selection', 'glass']);
+  assert.equal(beforeDrag.bases.toggle.width, 102);
+  assert.equal(beforeDrag.bases.segment.width, 432);
+  const probe = page.locator('.probe');
+  const probeBox = await probe.boundingBox();
+  await page.mouse.move(probeBox.x + 60, probeBox.y + 60);
+  await page.mouse.down();
+  await page.mouse.move(probeBox.x + 25, probeBox.y + 100);
+  await page.waitForFunction(() => {
+    const circle = window.glassDemo.shapes.at(-1);
+    return Math.hypot(circle.stretchX, circle.stretchY) > 2;
+  });
+  await page.mouse.up();
+  await page.waitForFunction(() => {
+    const circle = window.glassDemo.shapes.at(-1);
+    return circle.press === 0 && circle.stretchX === 0 && circle.stretchY === 0;
+  });
+  const afterDrag = await testScene();
+  assert.deepEqual(afterDrag.bases, beforeDrag.bases);
+  assert.deepEqual(afterDrag.shapes.slice(0, 3), beforeDrag.shapes.slice(0, 3));
+  assert.ok(Math.abs(afterDrag.shapes[3].x - beforeDrag.shapes[3].x + 35) < 1);
+  assert.ok(Math.abs(afterDrag.shapes[3].y - beforeDrag.shapes[3].y - 40) < 1);
+  record('The Merge test stretches and settles the dragged glass without moving the controls');
+
+  const fusion = await page.evaluate(async () => {
+    const { GlassScene } = await import('/assets/liquid-glass-renderer.js');
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:240px;height:112px';
+    document.body.append(canvas);
+    const source = document.createElement('canvas');
+    source.width = 240; source.height = 112;
+    const ctx = source.getContext('2d');
+    ctx.fillStyle = '#527878';
+    ctx.fillRect(0, 0, 240, 112);
+    const scene = new GlassScene(canvas);
+    scene.setSource(source);
+    scene.setMaterial({ brightness: .10, shadow: 0 });
+    const gl = scene.gl;
+    const pixel = (x, y) => {
+      const out = new Uint8Array(4);
+      gl.readPixels(x, 111-y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, out);
+      return [...out].slice(0, 3);
+    };
+    const circle = { x: 66, y: 56, width: 48, height: 48, radius: 24 };
+    const knob = { x: 124, y: 56, width: 60, height: 39, radius: 19.5 };
+    const results = {};
+    for (const [name, surface] of [['slider', {slider:true}], ['switch', {surface:'switch'}], ['selection', {surface:'selection'}], ['glass', {}]]) {
+      scene.setShapes([circle, {...knob,...surface}]);
+      scene.setMaterial({ merge: 0 }); scene.render();
+      const noBridge = pixel(92, 56);
+      scene.setMaterial({ merge: 18 }); scene.render();
+      results[name] = pixel(92, 56)[0] - noBridge[0];
+    }
+    const crossingCircle = { ...circle, x: 90 };
+    scene.setShapes([crossingCircle]);
+    scene.setControlBases({ toggle: { x: 153, y: 56, width: 102, height: 45, on: true } });
+    scene.setMaterial({ merge: 0 }); scene.render();
+    const baseOff = pixel(108, 56);
+    const outsideWithBase = pixel(116, 56);
+    scene.setMaterial({ merge: 18 }); scene.render();
+    const baseOn = pixel(108, 56);
+    const outsideWithMerge = pixel(116, 56);
+    scene.setControlBases(); scene.render();
+    const noBase = pixel(108, 56);
+    const error = gl.getError();
+    scene.destroy(); canvas.remove();
+    return { results, baseOn, baseOff, outsideWithBase, outsideWithMerge, noBase, error };
+  });
+  assert.equal(fusion.error, 0);
+  for (const [part, difference] of Object.entries(fusion.results)) assert.ok(difference > 10, part + ' failed to form a visible bridge (' + difference + ')');
+  assert.deepEqual(fusion.baseOn, fusion.baseOff);
+  assert.deepEqual(fusion.outsideWithMerge, fusion.outsideWithBase);
+  assert.ok(fusion.baseOn[0] > fusion.noBase[0] + 35, 'The non-merging switch base should still tint the glass');
+  record('Only glass surfaces form a bridge; a fixed control base still colors the glass');
 
 
   // Controlled checkerboard fixture proves refraction changes pixels, not just labels.

@@ -6,7 +6,8 @@ Check these on the integrated page, not only in the bundled demo.
 
 - Each glass control moves by pointer and by arrow keys.
 - Inner buttons activate without dragging the parent.
-- Two controls closer than `merge` pixels form one continuous refractive surface.
+- In **Controls**, drag the search button into the dock and pull it away: look for a single continuous rim and a clean split.
+- In **Merge test**, the circle joins the white switch knob, slider knob, and selected segment. Crossing the colored switch base, the slider rail, or the unselected segment track only refracts that layer; the circle retains its own outline.
 - A copied preset contains every material key and can be recognized by `setMaterial`.
 
 ## Rendering

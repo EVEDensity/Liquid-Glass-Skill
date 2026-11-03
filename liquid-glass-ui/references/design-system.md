@@ -16,9 +16,9 @@ Do not stack transparent panels. One refractive field is enough. Settings, forms
 
 Controls are capsules, circles, or rounded rectangles. Their glass geometry comes from the DOM rectangle, so the rendered rim and the hit target match.
 
-Every glass control can be dragged and moved with arrow keys. When the gap is below `merge` (10 CSS px for the Apple preset), the shader joins the shapes with a smooth union. The join follows the controls live; do not fake it with a static SVG blob.
+Standalone glass can be dragged and moved with arrow keys. Near another glass surface, its rim forms a neck and then a single contour. A fixed base contributes color to the refraction without taking part in the union.
 
-Buttons inside a control keep their own actions. Dragging starts on the glass surface, not on an inner button.
+A tap on an inner button keeps its action. On a draggable control, movement beyond the drag threshold moves the glass and suppresses that tap.
 
 ## Color and type
 
