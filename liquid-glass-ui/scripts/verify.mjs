@@ -42,9 +42,9 @@ try {
   record('WebGL2 source loaded and shader linked');
   const screenshot = resolve(evidence, 'demo-desktop.png');
   await page.screenshot({ path: screenshot, fullPage: true });
-  assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 32);
-  assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 46);
-  assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .58);
+  assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 18);
+  assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 10);
+  assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .35);
   assert.equal(await page.locator('#controls > .glass').count(), 6);
   record('Scene layout renders the combined glass pieces');
   await page.locator('#layouts [data-layout="controls"]').click();

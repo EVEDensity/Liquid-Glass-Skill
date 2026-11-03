@@ -29,7 +29,7 @@ vec2 coverUV(vec2 p){
 vec3 sampleAt(vec2 p){return texture(u_source,coverUV(p)).rgb;}
 float fieldAt(vec2 point){
   float field=1e5;
-  for(int i=0;i<12;i++){
+  for(int i=0;i<8;i++){
     if(i>=u_count)break;
     vec4 s=u_shapes[i];float candidate=roundedBox(point-s.xy,s.zw*.5,u_radii[i]);
     float k=max(u_merge,0.);float h=clamp(.5+.5*(field-candidate)/max(k,.001),0.,1.);
@@ -45,7 +45,7 @@ vec2 normalFor(vec2 q, vec2 halfSize, float radius){
 void main(){
   vec2 p=vec2(gl_FragCoord.x,u_size.y-gl_FragCoord.y);
   float field=fieldAt(p),nearest=1e5,scale=1.,press=0.;vec2 centre=vec2(0.),halfSize=vec2(1.);float radius=1.;
-  for(int i=0;i<12;i++){
+  for(int i=0;i<8;i++){
     if(i>=u_count)break;
     vec4 s=u_shapes[i];float candidate=roundedBox(p-s.xy,s.zw*.5,u_radii[i]);
     if(candidate<nearest){nearest=candidate;centre=s.xy;halfSize=s.zw*.5;radius=u_radii[i];scale=u_sizeScale>0.?clamp(min(s.z,s.w)/140.,.8,1.55):1.;press=u_press[i];}
@@ -88,7 +88,7 @@ void main(){
 }`;
 
 export const PRESETS = {
-  apple: { name: 'Apple Liquid Glass', refraction: 32, bezel: 38, magnify: 1.06, dispersion: 0.16, edge: 'convex', sizeScale: true, blur: 5, frost: 0, vibrancy: 1.25, brightness: 0.03, dim: 0, appearance: 'auto', pickup: 0.58, tintAmount: 0, tint: '#e8593c', specular: 1.15, rimWidth: 1.4, lightAngle: -135, shadow: 0.18, merge: 46, interactive: true },
+  apple: { name: 'Apple Liquid Glass', refraction: 18, bezel: 20, magnify: 1, dispersion: 0.04, edge: 'convex', sizeScale: true, blur: 6, frost: 0.1, vibrancy: 1.35, brightness: 0.02, dim: 0, appearance: 'auto', pickup: 0.35, tintAmount: 0, tint: '#e8593c', specular: 0.7, rimWidth: 1.4, lightAngle: -135, shadow: 0.3, merge: 10, interactive: true },
   clear: { name: 'Apple clear', refraction: 18, bezel: 16, magnify: 1, dispersion: 0.05, edge: 'convex', sizeScale: true, blur: 0.5, frost: 0.02, vibrancy: 1.1, brightness: 0, dim: 0.35, appearance: 'light', pickup: 0.1, tintAmount: 0, tint: '#e8593c', specular: 0.65, rimWidth: 1.4, lightAngle: -135, shadow: 0.18, merge: 10, interactive: true },
   thick: { name: 'Thick lens', refraction: 46, bezel: 44, magnify: 1.28, dispersion: 0.12, edge: 'convex', sizeScale: false, blur: 0, frost: 0, vibrancy: 1.05, brightness: 0.02, dim: 0, appearance: 'light', pickup: 0, tintAmount: 0, tint: '#e8593c', specular: 0.8, rimWidth: 2.2, lightAngle: -135, shadow: 0.45, merge: 24, interactive: true },
   frosted: { name: 'Frosted', refraction: 8, bezel: 12, magnify: 1, dispersion: 0, edge: 'convex', sizeScale: true, blur: 22, frost: 0.3, vibrancy: 1.4, brightness: 0.04, dim: 0, appearance: 'auto', pickup: 0.6, tintAmount: 0, tint: '#e8593c', specular: 0.35, rimWidth: 1, lightAngle: -135, shadow: 0.25, merge: 14, interactive: true },
@@ -132,7 +132,7 @@ export class GlassScene {
   }
   render(){
     if(!this.available||this.destroyed||!this.source)return;const gl=this.gl,box=this.canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
-    const width=Math.max(1,Math.round(box.width*Math.min(dpr,.75))),height=Math.max(1,Math.round(box.height*Math.min(dpr,.75)));if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
+    const scale=Math.min(dpr,.6);const width=Math.max(1,Math.round(box.width*scale)),height=Math.max(1,Math.round(box.height*scale));if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
     const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12);this.shapes.forEach((s,i)=>{shapes.set([s.x*dpr,s.y*dpr,s.width*dpr,s.height*dpr],i*4);radii[i]=s.radius*dpr;press[i]=s.press;});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);
     const m=this.material;for(const key of ['refraction','bezel','blur','rimWidth','merge'])gl.uniform1f(this.uniforms[key],m[key]*dpr);for(const key of numeric.filter(key=>!['refraction','bezel','blur','rimWidth','merge'].includes(key)))gl.uniform1f(this.uniforms[key],m[key]);
