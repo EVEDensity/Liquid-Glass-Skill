@@ -1,171 +1,153 @@
 import { GlassScene, PRESETS } from '../assets/liquid-glass-renderer.js';
 
-const $ = id => document.getElementById(id);
-const canvas = $('scene');
-const stage = $('stage');
-const scene = new GlassScene(canvas);
-const controls = [...document.querySelectorAll('[data-glass]')];
-let material = { ...PRESETS.apple };
-let source;
-let imageURL = null;
-let loadVersion = 0;
-let frame = 0;
+const scene = new GlassScene(document.querySelector('#scene'));
+const stage = document.querySelector('#stage');
+const root = document.querySelector('#controls');
+const status = document.querySelector('#status');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+const icon = (paths, label) => `<button type="button" aria-label="${label}"><svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg></button>`;
+const icons = {
+  play: '<path d="M8 6v12l10-6z"/>',
+  home: '<path d="M4 11 12 4l8 7M6 10v9h12v-9"/>',
+  grid: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>',
+  signal: '<circle cx="12" cy="12" r="2"/><path d="M8 8a5.6 5.6 0 0 0 0 8M16 8a5.6 5.6 0 0 1 0 8"/>',
+  search: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  more: '<circle cx="6" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="18" cy="12" r="1.2" fill="currentColor"/>'
+};
+const layouts = {
+  controls() {
+    return [
+      glass('card', `${icon(icons.play, 'Play')}<span class="text"><strong>A good machine</strong><small>makes room</small></span>`, '34%', '43%'),
+      glass('dock', `${icon(icons.home, 'Home')}${icon(icons.grid, 'Grid')}${icon(icons.signal, 'Signal')}`, 'calc(50% - 174px)', 'auto', '92px'),
+      glass('search', icon(icons.search, 'Search'), 'calc(50% + 112px)', 'auto', '92px'),
+      glass('mini', `${icon(icons.plus, 'Add')}${icon(icons.more, 'More')}`, 'auto', '28px', '28px', '28px')
+    ];
+  },
+  panel() { return [glass('panel', '<span class="text"><strong>Liquid glass</strong><small>Drag me around</small></span>', '50%', '46%')]; },
+  lens() { return [glass('lens', '', '50%', '48%')]; },
+  morph() {
+    const more = glass('mini', icon(icons.more, 'More'), 'auto', '28px', '28px', '28px');
+    const action = glass('pill', `${icon(icons.plus, 'Add')}<span>New</span>`, '50%', 'auto', '92px');
+    action.dataset.morph = 'joined';
+    action.querySelector('button').addEventListener('click', () => {
+      const open = action.dataset.morph === 'open';
+      action.dataset.morph = open ? 'joined' : 'open';
+      action.style.scale = open ? '1' : '.72';
+      more.style.translate = open ? '0 0' : '-150px 260px';
+      status.textContent = open ? 'The pieces join back into one control.' : 'The control splits. Move the pieces and they merge again.';
+    });
+    return [more, action];
+  },
+  ios() {
+    const toggle = document.createElement('button');
+    toggle.className = 'glass switch'; toggle.type = 'button'; toggle.setAttribute('aria-pressed', 'false'); toggle.setAttribute('aria-label', 'Glass setting'); toggle.style.left = 'calc(50% - 46px)'; toggle.style.top = '34%';
+    toggle.innerHTML = '<span class="knob"></span>';
+    toggle.addEventListener('click', () => { const on = toggle.getAttribute('aria-pressed') === 'true'; toggle.setAttribute('aria-pressed', String(!on)); status.textContent = on ? 'Switch off.' : 'Switch on.'; });
+    const slider = glass('slider', '<input aria-label="Glass level" type="range" min="0" max="100" value="35">', '50%', '49%');
+    slider.querySelector('input').addEventListener('input', event => { status.textContent = `Level ${event.target.value}.`; });
+    const segment = document.createElement('div'); segment.className = 'glass segment'; segment.style.left = 'calc(50% - 160px)'; segment.style.top = '63%'; segment.setAttribute('role', 'group'); segment.setAttribute('aria-label', 'Period');
+    segment.innerHTML = ['Day', 'Week', 'Month'].map((name, index) => `<button type="button" aria-pressed="${index === 0}">${name}</button>`).join('');
+    segment.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { segment.querySelectorAll('button').forEach(item => item.setAttribute('aria-pressed', String(item === button))); status.textContent = `${button.textContent} selected.`; }));
+    return [toggle, slider, segment];
+  }
+};
+function glass(kind, html, x, y, bottom = '', right = '') {
+  const element = document.createElement('div');
+  element.className = `glass ${kind}`;
+  element.dataset.glass = kind;
+  element.tabIndex = 0;
+  element.setAttribute('aria-label', `${kind} glass. Arrow keys move it.`);
+  element.innerHTML = html;
+  element.style.left = x; element.style.top = y;
+  if (bottom) element.style.bottom = bottom;
+  if (right) element.style.right = right;
+  if (x === '50%') element.style.translate = '-50% 0';
+  return element;
+}
+let pieces = [];
 let drag = null;
-let toastTimer;
-const positions = new Map(controls.map(control => [control, { x: 0, y: 0 }]));
-const presses = new Map(controls.map(control => [control, 0]));
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-
-function notify(text) {
-  clearTimeout(toastTimer);
-  $('toast').textContent = text;
-  $('toast').hidden = false;
-  toastTimer = setTimeout(() => { $('toast').hidden = true; }, 2400);
+let frame = 0;
+const presses = new WeakMap();
+function show(name) {
+  root.replaceChildren(...layouts[name]());
+  pieces = [...root.children];
+  pieces.forEach(piece => presses.set(piece, 0));
+  document.querySelectorAll('#layouts [data-layout]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.layout === name)));
+  bind();
+  schedule();
 }
-function opaqueMode() {
-  return matchMedia('(prefers-reduced-transparency: reduce)').matches || matchMedia('(forced-colors: active)').matches;
+function activePress(piece) {
+  return piece.matches(':active') || Boolean(piece.querySelector(':active')) || piece.querySelector('button.is-held, input.is-held') ? 1 : 0;
 }
-matchMedia('(forced-colors: active)').addEventListener('change', schedule);
-matchMedia('(prefers-reduced-transparency: reduce)').addEventListener('change', schedule);
 function draw() {
   frame = 0;
-  const opaque = opaqueMode() || !scene.available;
-  canvas.hidden = opaque;
+  const opaque = !scene.available || matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
   stage.classList.toggle('fallback', opaque);
-  $('renderer-note').textContent = opaque ? 'Refraction is unavailable, so the controls use an opaque fallback.' : `WebGL refraction is live · shapes merge within ${material.merge} px.`;
+  document.querySelector('#scene').hidden = opaque;
   if (opaque) return;
-  const box = canvas.getBoundingClientRect();
-  scene.setShapes(controls.map(control => {
-    const rect = control.getBoundingClientRect();
-    const press = presses.get(control);
-    const grow = material.interactive ? 1 + press * .08 : 1;
-    return { x: rect.left+rect.width/2-box.left, y: rect.top+rect.height/2-box.top, width: rect.width*grow, height: rect.height*grow, radius: Math.min(rect.width, rect.height)/2*grow, press };
+  const box = stage.getBoundingClientRect();
+  scene.setShapes(pieces.map(piece => {
+    const rect = piece.getBoundingClientRect();
+    const press = presses.get(piece) || 0;
+    const grow = 1 + press * .12;
+    piece.style.scale = String(grow);
+    return { x: rect.left + rect.width / 2 - box.left, y: rect.top + rect.height / 2 - box.top, width: rect.width * grow, height: rect.height * grow, radius: Math.min(rect.width, rect.height) / 2, press };
   }));
-  scene.setMaterial(material);
+  scene.setMaterial(PRESETS.apple);
   scene.render();
 }
 function schedule() { if (!frame) frame = requestAnimationFrame(draw); }
-function springPress() {
+function animatePress() {
   let moving = false;
-  for (const control of controls) {
-    const target = control.querySelector('button.is-held') ? 1 : 0;
-    let value = presses.get(control);
-    value = reduceMotion.matches ? target : value + (target - value) * .28;
-    if (Math.abs(target - value) < .01) value = target; else moving = true;
-    presses.set(control, value);
-    control.classList.toggle('is-pressed', value > .04);
+  for (const piece of pieces) {
+    const target = activePress(piece);
+    let value = presses.get(piece) || 0;
+    value = reduced.matches ? target : value + (target - value) * .24;
+    if (Math.abs(value - target) < .015) value = target; else moving = true;
+    presses.set(piece, value);
   }
   schedule();
-  if (moving) requestAnimationFrame(springPress);
+  if (moving) requestAnimationFrame(animatePress);
 }
-function press(control, active) {
-  control.querySelector('button')?.classList.toggle('is-held', active);
-  if (!springFrame) springFrame = requestAnimationFrame(() => { springFrame = 0; springPress(); });
-}
-let springFrame = 0;
-function move(control, dx, dy) {
-  const position = positions.get(control);
-  const rect = control.getBoundingClientRect();
-  position.x += Math.max(8-rect.left, Math.min(innerWidth-8-rect.right, dx));
-  position.y += Math.max(8-rect.top, Math.min(innerHeight-8-rect.bottom, dy));
-  control.style.translate = `${position.x}px ${position.y}px`;
-  schedule();
-}
-function applyPreset(id) {
-  material = { ...PRESETS[id] };
-  document.querySelectorAll('[data-preset]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.preset === id)));
-  $('preset-json').textContent = JSON.stringify(material, null, 2);
-  schedule();
-}
-async function loadSource(url, dusk = false) {
-  const version = ++loadVersion;
-  const image = new Image();
-  image.src = url;
-  await image.decode();
-  if (version !== loadVersion) return;
-  let next = image;
-  if (dusk) {
-    const buffer = document.createElement('canvas');
-    buffer.width = image.naturalWidth; buffer.height = image.naturalHeight;
-    const ctx = buffer.getContext('2d');
-    ctx.drawImage(image, 0, 0);
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = '#9e7797';
-    ctx.fillRect(0, 0, buffer.width, buffer.height);
-    next = buffer;
-    stage.style.backgroundImage = `url(${buffer.toDataURL()})`;
-  } else stage.style.backgroundImage = `url("${url}")`;
-  source = next;
-  if (scene.available) scene.setSource(next);
-  schedule();
-}
-
-controls.forEach(control => {
-  control.addEventListener('pointerdown', event => {
-    if (event.button !== 0 || event.target.closest('button, a, input, label')) return;
-    drag = { control, x: event.clientX, y: event.clientY };
-    control.setPointerCapture(event.pointerId);
+function bind() {
+  for (const piece of pieces) {
+    piece.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || event.target.closest('button, input') || event.target.closest('#layouts')) return;
+      const current = new DOMMatrix(getComputedStyle(piece).transform);
+      drag = { piece, x: event.clientX, y: event.clientY, originX: current.m41, originY: current.m42 };
+      if (event.pointerId) piece.setPointerCapture(event.pointerId);
+    });
+    piece.addEventListener('pointermove', event => {
+      if (drag?.piece !== piece) return;
+      piece.style.translate = `${drag.originX + event.clientX - drag.x}px ${drag.originY + event.clientY - drag.y}px`;
+      schedule();
+    });
+    piece.addEventListener('pointerup', () => { drag = null; });
+    piece.addEventListener('keydown', event => {
+      const step = event.shiftKey ? 24 : 8;
+      const move = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[event.key];
+      if (!move || event.target !== piece) return;
+      event.preventDefault();
+      const current = new DOMMatrix(getComputedStyle(piece).transform);
+      piece.style.translate = `${current.m41 + move[0]}px ${current.m42 + move[1]}px`; schedule();
+    });
+  }
+  root.onpointerdown = () => requestAnimationFrame(animatePress);
+  root.onpointerup = () => requestAnimationFrame(animatePress);
+  root.querySelectorAll('button, input').forEach(control => {
+    control.addEventListener('pointerdown', () => { control.classList.add('is-held'); requestAnimationFrame(animatePress); });
+    for (const type of ['pointerup', 'pointercancel', 'blur']) control.addEventListener(type, () => { control.classList.remove('is-held'); requestAnimationFrame(animatePress); });
   });
-  control.addEventListener('pointermove', event => {
-    if (!drag || drag.control !== control) return;
-    move(control, event.clientX-drag.x, event.clientY-drag.y);
-    drag.x = event.clientX; drag.y = event.clientY;
-  });
-  for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) control.addEventListener(name, () => { if (drag?.control === control) drag = null; });
-  control.querySelectorAll('button').forEach(button => {
-    button.addEventListener('pointerdown', () => press(control, true));
-    for (const name of ['pointerup', 'pointercancel', 'blur']) button.addEventListener(name, () => press(control, false));
-    button.addEventListener('keydown', event => { if (event.key === ' ' || event.key === 'Enter') press(control, true); });
-    button.addEventListener('keyup', () => press(control, false));
-  });
-  control.addEventListener('keydown', event => {
-    const direction = { ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1] }[event.key];
-    if (!direction || event.target !== control) return;
-    event.preventDefault();
-    const step = event.shiftKey ? 24 : 8;
-    move(control, direction[0]*step, direction[1]*step);
-  });
+}
+document.querySelector('#layouts').addEventListener('click', event => {
+  const button = event.target.closest('[data-layout]');
+  if (button) show(button.dataset.layout);
 });
-document.querySelectorAll('[data-preset]').forEach(button => button.addEventListener('click', () => applyPreset(button.dataset.preset)));
-document.querySelectorAll('[data-scene]').forEach(button => button.addEventListener('click', async () => {
-  try {
-    await loadSource(new URL('../assets/glass-backdrop.svg', import.meta.url).href, button.dataset.scene === 'dusk');
-    if (imageURL) { URL.revokeObjectURL(imageURL); imageURL = null; }
-    document.querySelectorAll('[data-scene]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
-    $('scene-caption').firstChild.textContent = `${button.textContent.trim()} · `;
-  } catch { notify('The scene could not be loaded.'); }
-}));
-$('upload').addEventListener('change', async event => {
-  const file = event.target.files[0];
-  if (!file) return;
-  if (!['image/png','image/jpeg','image/webp'].includes(file.type) || file.size > 12*1024*1024) { notify('Choose a PNG, JPEG, or WebP under 12 MB.'); return; }
-  const nextURL = URL.createObjectURL(file);
-  try {
-    await loadSource(nextURL);
-    if (imageURL) URL.revokeObjectURL(imageURL);
-    imageURL = nextURL;
-    document.querySelectorAll('[data-scene]').forEach(item => item.setAttribute('aria-pressed', 'false'));
-    $('scene-caption').firstChild.textContent = 'Your image · ';
-    notify('Image loaded locally. It is not uploaded.');
-  } catch { URL.revokeObjectURL(nextURL); notify('That image could not be read.'); }
-  event.target.value = '';
-});
-$('copy').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(JSON.stringify(material, null, 2)); notify('Preset copied.'); }
-  catch { notify('Clipboard access was denied.'); }
-});
-$('theme').addEventListener('click', () => {
-  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = next;
-  $('theme').setAttribute('aria-label', next === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
-});
-const observer = new ResizeObserver(schedule);
-controls.forEach(control => observer.observe(control));
 window.addEventListener('resize', schedule);
-window.addEventListener('scroll', schedule, { passive: true });
-canvas.addEventListener('glassfallback', schedule);
-for (const query of ['(prefers-reduced-transparency: reduce)', '(forced-colors: active)']) matchMedia(query).addEventListener('change', schedule);
-window.addEventListener('pagehide', () => { observer.disconnect(); scene.destroy(); if (imageURL) URL.revokeObjectURL(imageURL); clearTimeout(toastTimer); cancelAnimationFrame(frame); });
-loadSource(new URL('../assets/glass-backdrop.svg', import.meta.url).href).catch(() => { scene.available = false; schedule(); });
-applyPreset('apple');
-window.glassDemo = { get available(){return scene.available;}, get material(){return {...material};}, get source(){return Boolean(source);}, controls };
+scene.setMaterial(PRESETS.apple);
+const image = new Image();
+image.src = new URL('../assets/glass-backdrop.svg', import.meta.url).href;
+image.decode().then(() => { scene.setSource(image); schedule(); }).catch(() => { scene.available = false; schedule(); });
+show('controls');
+window.glassDemo = { get available() { return scene.available; }, get material() { return { ...PRESETS.apple }; }, get source() { return image.complete; }, get layout() { return document.querySelector('[data-layout][aria-pressed="true"]').dataset.layout; } };

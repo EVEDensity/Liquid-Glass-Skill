@@ -24,7 +24,7 @@ The visual direction is informed by [Good Machines — Liquid Glass](https://goo
 node scripts/serve.mjs
 ```
 
-Open <http://localhost:4173/demo/>. Drag a control. Move the round search button into the dock: within the preset merge distance they become one glass surface. Arrow keys move a focused control. The image picker stays on this device.
+Open <http://localhost:4173/demo/>. Switch among Controls, Panel, Lens, Morph, and iOS controls. Drag any piece; nearby pieces melt together. Clicking scales the glass, Morph splits and rejoins, and the switch, slider, and segment animate.
 
 Development checks:
 

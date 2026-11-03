@@ -10,7 +10,7 @@ Reusable UI skill for refractive glass controls. The visual direction is informe
 
 ## What to build
 
-Put glass on short controls: navigation, toolbars, buttons, cards, and floating actions. Each piece is draggable. Shapes closer than the preset `merge` distance melt into one surface. Long text and complex forms stay on an opaque panel.
+Reproduce the lab as five layouts, not one glass style: Controls, Panel, Lens, Morph, and iOS controls. Controls combines a media card, a dock, a separate search circle, and a small action capsule. Panel is one rounded rectangle. Lens is a large circle. Morph splits one capsule into separate pieces and joins them back. iOS controls contains a switch, slider, and segmented control. Every piece is draggable, and shapes closer than `merge` melt together.
 
 Use the WebGL2 renderer whenever the backdrop is an image, canvas, or video that this page controls. CSS blur is only the fallback when WebGL2, reduced transparency, or forced colors make refraction unavailable. Neither mode refracts arbitrary DOM behind the canvas.
 
@@ -21,7 +21,7 @@ Do the integration directly. Do not add remote fonts, CDNs, or runtime dependenc
 1. **Inspect the app.** Keep existing buttons, links, forms, dialogs, focus order, and keyboard behavior.
 2. **Choose the backdrop.** Use an authorized image or `assets/glass-backdrop.svg`. The backdrop needs visible contrast so refraction is readable.
 3. **Mount the renderer.** Copy `assets/` into the app, create one full-size canvas, load the source, then call `setSource`, `setMaterial(PRESETS.apple)`, `setShapes`, and `render`. Map each control from its center: `left + width / 2` and `top + height / 2`, relative to the canvas.
-4. **Make every glass control movable and pressable.** Pointer dragging and arrow keys update position. A button press animates `press` from 0 to 1, scaling the shape and strengthening its lens, then releases back to 0. Re-render after every move, press frame, scroll, and resize. Nearby shapes use the preset merge distance; do not draw them as separate CSS blobs.
+4. **Animate every click.** Pointer dragging and arrow keys move a piece. Pressing scales it and strengthens the lens, then eases back. The switch knob slides, the slider updates while dragged, the segment selection moves, and Morph visibly splits or rejoins. Re-render on every animation frame.
 5. **Keep text in DOM.** The canvas is decorative and `aria-hidden`. Labels, icons, and buttons sit above it and receive pointer events. Inner buttons must not start a drag.
 6. **Verify.** Check dragging, merging, keyboard movement, light and dark theme, 320px width, reduced transparency, forced colors, and the no-WebGL fallback.
 

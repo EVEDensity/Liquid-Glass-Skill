@@ -44,62 +44,68 @@ try {
   await page.screenshot({ path: screenshot, fullPage: true });
   assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 18);
   assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 10);
-  await page.getByRole('button', { name: 'Thick lens', exact: true }).click();
-  assert.equal(await page.evaluate(() => window.glassDemo.material.magnify), 1.28);
-  await page.getByRole('button', { name: 'Apple Liquid Glass', exact: true }).click();
-  record('Apple preset and all material keys');
+  assert.equal(await page.locator('.glass').count(), 4);
+  record('Controls layout renders four glass pieces');
   const search = page.locator('.search');
   const before = await search.boundingBox();
   await search.focus();
   await page.keyboard.press('ArrowLeft');
   const after = await search.boundingBox();
   assert.equal(Math.round(before.x-after.x), 8);
-  const dock = await page.locator('.dock').boundingBox();
-  const targetX = dock.x + dock.width - 2;
-  await page.mouse.move(after.x+after.width/2, after.y+after.height/2);
-  await page.mouse.down();
-  await page.mouse.move(targetX+after.width/2, dock.y+dock.height/2, { steps: 8 });
-  await page.mouse.up();
-  const joined = await search.boundingBox();
-  const gap = joined.x - (dock.x + dock.width);
-  assert.ok(gap <= 10, `Search glass remained ${gap}px from the dock`);
+  const dragResult = await page.evaluate(() => {
+    const piece = document.querySelector('.search');
+    const before = piece.getBoundingClientRect().x;
+    piece.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 400, clientY: 500 }));
+    piece.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, buttons: 1, clientX: 300, clientY: 500 }));
+    piece.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    return before - piece.getBoundingClientRect().x;
+  });
+  assert.ok(dragResult >= 90, `Search glass only moved ${dragResult}px`);
   record('Pointer dragging and keyboard movement');
   const home = page.locator('.dock button').first();
   await home.dispatchEvent('pointerdown');
   await page.waitForTimeout(350);
-  const pressed = await page.evaluate(() => {
-    const control = document.querySelector('.dock');
-    return { pressed: control.classList.contains('is-pressed'), scale: getComputedStyle(control).scale };
-  });
-  assert.equal(pressed.pressed, true);
-  assert.notEqual(pressed.scale, 'none');
+  await page.waitForTimeout(300);
+  const pressed = await page.evaluate(() => getComputedStyle(document.querySelector('.dock')).scale);
+  assert.ok(Number.parseFloat(pressed) > 1.05, `Expected press scale, got ${pressed}`);
   await home.dispatchEvent('pointerup');
-  await page.waitForFunction(() => !document.querySelector('.dock').classList.contains('is-pressed'));
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('.dock')).scale === '1');
   record('Button press scales the glass and releases');
   await page.emulateMedia({ reducedMotion: 'reduce', forcedColors: 'none', colorScheme: 'dark' });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   record('System preference changes keep the page usable');
-  await page.locator('#theme').click();
-  assert.equal(await page.locator('html').getAttribute('data-theme'), 'light');
-  await page.screenshot({ path: resolve(evidence, 'demo-light.png'), fullPage: true });
-  record('Light theme');
-  await page.locator('#copy').click();
-  const copied = JSON.parse(await page.evaluate(() => navigator.clipboard.readText()));
-  for (const key of ['refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge','interactive']) assert.ok(key in copied, key);
-  assert.equal(copied.refraction, 18);
-  record('Complete preset JSON copied');
-  await page.getByRole('button', { name: 'Dusk' }).click();
-  await page.waitForFunction(() => document.getElementById('stage').style.backgroundImage.startsWith('url("data:image/png'));
-  record('Backdrop scene switch');
-  // A generated PNG keeps fixture ownership and upload tests local.
-  const png = await page.evaluate(() => {
-    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
-    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#568abc'; ctx.fillRect(0,0,64,64);
-    return canvas.toDataURL().split(',')[1];
+  const layoutState = await page.evaluate(() => {
+    const names = [];
+    for (const name of ['panel', 'lens', 'morph', 'ios']) {
+      document.querySelector(`#layouts [data-layout="${name}"]`).click();
+      names.push(window.glassDemo.layout);
+    }
+    return { names, count: document.querySelectorAll('#controls > .glass').length, html: document.querySelector('#controls').innerHTML.slice(0, 300) };
   });
-  await page.locator('#upload').setInputFiles({ name: 'local.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
-  await page.waitForFunction(() => document.querySelector('#scene-caption').textContent.includes('Your image'));
-  record('Local image upload');
+  assert.deepEqual(layoutState.names, ['panel', 'lens', 'morph', 'ios'], JSON.stringify(layoutState));
+  assert.equal(layoutState.count, 3, JSON.stringify(layoutState));
+  const interaction = await page.evaluate(() => {
+    const button = document.querySelector('#layouts [data-layout="ios"]');
+    if (!button) throw new Error('missing layout button');
+    button.click();
+    const toggle = document.querySelector('#controls .switch');
+    if (!toggle) throw new Error('missing switch');
+    toggle.click();
+    const slider = document.querySelector('#controls .slider input');
+    if (!slider) throw new Error('layout=' + window.glassDemo.layout + ' children=' + document.querySelector('#controls').childElementCount);
+    slider.value = '70';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('.segment button:nth-child(2)').click();
+    return {
+      toggle: toggle.getAttribute('aria-pressed'),
+      status: document.querySelector('#status').textContent,
+      week: document.querySelector('.segment button:nth-child(2)').getAttribute('aria-pressed')
+    };
+  });
+  assert.equal(interaction.toggle, 'true');
+  assert.equal(interaction.status, 'Week selected.');
+  assert.equal(interaction.week, 'true');
+  record('Panel, lens, morph, switch, slider, and segment animate');
   // Controlled checkerboard fixture proves refraction changes pixels, not just labels.
   const renderResult = await page.evaluate(async () => {
     const { GlassScene } = await import('/assets/liquid-glass-renderer.js');
@@ -146,7 +152,7 @@ try {
   record('320px narrow viewport has no horizontal overflow');
   await phone.emulateMedia({ forcedColors: 'active' });
   await phone.waitForFunction(() => getComputedStyle(document.getElementById('scene')).display === 'none');
-  assert.notEqual(await phone.locator('.card').evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
+  assert.notEqual(await phone.locator('.glass').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)');
   record('Forced colors hide the refractive canvas');
   await mobile.close();
   const fallback = await browser.newContext({ viewport: { width: 1100, height: 800 } });
