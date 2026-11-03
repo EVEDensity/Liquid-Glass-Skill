@@ -4,6 +4,20 @@ import { mountButtonEditor } from './button-editor.js';
 const exportNode = document.querySelector('#glass-button-config');
 const exported = exportNode ? JSON.parse(exportNode.textContent) : null;
 let material = exported?.material ?? { ...PRESETS.apple, clearControls: true };
+let language = exported?.language === 'zh' ? 'zh' : 'en';
+let presetKey = 'apple';
+const stageLabels = {
+  en: { button:'Glass button', switch:'Glass setting', slider:'Glass level', period:'Period', periods:['Day','Week','Month'] },
+  zh: { button:'玻璃按钮', switch:'玻璃开关', slider:'玻璃滑块', period:'时间范围', periods:['日','周','月'] }
+};
+const chinesePresets = {
+  apple: ['苹果液态玻璃','柔化背景细节，边缘带有轻微折射。'],
+  clear: ['苹果透明玻璃','保留背景细节，并压暗玻璃周围。'],
+  thick: ['厚透镜','中心放大，宽边缘产生明显折射。'],
+  frosted: ['磨砂玻璃','柔化背景细节，保留底色。'],
+  plain: ['纯透镜','保留清晰折射，无模糊、雾化或染色。'],
+  prism: ['棱镜','玻璃边缘出现明显的色散。']
+};
 const descriptions = {
   apple: 'Softens background detail and adds a light refractive edge.',
   clear: 'Keeps detail visible and dims the surrounding scene.',
@@ -45,7 +59,7 @@ function createEditableButton(config = {}) {
 }
 function setButtonText(button,text) {
   button.textContent = text;
-  button.setAttribute('aria-label',text || 'Glass button');
+  button.setAttribute('aria-label',text || stageLabels[language].button);
 }
 function setButtonGeometry(button,shape,width,height) {
   button.dataset.shape = shape;
@@ -65,7 +79,6 @@ function makeSwitch(on) {
   button.type = 'button';
   button.setAttribute('role', 'switch');
   button.setAttribute('aria-checked', String(on));
-  button.setAttribute('aria-label', 'Glass setting');
   Object.assign(button.style, {left: '50%', top: '36.8%', transform: 'translate(-50%, -50%)'});
   button.innerHTML = '<span class="track" aria-hidden="true"></span><span class="knob" aria-hidden="true"></span>';
   const commit = next => {
@@ -115,7 +128,6 @@ function makeSegment(selected) {
   const segment = glass('segment', '<span class="selection" aria-hidden="true"></span>', '50%', '63.2%');
   segment.removeAttribute('tabindex');
   segment.setAttribute('role', 'group');
-  segment.setAttribute('aria-label', 'Period');
   // Keep the ends in segment units so a resize also resizes an in-flight lens.
   let travel = { left: selected, right: selected+1, to: selected, started: 0, duration: 0 };
   const ease = progress => {
@@ -135,8 +147,7 @@ function makeSegment(selected) {
     const right = travel.right + (travel.to+1-travel.right)*(rightward ? leading : trailing);
     return {left,right,moving:t<1};
   };
-  const names = ['Day', 'Week', 'Month'];
-  const buttons = names.map((name, index) => {
+  const buttons = stageLabels[language].periods.map((name, index) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = name;
@@ -523,25 +534,56 @@ backdrop.decode().then(()=>{
 });
 const options = document.querySelector('#preset-options');
 const presetDescription = document.querySelector('#preset-description');
+function updatePresetLabels() {
+  for (const button of options.children) {
+    const key = button.dataset.preset;
+    button.textContent = language === 'zh' ? chinesePresets[key][0] : PRESETS[key].name;
+  }
+  presetDescription.textContent = language === 'zh' ? chinesePresets[presetKey][1] : descriptions[presetKey];
+}
+function updateStageLabels() {
+  const labels = stageLabels[language];
+  root.querySelector('.switch').setAttribute('aria-label',labels.switch);
+  root.querySelector('.slider input').setAttribute('aria-label',labels.slider);
+  const segment = root.querySelector('.segment');
+  segment.setAttribute('aria-label',labels.period);
+  segment.querySelectorAll('button').forEach((button,index)=>button.textContent=labels.periods[index]);
+  for (const button of root.querySelectorAll('.probe')) {
+    button.setAttribute('aria-label',button.textContent || labels.button);
+  }
+}
 function showPreset(key) {
+  presetKey = key;
   for (const button of options.children) button.setAttribute('aria-pressed',String(button.dataset.preset === key));
-  presetDescription.textContent = descriptions[key];
+  updatePresetLabels();
   material = {...PRESETS[key],clearControls:true,presetOptics:key !== 'apple'};
   schedule();
 }
-for (const [key,preset] of exported ? [] : Object.entries(PRESETS)) {
+for (const key of exported ? [] : Object.keys(PRESETS)) {
   const button=document.createElement('button');
   button.type='button';
   button.dataset.preset=key;
-  button.textContent=preset.name;
   button.addEventListener('click',()=>showPreset(key));
   options.append(button);
 }
 if (!exported) showPreset('apple');
 showScene();
+updateStageLabels();
 if (!exported) {
   mountButtonEditor({
-    root, setButtonText, setButtonGeometry, schedule,
+    root, setButtonText,
+    setButtonGeometry(button,shape,width,height) {
+      const state = presses.get(button);
+      const before = button.getBoundingClientRect();
+      setButtonGeometry(button,shape,width,height);
+      const after = button.getBoundingClientRect();
+      movePiece(button,state.x+(before.width-after.width)/2,state.y+(before.height-after.height)/2);
+    },
+    onLanguageChange(next) {
+      language = next;
+      updateStageLabels();
+      updatePresetLabels();
+    },
     addButton() {
       if (pieces.length >= 8) return null;
       const offset = (pieces.length-4)*18;
@@ -567,7 +609,7 @@ if (!exported) {
         };
       });
       return {
-        version:1, selected:button.dataset.buttonId,
+        version:1, selected:button.dataset.buttonId, language,
         stage:{width:stageBox.width,height:stageBox.height},
         material:{...material},
         controls:{

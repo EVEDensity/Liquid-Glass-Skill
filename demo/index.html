@@ -10,51 +10,70 @@
   <main id="stage">
     <canvas id="scene" aria-hidden="true"></canvas>
     <section id="controls"></section>
-    <div class="text-tools">
-      <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" aria-expanded="false" title="Edit text">T</button>
-      <form id="text-editor" hidden>
-        <label for="button-text">Button text</label>
-        <input id="button-text" maxlength="100">
-        <button type="submit">Apply</button>
-      </form>
+    <div class="language-tools" role="group" aria-label="Language" data-aria="language">
+      <button type="button" data-language="zh" lang="zh-CN" aria-pressed="false">中文</button>
+      <button type="button" data-language="en" lang="en" aria-pressed="true">EN</button>
     </div>
   </main>
   <aside id="presets-panel" aria-labelledby="presets-title">
-    <h1 id="presets-title">Liquid glass presets</h1>
-    <p class="preset-scope">Editing <strong>Scene</strong></p>
-    <div id="preset-options" role="group" aria-label="Material preset"></div>
+    <h1 id="presets-title" data-i18n="title">Liquid glass presets</h1>
+    <div id="preset-options" role="group" aria-label="Material preset" data-aria="presets"></div>
     <p id="preset-description" aria-live="polite"></p>
     <section class="button-inspector" aria-labelledby="button-title">
       <header>
-        <h2 id="button-title">Button</h2>
-        <button id="copy-button" type="button" aria-label="Copy button and effects" title="Copy button and effects">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-            <rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
-          </svg>
-        </button>
+        <h2 id="button-title" data-i18n="button">Button</h2>
+        <div class="inspector-actions">
+          <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" aria-expanded="false" title="Edit text" data-aria="editText" data-title="editText">T</button>
+          <button id="copy-button" type="button" aria-label="Copy AI spec" title="Copy AI spec" data-aria="copySpec" data-title="copySpec">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+              <rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
+            </svg>
+          </button>
+        </div>
       </header>
-      <label for="selected-button">Selected button</label>
+      <form id="text-editor" hidden>
+        <label for="button-text" data-i18n="buttonText">Button text</label>
+        <div class="text-input-row">
+          <input id="button-text" maxlength="100">
+          <button type="submit" data-i18n="apply">Apply</button>
+        </div>
+      </form>
+      <label for="selected-button" data-i18n="selected">Selected button</label>
       <select id="selected-button"></select>
-      <label for="button-shape">Shape</label>
+      <label for="button-shape" data-i18n="shape">Shape</label>
       <select id="button-shape">
-        <option value="circle">Circle</option>
-        <option value="capsule">Capsule</option>
-        <option value="rounded">Rounded rectangle</option>
-        <option value="square">Square</option>
+        <option value="circle" data-i18n="circle">Circle</option>
+        <option value="capsule" data-i18n="capsule">Capsule</option>
+        <option value="rounded" data-i18n="rounded">Rounded rectangle</option>
+        <option value="square" data-i18n="square">Square</option>
       </select>
       <div class="size-fields">
-        <label>Width (px)<input id="button-width" type="number" min="44" max="400" step="any"></label>
-        <label>Height (px)<input id="button-height" type="number" min="44" max="400" step="any"></label>
+        <div class="size-field">
+          <label for="button-width" data-i18n="width">Width</label>
+          <input id="width-range" type="range" min="44" max="400" step="1" aria-label="Width slider" data-aria="widthSlider">
+          <input id="button-width" type="number" min="44" max="400" step="any">
+          <span aria-hidden="true">px</span>
+        </div>
+        <div class="size-field">
+          <label for="button-height" data-i18n="height">Height</label>
+          <input id="height-range" type="range" min="44" max="400" step="1" aria-label="Height slider" data-aria="heightSlider">
+          <input id="button-height" type="number" min="44" max="400" step="any">
+          <span aria-hidden="true">px</span>
+        </div>
       </div>
-      <button id="add-button" type="button">Add shape</button>
+      <p id="size-link" data-i18n="linkedSize">Width and height are linked.</p>
+      <div class="inspector-footer">
+        <button id="add-button" type="button" data-i18n="add">Add shape</button>
+        <button id="copy-html" type="button" data-i18n="copyHTML">Copy HTML</button>
+      </div>
       <p id="editor-message" role="status"></p>
     </section>
   </aside>
   <dialog id="copy-dialog">
     <form method="dialog">
-      <label for="copy-source">Copy this HTML</label>
+      <label for="copy-source" data-i18n="manualCopy">Copy this text</label>
       <textarea id="copy-source" readonly rows="10"></textarea>
-      <button>Close</button>
+      <button data-i18n="close">Close</button>
     </form>
   </dialog>
   <script type="module" src="./demo.js"></script>

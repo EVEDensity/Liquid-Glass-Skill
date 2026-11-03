@@ -28,9 +28,9 @@ Open the [single glass scene](http://localhost:4173/demo/). Switch among six pre
 
 ### Edit and copy a button
 
-Select a glass shape on the canvas or in the Button panel. Use **T** to edit its text, and the inspector to set shape and dimensions. The copy icon puts a standalone HTML document on the clipboard. Paste it into an AI chat as code, or save it as `button.html` and open it in a WebGL2 browser.
+Select a glass shape on the canvas or in the Button panel. Use **T** in the panel to edit its text. Drag the width and height sliders to preview changes around the button center, or enter precise pixel values. Switch between English and Simplified Chinese at the top left.
 
-The export embeds a versioned configuration with the selected button ID, shape, dimensions, radius, label, position, and material. It also embeds the surrounding scene, grid image, CSS, and the same renderer and interaction code. Refraction and merging depend on neighboring pixels and shapes, so retaining this context avoids asking an AI to guess the effect. For a faithful reproduction, preserve the configuration and runtime when integrating it into another project. Screen scale, fonts, browser rendering, and a changed backdrop can still change the pixels.
+Use the copy icon to get a short AI prompt and a versioned JSON specification with the selected button's label, geometry, material, scene context, and a pinned link to the WebGL2 runtime. Paste it into an AI chat with repository access. **Copy HTML** includes that scene and its rendering code in a standalone file. Save it as `button.html` and open it in a WebGL2 browser for an offline replay. Refraction depends on the backdrop, and matching pixels also depend on the font, display scale, and browser.
 
 Development checks:
 

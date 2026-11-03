@@ -1,3 +1,5 @@
+import { en, zh } from './language.js';
+
 const files = {
   renderer: '../assets/liquid-glass-renderer.js',
   runtime: './demo.js',
@@ -23,7 +25,7 @@ function portableHTML(config, sources) {
   return [
     '<!doctype html>',
     '<!-- Liquid Glass UI, MIT. The selected ID identifies the button to reproduce. Keep the stage, backdrop and renderer for matching refraction and merge behavior. -->',
-    '<html lang="en" data-glass-export><meta charset="utf-8">',
+    '<html lang="'+(config.language==='zh'?'zh-CN':'en')+'" data-glass-export><meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     '<title>Liquid Glass button</title>',
     '<!--\n'+sources.license.trim()+'\n-->',
@@ -35,7 +37,25 @@ function portableHTML(config, sources) {
   ].join('\n');
 }
 
-export function mountButtonEditor({root,setButtonText,setButtonGeometry,schedule,addButton,snapshot}) {
+function aiSpec(config) {
+  const button = config.buttons.find(item=>item.id===config.selected);
+  const repo = 'https://github.com/EVEDensity/Liquid-Glass-Skill';
+  const runtime = repo+'/tree/6721e538ec29bb4d25cacf32e3a32a7978155b9d';
+  return [
+    'Recreate the button from the JSON below. Reuse assets/liquid-glass-renderer.js, demo/demo.js and demo/demo.css at the pinned revision. Keep the stage and backdrop for matching refraction, and preserve native button semantics.',
+    'Runtime and integration: '+runtime,
+    JSON.stringify({
+      version:config.version, button, material:config.material,
+      stage:config.stage, scene:{controls:config.controls,buttons:config.buttons.filter(item=>item.id!==config.selected)},
+      backdrop:'assets/glass-grid.svg', language:config.language,
+      rendering:{pixelUnits:'CSS px',opacity:'clear at rest',pressScale:button.shape==='circle'?1.3:1.15,
+        font:'650 15px/1.35 "Segoe UI", sans-serif',textColor:'#17242b',
+        behavior:['press and release','drag with spring stretch','merge with nearby glass']}
+    },null,2)
+  ].join('\n\n');
+}
+
+export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButton,snapshot,onLanguageChange}) {
   const textTool = document.querySelector('#text-tool');
   const form = document.querySelector('#text-editor');
   const text = document.querySelector('#button-text');
@@ -44,27 +64,37 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,schedule
   const width = document.querySelector('#button-width');
   const height = document.querySelector('#button-height');
   const copy = document.querySelector('#copy-button');
+  const copyHTML = document.querySelector('#copy-html');
+  const widthRange = document.querySelector('#width-range');
+  const heightRange = document.querySelector('#height-range');
+  const sizeLink = document.querySelector('#size-link');
   const add = document.querySelector('#add-button');
   const message = document.querySelector('#editor-message');
   const dialog = document.querySelector('#copy-dialog');
   const copySource = document.querySelector('#copy-source');
   let selected;
   let runtime;
+  let strings = en;
 
   function sync() {
     const buttons = [...root.querySelectorAll('.probe')];
     const rect = selected.getBoundingClientRect();
     picker.replaceChildren(...buttons.map((button,index) =>
-      new Option((index+1)+'. '+(button.textContent || button.dataset.shape),button.dataset.buttonId)
+      new Option((index+1)+'. '+(button.textContent || strings[button.dataset.shape]),button.dataset.buttonId)
     ));
     picker.value = selected.dataset.buttonId;
     text.value = selected.textContent;
     shape.value = selected.dataset.shape;
+    syncSize(rect);
+    sizeLink.hidden = !equalSides();
+    add.disabled = buttons.length >= 5;
+    add.title = add.disabled ? strings.limit : '';
+  }
+  function syncSize(rect) {
     width.value = Math.round(rect.width*100)/100;
     height.value = Math.round(rect.height*100)/100;
-    height.disabled = shape.value === 'circle' || shape.value === 'square';
-    add.disabled = buttons.length >= 5;
-    add.title = add.disabled ? 'The scene supports up to five editable buttons.' : '';
+    widthRange.value = width.value;
+    heightRange.value = height.value;
   }
   function select(button) {
     if (!button || selected === button) return;
@@ -80,14 +110,18 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,schedule
       text.select();
     }
   }
-  function applyDimensions() {
+  function equalSides() {
+    return shape.value === 'circle' || shape.value === 'square';
+  }
+  function applyDimensions(axis = 'width') {
     const rect = selected.getBoundingClientRect();
     const limit = (value,fallback) => Math.min(400,Math.max(44,Number.isFinite(value)?value:fallback));
     const w = limit(width.valueAsNumber,rect.width);
-    const h = ['circle','square'].includes(shape.value) ? w : limit(height.valueAsNumber,rect.height);
-    setButtonGeometry(selected,shape.value,w,h);
-    sync();
-    schedule();
+    const h = limit(height.valueAsNumber,rect.height);
+    const linked = equalSides();
+    const side = axis === 'height' ? h : w;
+    setButtonGeometry(selected,shape.value,linked ? side : w,linked ? side : h);
+    syncSize(selected.getBoundingClientRect());
   }
   picker.addEventListener('change',()=>select([...root.querySelectorAll('.probe')].find(button=>button.dataset.buttonId===picker.value)));
   root.addEventListener('pointerdown',event=>select(event.target.closest('.probe')));
@@ -105,34 +139,59 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,schedule
     setTextEditor(false);
     textTool.focus();
   });
-  shape.addEventListener('change',applyDimensions);
-  width.addEventListener('change',applyDimensions);
-  height.addEventListener('change',applyDimensions);
+  shape.addEventListener('change',()=>{applyDimensions();sync();});
+  widthRange.addEventListener('input',()=>{width.value=widthRange.value;applyDimensions();});
+  heightRange.addEventListener('input',()=>{height.value=heightRange.value;applyDimensions('height');});
+  width.addEventListener('change',()=>applyDimensions());
+  height.addEventListener('change',()=>applyDimensions('height'));
   add.addEventListener('click',()=>{
     const button = addButton();
     if (button) select(button);
   });
-  copy.addEventListener('click',async()=>{
+  async function copyText(value, status) {
+    try {
+      await navigator.clipboard.writeText(value);
+      message.textContent = strings[status];
+    } catch {
+      copySource.value = value;
+      dialog.showModal();
+      copySource.select();
+    }
+  }
+  copy.addEventListener('click',()=>copyText(aiSpec(snapshot(selected)),'copiedSpec'));
+  copyHTML.addEventListener('click',async()=>{
     const config = snapshot(selected);
-    copy.disabled = true;
+    copyHTML.disabled = true;
     try {
       runtime ??= loadRuntime();
-      const html = portableHTML(config,await runtime);
-      try {
-        await navigator.clipboard.writeText(html);
-        message.textContent = 'Copied the button, backdrop, and effects.';
-      } catch {
-        copySource.value = html;
-        dialog.showModal();
-        copySource.select();
-      }
+      await copyText(portableHTML(config,await runtime),'copiedHTML');
     } catch {
       runtime = undefined;
-      message.textContent = 'Could not prepare the button. Try copying again.';
+      message.textContent = strings.copyError;
     } finally {
-      copy.disabled = false;
+      copyHTML.disabled = false;
     }
   });
+  function setLanguage(language) {
+    strings = language==='zh' ? zh : en;
+    document.documentElement.lang = language==='zh' ? 'zh-CN' : 'en';
+    for (const button of document.querySelectorAll('[data-language]')) {
+      button.setAttribute('aria-pressed',String(button.dataset.language===language));
+    }
+    for (const element of document.querySelectorAll('[data-i18n]')) element.textContent = strings[element.dataset.i18n];
+    for (const element of document.querySelectorAll('[data-aria]')) element.setAttribute('aria-label',strings[element.dataset.aria]);
+    for (const element of document.querySelectorAll('[data-title]')) element.title = strings[element.dataset.title];
+    message.textContent = '';
+    onLanguageChange(language);
+    if (selected) sync();
+  }
+  for (const button of document.querySelectorAll('[data-language]')) {
+    button.addEventListener('click',()=>{
+      localStorage.setItem('liquid-glass-language',button.dataset.language);
+      setLanguage(button.dataset.language);
+    });
+  }
+  setLanguage(localStorage.getItem('liquid-glass-language')==='zh'?'zh':'en');
   window.addEventListener('resize',sync);
   select(root.querySelector('.probe'));
 }

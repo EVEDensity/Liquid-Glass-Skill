@@ -55,13 +55,14 @@ body {
   grid-template-columns: minmax(0, 1fr) minmax(270px, 340px);
 }
 #presets-panel {
-  padding: 28px 22px;
+  padding: 22px;
+  max-height: 100svh;
+  overflow-y: auto;
   background: #f8f7f2;
   color: #192529;
   border-inline-start: 1px solid #ddd8cb;
 }
-#presets-panel h1 { font-size: 23px; margin: 0 0 16px; }
-.preset-scope { padding: 10px 12px; border: 1px solid #ddd8cb; border-radius: 12px; background: white; }
+#presets-panel h1 { font-size: 23px; margin: 0 0 12px; }
 #preset-options { display: flex; flex-wrap: wrap; gap: 8px; }
 #preset-options button {
   min-height: 44px;
@@ -84,11 +85,11 @@ body {
   background: #c84228;
   vertical-align: .1em;
 }
-#preset-description { min-height: 3.5em; margin: 14px 0 20px; }
+#preset-description { margin: 10px 0 16px; }
 @media (max-width: 700px) {
   body { display: block; }
   #stage { min-height: 54svh; }
-  #presets-panel { border-inline-start: 0; border-top: 1px solid #ddd8cb; }
+  #presets-panel { max-height: none; border-inline-start: 0; border-top: 1px solid #ddd8cb; }
 }
 @media (forced-colors: active) {
   #presets-panel, #preset-options button { background: Canvas; color: CanvasText; }
@@ -108,24 +109,49 @@ body {
   color: #17242b;
   text-shadow: 0 0 5px #edf5ef, 0 0 3px #edf5ef;
 }
-.text-tools { position: absolute; top: 16px; left: 16px; z-index: 4; }
-.text-tools button, #copy-button, #add-button {
+.language-tools {
+  position: absolute; inset: 16px auto auto 16px; z-index: 4;
+  display: flex; gap: 2px; padding: 4px; border-radius: 14px;
+  background: #f8f7f2;
+}
+.language-tools button, .inspector-actions button, #text-editor button, #add-button {
   min-height: 44px; min-width: 44px; padding: 6px 12px;
   border: 1px solid #d2ccbc; border-radius: 10px; background: #fff;
   color: #192529; cursor: pointer; font: inherit;
 }
+.language-tools button { border-color: transparent; background: transparent; }
+.language-tools button[aria-pressed="true"] { background: #22323c; color: #fff; }
+.inspector-actions, .text-input-row, .inspector-footer { display: flex; gap: 8px; align-items: center; }
+.inspector-actions button { display: grid; place-items: center; }
 #text-tool { font-weight: 750; font-size: 20px; }
-#text-editor { margin-top: 6px; width: min(240px, calc(100vw - 32px)); padding: 12px; border-radius: 10px; background: #f8f7f2; color: #192529; }
-#text-editor input { width: 100%; margin: 5px 0; }
+#text-editor { margin: 4px 0 10px; }
+.text-input-row { margin-top: 4px; }
 .button-inspector { border-top: 1px solid #ddd8cb; padding-top: 14px; }
 .button-inspector header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .button-inspector h2 { margin: 0; font-size: 18px; }
-.button-inspector > label { display: block; margin-top: 8px; }
+.button-inspector > label { display: block; margin: 8px 0 4px; }
 .button-inspector select, .button-inspector input {
   display: block; width: 100%; min-width: 0; min-height: 40px;
-  padding: 6px; font: inherit; color: inherit;
+  padding: 6px 8px; font: inherit; color: inherit; background: #fff;
+  border: 1px solid #d2ccbc; border-radius: 8px;
 }
-.size-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.size-fields { display: grid; gap: 2px; margin: 8px 0 12px; }
+.size-field {
+  display: grid; grid-template-columns: 3.1em minmax(0,1fr) 4.25em auto;
+  gap: 8px; align-items: center;
+}
+.size-field input[type="range"] {
+  margin: 0; padding: 0; min-height: 44px; background: transparent; border: 0;
+  accent-color: #284e52; cursor: ew-resize; touch-action: pan-y;
+}
+.size-field input[type="number"] { font-variant-numeric: tabular-nums; }
+.size-field span { font-size: 12px; color: #4e5e60; }
+#size-link { margin: -6px 0 12px; font-size: 12px; color: #4e5e60; }
+.inspector-footer { justify-content: space-between; }
+#copy-html {
+  min-height: 44px; padding: 0 8px; border: 0; background: transparent;
+  color: #284e52; font: inherit; text-decoration: underline; cursor: pointer;
+}
 #editor-message { margin: 8px 0 0; font-size: 13px; }
 #editor-message:empty { display: none; }
 #copy-dialog { max-width: min(640px, 95vw); border: 1px solid #d2ccbc; border-radius: 12px; }
