@@ -130,7 +130,7 @@ try {
     return t && Math.abs((t.fillX - t.x - 30) / (t.width - 60) - .36) < .001;
   });
   const sliderState = () => page.evaluate(() => window.glassDemo.slider);
-  await page.waitForFunction(() => window.glassDemo.slider?.knob.motion === 0);
+  await page.waitForFunction(() => window.glassDemo.slider?.knob.motion === 0 && window.glassDemo.slider.knob.stretchX === 0);
   const rest = await sliderState();
   const origin = await page.locator('#scene').boundingBox();
   await page.mouse.move(origin.x + rest.knob.x, origin.y + rest.knob.y);
@@ -207,10 +207,14 @@ try {
       return pixel[0];
     };
     results.clearContrast = [];
+    results.heldContrast = [];
     for (const surface of [{slider:true}, {surface:'switch'}, {surface:'selection'}, {}]) {
       renderer.setShapes([{x:120,y:48,width:80,height:52,radius:26,...surface}]);
       renderer.render();
       results.clearContrast.push(sample(110) - sample(120));
+      renderer.setShapes([{x:120,y:48,width:80,height:52,radius:26,press:1,...surface}]);
+      renderer.render();
+      results.heldContrast.push(sample(110)-sample(120));
     }
     ctx.fillStyle = '#646464';
     ctx.fillRect(0,0,240,96);
@@ -230,11 +234,11 @@ try {
     return results;
   });
   assert.equal(rail.error, 0);
-  assert.ok(rail.heldLight > rail.idleLight + 20, 'A stationary hold must visibly brighten the lens');
-  assert.equal(new Set(rail.neutralRim).size, 1, 'A stationary hold must not add chromatic tint');
+  assert.ok(rail.heldLight < rail.idleLight - 25, 'Holding must clear the resting milk from the center');
+  assert.ok(Math.max(...rail.neutralRim)-Math.min(...rail.neutralRim)<=2, 'A stationary hold must not add chromatic tint');
   assert.ok(Math.max(...rail.movingRim)-Math.min(...rail.movingRim)>10, 'Travel must add a visible colored rim');
   assert.ok(rail.clearBent > 25, 'Shared clear glass must still bend the track');
-  assert.ok(rail.clearContrast.every(contrast => contrast > 70), 'Every resting control must reveal the grid through its center');
+  assert.ok(rail.heldContrast.every((held,i) => held > 70 && held > rail.clearContrast[i] + 35), 'All controls must reveal the background on hold and soften it at rest');
   assert.equal(rail.movedOutside, 0, 'Press changed the track outside the knob');
   assert.ok(rail.bent > 25, `Lens failed to bend the track on a solid backdrop: ${rail.bent}px`);
   assert.ok(rail.transparency > 100, 'Held glass should reveal substantially more of the backdrop');
@@ -244,6 +248,26 @@ try {
   await page.getByRole('button', { name: 'Merge test', exact: true }).click();
   await page.waitForFunction(() => window.glassDemo.source && window.glassDemo.shapes.length === 4);
   const testScene = () => page.evaluate(() => ({ shapes: window.glassDemo.shapes, bases: window.glassDemo.bases }));
+  const toggleProbe = page.getByRole('switch', {name:'Glass setting'});
+  const toggleBox = await toggleProbe.boundingBox();
+  const oldBase = (await testScene()).bases.toggle;
+  const oldKnob = (await testScene()).shapes[0];
+  await page.mouse.move(toggleBox.x+70,toggleBox.y+22);
+  await page.mouse.down();
+  await page.mouse.move(toggleBox.x+35,toggleBox.y+22,{steps:4});
+  await page.waitForFunction(x => window.glassDemo.shapes[0].x < x-23,oldKnob.x);
+  assert.deepEqual((await testScene()).bases.toggle,oldBase);
+  assert.equal(await toggleProbe.getAttribute('aria-checked'),'true');
+  await page.mouse.up();
+  assert.equal(await toggleProbe.getAttribute('aria-checked'),'false');
+  await toggleProbe.focus();
+  await page.keyboard.press('Space');
+  assert.equal(await toggleProbe.getAttribute('aria-checked'),'true');
+  await page.waitForFunction(x => {
+    const knob=window.glassDemo.shapes[0];
+    return Math.abs(knob.x-x)<.1 && knob.press===0 && knob.motion===0 && knob.stretchX===0;
+  },oldKnob.x);
+  record('Switch drag previews only the knob and commits once on release');
   const beforeDrag = await testScene();
   assert.deepEqual(beforeDrag.shapes.map(shape => shape.surface ?? (shape.slider ? 'slider' : 'glass')), ['switch', 'slider', 'selection', 'glass']);
   assert.equal(beforeDrag.bases.toggle.width, 102);

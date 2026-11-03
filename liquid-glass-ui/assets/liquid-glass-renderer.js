@@ -46,8 +46,8 @@ vec3 sampleSoft(vec2 p,float blur){
   float feather=max(.5,blur*1.45);
   vec3 base=textureLod(u_source,coverUV(p),log2(1.+blur*3.6)).rgb;
   float switchMask=baseMask(p,u_switchBase,feather);
-  vec3 switchColor=mix(vec3(.36,.43,.39),vec3(.91,.33,.22),u_switchOn);
-  base=mix(base,switchColor,switchMask*.96);
+  vec3 switchColor=mix(vec3(.36,.36,.33),vec3(.90,.29,.18),u_switchOn);
+  base=mix(base,switchColor,switchMask*mix(.45,.98,u_switchOn));
   base=mix(base,vec3(.10,.13,.12),baseMask(p,u_segmentBase,feather)*.69);
   if(u_sliderTrack.w<=0.)return base;
   float r=u_sliderTrack.w*.5;
@@ -60,13 +60,13 @@ vec3 sampleSoft(vec2 p,float blur){
   return mix(inactive,mix(base,vec3(.97,.96,.93),.96),fill);
 }
 vec3 sampleAt(vec2 p){return sampleSoft(p,0.);}
-vec3 sliderLens(vec2 p,vec2 normal,float field,float press,bool clear){
+vec3 liquidLens(vec2 p,vec2 normal,float field,float press,bool clear){
   // Resting porcelain gives way to an edge lens with a clear center.
   float depth=max(-field,0.);
   float strength=clear?mix(.85,1.,press):press;
-  float t=clamp(depth/mix(7.,14.,strength),0.,1.);
-  float bend=sin(t*3.141593)*mix(2.,6.4,strength)*(u_refraction/18.);
-  vec2 at=p-normal*bend;
+  float t=clamp(depth/mix(7.,clear?19.:14.,strength),0.,1.);
+  float bend=sin(t*3.141593)*mix(2.,clear?10.8:6.4,strength)*(u_refraction/18.);
+  vec2 at=p+normal*bend*(clear?1.:-1.);
   float softness=mix(1.55,1.65,press);
   vec3 lens=sampleAt(at)*.48;
   lens+=(sampleAt(at+vec2(softness,0.))+sampleAt(at-vec2(softness,0.))+
@@ -149,10 +149,18 @@ void main(){
     float depth=max(-field,0.);
     float curve=sin(clamp(depth/18.,0.,1.)*3.141593);
     vec2 pull=(p-centre)*press*.09;
-    vec3 clear=sliderLens(p-pull,n,field,press,true);
+    float knob=clamp(merged.y+merged.z+merged.w,0.,1.);
+    float engagement=1.-(1.-press)*(1.-smoothstep(.025,.44,movement));
+    vec3 clear=liquidLens(p-pull,n,field,engagement,true);
+    // The quiet surface is milky; stretching opens up a clear, thicker lens.
+    float milk=mix(.65,.92,knob)*(1.-smoothstep(0.,1.,engagement));
+    vec3 ivory=mix(vec3(.98,.987,.98),base,.13);
+    float innerRim=1.-smoothstep(.35,3.6,depth);
+    ivory=mix(ivory,vec3(1.),innerRim*.85);
+    clear=mix(clear,ivory,milk);
     // A stationary hold changes exposure and refraction; only travel adds chromatic light.
     vec2 delta=(p-contact)/contactRadius;
-    float illumination=press*(.035+.25*exp(-dot(delta,delta)));
+    float illumination=press*(.025+mix(.23,.035,knob)*exp(-dot(delta,delta)));
     clear=mix(clear,vec3(1.),illumination);
     if(movement>.005){
       vec2 split=n*curve*movement*3.2;
@@ -167,7 +175,7 @@ void main(){
     return;
   }
   if(merged.y>.999){
-    color=vec4(mix(base,sliderLens(p,n,field,sliderPress,false),mask),1.);
+    color=vec4(mix(base,liquidLens(p,n,field,sliderPress,false),mask),1.);
     return;
   }
   float edge=1.-smoothstep(0.,max(u_bezel*scale*.55*(1.+press*.25),1.),max(-field,0.));
@@ -208,7 +216,7 @@ void main(){
     vec3 selection=mix(sampleSoft(at,3.),vec3(.91,.93,.92),.58-press*.24);
     lens=mix(lens,mix(selection,vec3(1.),rim*(.22+shine*.67)),merged.w);
   }
-  if(merged.y>.001)lens=mix(lens,sliderLens(p,n,field,sliderPress,false),merged.y);
+  if(merged.y>.001)lens=mix(lens,liquidLens(p,n,field,sliderPress,false),merged.y);
   vec3 outside=base*(1.-max(shadow,u_dim*mask));
   color=vec4(mix(outside,clamp(lens,0.,1.),mask),1.);
 }`;

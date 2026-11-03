@@ -18,7 +18,7 @@ Do the integration directly. Do not add remote fonts, CDNs, or runtime dependenc
 
 For a liquid-glass slider, keep the native range input and follow the [slider integration](references/integration.md#liquid-glass-slider). Put fixed bases and rails in the backdrop sampled by the glass. Only freestanding glass, the switch and slider knobs, and the segmented selection belong to the merge field. A base may show through the glass without forming a bridge.
 
-For the clear capsule treatment used by the demo, set `scene.setMaterial({ ...PRESETS.apple, clearControls: true })`. Use it consistently across standalone buttons, knobs, and segmented selections. The center keeps background detail; the rim provides the visible bend.
+For the milk-to-lens treatment used by the demo, set `scene.setMaterial({ ...PRESETS.apple, clearControls: true })`. Use it consistently across standalone buttons, knobs, and segmented selections. At rest the surface is milky. Pressing or moving clears the center and thickens the refractive rim, letting the sampled base show through.
 
 ## Workflow
 

@@ -73,11 +73,47 @@ function makeSwitch(on) {
   button.setAttribute('aria-label', 'Glass setting');
   Object.assign(button.style, {left: '50%', top: '36.8%', transform: 'translate(-50%, -50%)'});
   button.innerHTML = '<span class="track" aria-hidden="true"></span><span class="knob" aria-hidden="true"></span>';
-  button.addEventListener('click', () => {
-    on = !on;
+  const commit = next => {
+    on = next;
     button.setAttribute('aria-checked', String(on));
     status.textContent = on ? 'Switch on.' : 'Switch off.';
     followTransition();
+  };
+  let gesture, skipPointerClick = false;
+  button.addEventListener('pointerdown', event => {
+    if (event.button !== 0) return;
+    skipPointerClick = false;
+    gesture = { id: event.pointerId, start: event.clientX, initial: on ? 36 : 0, shift: on ? 36 : 0, moved: false };
+    button.setPointerCapture(event.pointerId);
+  });
+  button.addEventListener('pointermove', event => {
+    if (gesture?.id !== event.pointerId) return;
+    const dx = event.clientX - gesture.start;
+    if (!gesture.moved && Math.abs(dx) < 4) return;
+    gesture.moved = true;
+    gesture.shift = Math.max(0,Math.min(36,gesture.initial+dx));
+    const knob = button.querySelector('.knob');
+    knob.style.transition = 'none';
+    knob.style.translate = gesture.shift + 'px 0';
+    schedule();
+  });
+  function finish(event, cancelled) {
+    if (gesture?.id !== event.pointerId) return;
+    if (gesture.moved) {
+      skipPointerClick = true;
+      const knob = button.querySelector('.knob');
+      knob.style.transition = '';
+      commit(cancelled ? on : gesture.shift >= 18);
+      knob.style.translate = '';
+    }
+    gesture = null;
+  }
+  button.addEventListener('pointerup', event => finish(event,false));
+  button.addEventListener('pointercancel', event => finish(event,true));
+  button.addEventListener('lostpointercapture', event => finish(event,true));
+  button.addEventListener('click', event => {
+    if (!(event.detail && skipPointerClick)) commit(!on);
+    skipPointerClick = false;
   });
   return button;
 }
@@ -176,6 +212,18 @@ function draw() {
       Object.assign(state,{sampleX:x,sampleY:y,sampleTime:now});
       return state.motion;
     };
+    const liquidSurface = (geometry, extra = {}) => {
+      const dx = state.sampleX == null ? 0 : geometry.x-state.sampleX;
+      const motion = motionAt(geometry.x,geometry.y);
+      // Moving selectors leave a short tail, while their native track stays fixed.
+      if (extra.slider || extra.surface) {
+        const target = reduced.matches ? 0 : Math.max(-21,Math.min(21,dx*1.5));
+        state.knobTail = (state.knobTail || 0) + (target-(state.knobTail || 0))*.42;
+        if (reduced.matches || Math.abs(state.knobTail)<.16) state.knobTail=0;
+        colorSettling ||= state.knobTail!==0;
+      }
+      return {...geometry,...extra,...touch,press,motion,stretchX:extra.slider||extra.surface ? state.knobTail : state.sx,stretchY:state.sy};
+    };
     const touch = press > 0 ? {contactX: state.contactX - box.left, contactY: state.contactY - box.top} : {};
     if (piece.matches('.slider')) {
       const input = piece.querySelector('input');
@@ -186,7 +234,7 @@ function draw() {
       track = { x, y, width: rect.width, height: 9, fillX };
       piece.style.setProperty('--thumb-x', (fillX - x) + 'px');
       const height = 39 + press * 12;
-      return { x: fillX, y, width: 60 + press * 44, height, radius: height / 2, press, ...touch, motion: motionAt(fillX,y), slider: true };
+      return liquidSurface({ x: fillX, y, width: 60 + press * 44, height, radius: height / 2 },{slider:true});
     }
     const toggle = piece.matches('.switch');
     const segment = piece.matches('.segment');
@@ -196,19 +244,18 @@ function draw() {
       if (toggle) bases.toggle = { ...base, on: piece.getAttribute('aria-checked') === 'true' };
       else bases.segment = base;
       const knob = boxFor(piece.querySelector(toggle ? '.knob' : '.selection').getBoundingClientRect());
-      knob.width += (toggle ? 30 : 23) * press;
+      knob.width += (toggle ? 24 : 27) * press;
       knob.height += 9 * press;
-      return { ...knob, radius: knob.height / 2, press, ...touch, motion: motionAt(knob.x,knob.y), surface: toggle ? 'switch' : 'selection' };
+      const surface = liquidSurface({...knob,radius:knob.height/2},{surface:toggle?'switch':'selection'});
+      if (segment) piece.style.setProperty('--selection-ink', Math.max(press,surface.motion) > .58 ? '#fff' : '#202427');
+      return surface;
     }
     const grow = 1 + press * .09;
     const geometry = boxFor(rect);
     geometry.width *= grow;
     geometry.height *= grow;
-    return {
-      ...geometry, x: geometry.x, y: geometry.y,
-      radius: piece.matches('.card, .panel') ? Math.min(26, geometry.height / 2) : Math.min(geometry.width, geometry.height) / 2,
-      stretchX: state.sx, stretchY: state.sy, ...touch, motion: motionAt(geometry.x,geometry.y), press
-    };
+    const radius = piece.matches('.card, .panel') ? Math.min(26, geometry.height / 2) : Math.min(geometry.width, geometry.height) / 2;
+    return liquidSurface({...geometry,radius});
   });
   if (opaque) return;
   scene.setSliderTrack(track);
