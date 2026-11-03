@@ -64,3 +64,55 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
 @media (max-width: 720px) { .layouts { justify-content: flex-start; } .panel { height: 180px; } }
 @media (prefers-reduced-motion: reduce) { .switch .knob, .segment .selection { transition: none; } }
 @media (forced-colors: active) { #scene { display: none; } #stage, .layouts, #status { background: Canvas; color: CanvasText; } .glass { border: 1px solid ButtonText; background: Canvas; } }
+
+body:has(#presets-panel:not([hidden])) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 340px);
+}
+#stage[data-layout="presets"][data-backdrop="grid"] {
+  background-image: url('../assets/glass-grid.svg');
+}
+.preset-sample { width: min(200px, calc(100% - 36px)); height: 64px; }
+#presets-panel {
+  padding: 28px 22px;
+  background: #f8f7f2;
+  color: #192529;
+  border-inline-start: 1px solid #ddd8cb;
+}
+#presets-panel h1 { font-size: 23px; margin: 0 0 16px; }
+.preset-scope { padding: 10px 12px; border: 1px solid #ddd8cb; border-radius: 12px; background: white; }
+#preset-options { display: flex; flex-wrap: wrap; gap: 8px; }
+#preset-options button {
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid #d2ccbc;
+  border-radius: 999px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+#preset-options button[aria-pressed="true"] { border-color: #141c1e; box-shadow: inset 0 0 0 1px #141c1e; }
+#preset-options button[aria-pressed="true"]::before {
+  content: "";
+  display: inline-block;
+  width: .45em;
+  height: .45em;
+  margin-inline-end: .5em;
+  border-radius: 50%;
+  background: #c84228;
+  vertical-align: .1em;
+}
+#preset-description { min-height: 3.5em; margin: 14px 0 20px; }
+#presets-panel label { display: block; margin-top: 14px; font-weight: 600; }
+#preset-backdrop, #preset-image { max-width: 100%; margin-top: 5px; font: inherit; }
+#preset-backdrop { min-height: 44px; }
+@media (max-width: 700px) {
+  body:has(#presets-panel:not([hidden])) { display: block; }
+  #stage[data-layout="presets"] { min-height: 54svh; }
+  #presets-panel { border-inline-start: 0; border-top: 1px solid #ddd8cb; }
+}
+@media (forced-colors: active) {
+  #presets-panel, #preset-options button { background: Canvas; color: CanvasText; }
+  #preset-options button[aria-pressed="true"] { border: 2px solid Highlight; }
+}

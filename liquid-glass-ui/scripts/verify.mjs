@@ -47,6 +47,61 @@ try {
   assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .35);
   assert.equal(await page.locator('#controls > .glass').count(), 7);
   record('Scene layout renders the combined glass pieces');
+  await page.getByRole('button',{name:'Presets',exact:true}).click();
+  await page.waitForFunction(()=>window.glassDemo.layout==='presets'&&window.glassDemo.source);
+  const presetLabels=['Apple Liquid Glass','Apple clear','Thick lens','Frosted','Plain lens','Prism'];
+  const materials=[];
+  for(const name of presetLabels){
+    const button=page.getByRole('button',{name,exact:true});
+    await button.click();
+    assert.equal(await button.getAttribute('aria-pressed'),'true');
+    materials.push(await page.evaluate(()=>window.glassDemo.material));
+  }
+  assert.deepEqual(materials.map(m=>m.name),presetLabels);
+  const optics = await page.evaluate(async materials=>{
+    const {GlassScene}=await import('/assets/liquid-glass-renderer.js');
+    const canvas=document.createElement('canvas');
+    canvas.style.cssText='position:fixed;top:0;left:0;width:256px;height:144px';
+    document.body.append(canvas);
+    const source=document.createElement('canvas');
+    source.width=256;source.height=144;
+    const ctx=source.getContext('2d');
+    ctx.fillStyle='#b4b4b4';
+    ctx.fillRect(0,0,256,144);
+    ctx.fillStyle='#303030';
+    for(let x=16;x<256;x+=16)ctx.fillRect(x,0,3,144);
+    const scene=new GlassScene(canvas);
+    scene.setSource(source);
+    scene.setShapes([{x:128,y:72,width:180,height:74,radius:37}]);
+    const gl=scene.gl;
+    const colors=materials.map(material=>{
+      scene.setMaterial(material);
+      scene.render();
+      const rgba=new Uint8Array(256*144*4);
+      gl.readPixels(0,0,256,144,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
+      const pixel=(x,y)=>rgba.subarray(((143-y)*256+x)*4,((143-y)*256+x)*4+3);
+      const center=Array.from({length:49},(_,i)=>pixel(104+i,72)[0]);
+      let chromatic=0;
+      for(let x=52;x<=204;x++)for(let y=39;y<=50;y++){
+        const rgb=pixel(x,y);
+        if(Math.max(...rgb)-Math.min(...rgb)>25)chromatic++;
+      }
+      return {contrast:Math.max(...center)-Math.min(...center),center,chromatic,background:pixel(7,8)[0]};
+    });
+    const error=gl.getError();
+    scene.destroy();canvas.remove();
+    return {colors,error};
+  },materials);
+  const [regular,clear,thick,frosted,plain,prism]=optics.colors;
+  assert.equal(optics.error,0);
+  assert.ok(clear.contrast>regular.contrast+30 && clear.background<regular.background-40);
+  assert.ok(frosted.contrast<15 && plain.contrast>75);
+  assert.ok(thick.center.filter((value,index)=>Math.abs(value-plain.center[index])>50).length>5);
+  assert.ok(prism.chromatic>100 && prism.chromatic>plain.chromatic+100);
+  record('The six presets apply distinct blur, scrim, magnification and dispersion');
+  await page.getByRole('button',{name:'Scene',exact:true}).click();
+  assert.ok(await page.evaluate(()=>window.glassDemo.material.clearControls));
+
   await page.locator('#layouts [data-layout="controls"]').click();
   await page.waitForFunction(() => window.glassDemo.layout === 'controls');
   const search = page.locator('.search');

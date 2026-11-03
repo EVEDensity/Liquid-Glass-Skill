@@ -156,7 +156,7 @@ void main(){
   vec2 centre=dynamics.xy;
   float contactRadius=max(30.,scale*62.);
   vec2 gradient=vec2(dFdx(field),-dFdy(field));
-  vec3 base=sampleAt(p);
+  vec3 base=sampleAt(p)*(1.-u_dim);
   float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y);
   if(field>1.){color=vec4(base*(1.-shadow),1.);return;}
   vec2 n=length(gradient)>.001?normalize(gradient):normalize(p-centre+vec2(.0001));
@@ -239,10 +239,11 @@ void main(){
   float profile=u_edge>0.?edge*(1.-edge*edge):edge*edge;
   vec2 bend=n*u_refraction*scale*.75*(1.+press*.45)*profile;
   float zoom=max(u_magnify+press*.16,1.);
-  vec2 centerPull=(p-centre)*(1.-1./zoom)*(1.-edge);
+  vec2 centerPull=(p-centre)*(1.-1./zoom);
   vec2 at=p-bend-centerPull;
-  vec2 split=bend*u_dispersion;
+  vec2 split=(bend+centerPull*.48)*u_dispersion;
   float blur=u_blur*scale*(1.-press*.15);
+  blur*=mix(.32,1.48,smoothstep(.65,4.,blur));
   vec3 soft=sampleSoft(at,blur);
   vec3 lens=soft;
   if(u_dispersion>0.)lens=vec3(sampleSoft(at-split,blur).r,soft.g,sampleSoft(at+split,blur).b);
@@ -251,20 +252,23 @@ void main(){
   lens+=u_brightness;
   lens=mix(lens,mix(vec3(luma),soft,1.35),clamp(u_pickup,0.,1.));
   lens=mix(lens,u_tint,u_tintAmount);
-  lens=mix(lens,vec3(luma),clamp(u_frost*.2,0.,.25));
+  lens=mix(lens,vec3(luma),clamp(u_frost*.12,0.,.18));
   vec2 light=vec2(cos(radians(u_lightAngle)),sin(radians(u_lightAngle)));
   float facing=dot(n,light);
   float rim=1.-smoothstep(0.,max(u_rimWidth,.35)*2.25,abs(field));
   float shine=rim*u_specular*(.30+1.05*pow(max(facing,0.),1.65)+.92*pow(max(-facing,0.),2.));
-  lens=mix(lens,vec3(1.),clamp(shine,0.,.85));
+  float glint=(1.-smoothstep(.22,1.65,max(-field,0.)))
+      *min(1.,u_specular*1.45)*(.72+.28*abs(facing))*(1.-u_dim*.42);
+  lens=mix(lens,vec3(1.),clamp(max(shine,glint),0.,.91));
   vec2 delta=(p-contact)/contactRadius;
   float touch=exp(-dot(delta,delta))*press;
   lens+=press*.04+touch*.17;
   float autoMode=1.-smoothstep(.33,.68,luma);
   float mode=u_appearance<.5?1.:u_appearance<1.5?0.:autoMode;
-  lens=mix(lens,vec3(1.),mode*.12);
-  lens=mix(lens,vec3(0.),(1.-mode)*.05);
-  lens=mix(lens,vec3(1.),.045 + press*.055);
+  // Haze and blur are independent. Clear lenses retain the source colors.
+  float haze=clamp(u_frost*(.50+.40*mode),0.,.65);
+  lens=mix(lens,mix(soft,vec3(1.),.52),haze);
+  lens*=1.-(1.-mode)*u_frost*.12-u_dim*.58;
   if(merged.z>.001){
     vec3 knob=mix(sampleSoft(at,2.),vec3(.99),.88-press*.47);
     lens=mix(lens,mix(knob,vec3(1.),rim*.57),merged.z);
@@ -274,7 +278,7 @@ void main(){
     lens=mix(lens,mix(selection,vec3(1.),rim*(.22+shine*.67)),merged.w);
   }
   if(merged.y>.001)lens=mix(lens,liquidLens(p,n,field,sliderPress,false,0.),merged.y);
-  vec3 outside=base*(1.-max(shadow,u_dim*mask));
+  vec3 outside=base*(1.-shadow);
   color=vec4(mix(outside,clamp(lens,0.,1.),mask),1.);
 }`;
 

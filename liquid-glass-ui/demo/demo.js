@@ -1,6 +1,16 @@
 import { GlassScene, PRESETS } from '../assets/liquid-glass-renderer.js';
 
-const material = { ...PRESETS.apple, clearControls: true };
+let material = { ...PRESETS.apple, clearControls: true };
+const descriptions = {
+  apple: 'Softens background detail and adds a light refractive edge.',
+  clear: 'Keeps detail visible and dims the surrounding scene.',
+  thick: 'Magnifies the center and strongly bends the image at its wide edge.',
+  frosted: 'Softens detail while retaining the color of the backdrop.',
+  plain: 'A sharp lens with no blur, haze, or tint.',
+  prism: 'Separates colors strongly along the refractive edge.'
+};
+let chosenPreset = 'apple';
+let presetBackdrop = 'grid';
 const scene = new GlassScene(document.querySelector('#scene'));
 const stage = document.querySelector('#stage');
 const root = document.querySelector('#controls');
@@ -56,6 +66,7 @@ const layouts = {
     });
     return [more, action];
   },
+  presets() { return [glass('preset-sample', '', '50%', '50%')]; },
   slider() { return [makeSlider(35)]; },
   ios() { return [makeSwitch(true), makeSlider(35), makeSegment(0)]; },
   merge() {
@@ -239,9 +250,13 @@ function show(name) {
   pressFrame = 0;
   transitionUntil = 0;
   stage.dataset.layout = name;
-  selectBackdrop(name === 'merge' ? 'grid' : 'landscape');
+  const preview = name === 'presets';
+  document.querySelector('#presets-panel').hidden = !preview;
+  material = preview ? {...PRESETS[chosenPreset],clearControls:false} : {...PRESETS.apple,clearControls:true};
+  selectBackdrop(preview ? presetBackdrop : name === 'merge' ? 'grid' : 'landscape');
   root.replaceChildren(...layouts[name]());
-  if (name === 'merge') status.textContent = 'Drag the circle over a white knob, then over its track.';
+  if (preview) status.textContent = 'Switch materials or drag the sample across the backdrop.';
+  else if (name === 'merge') status.textContent = 'Drag the circle over a white knob, then over its track.';
   else status.textContent = 'Drag the glass. Buttons respond to touch.';
   pieces = [...root.children];
   pieces.forEach(piece => presses.set(piece, { x: 0, y: 0, scale: 0, sx: 0, sy: 0, tx: 0, ty: 0, lens: piece.matches('.probe, .lens'), base: piece.style.transform }));
@@ -517,11 +532,14 @@ document.querySelector('#scene').addEventListener('glassfallback', schedule);
 window.addEventListener('resize', schedule);
 scene.setMaterial(material);
 const backdrops = new Map();
-let backdropName, sourceReady = false;
+let backdropName, customImage, sourceReady = false;
 function selectBackdrop(name) {
   if (name === backdropName) return;
   backdropName = name;
+  stage.dataset.backdrop = name;
+  stage.style.backgroundImage = name === 'custom' ? 'url("' + customImage.src + '")' : '';
   sourceReady = false;
+  if (name === 'custom') backdrops.set(name,Promise.resolve(customImage));
   if (!backdrops.has(name)) {
     const image = new Image();
     image.src = new URL(name === 'grid' ? '../assets/glass-grid.svg' : '../assets/glass-backdrop.svg', import.meta.url).href;
@@ -534,6 +552,62 @@ function selectBackdrop(name) {
     schedule();
   }).catch(() => { if (backdropName === name) { scene.available = false; schedule(); } });
 }
+const options = document.querySelector('#preset-options');
+const presetDescription = document.querySelector('#preset-description');
+function showPreset(key) {
+  chosenPreset = key;
+  for (const button of options.children) button.setAttribute('aria-pressed',String(button.dataset.preset === key));
+  presetDescription.textContent = descriptions[key];
+  if (stage.dataset.layout === 'presets') {
+    material = {...PRESETS[key],clearControls:false};
+    schedule();
+  }
+}
+for (const [key,preset] of Object.entries(PRESETS)) {
+  const button=document.createElement('button');
+  button.type='button';
+  button.dataset.preset=key;
+  button.textContent=preset.name;
+  button.addEventListener('click',()=>showPreset(key));
+  options.append(button);
+}
+showPreset(chosenPreset);
+const backdropPicker = document.querySelector('#preset-backdrop');
+const imagePicker = document.querySelector('#preset-image');
+const imageError = document.querySelector('#preset-image-error');
+let imageRequest = 0;
+backdropPicker.addEventListener('change',()=>{
+  imageRequest++;
+  presetBackdrop=backdropPicker.value;
+  selectBackdrop(presetBackdrop);
+});
+imagePicker.addEventListener('change',()=>{
+  const file=imagePicker.files[0];
+  if(!file)return;
+  imageError.hidden=true;
+  const request=++imageRequest;
+  const reader=new FileReader();
+  const reportError=()=>{
+    if(request!==imageRequest)return;
+    imageError.textContent='This image could not be opened.';
+    imageError.hidden=false;
+  };
+  reader.onerror=reportError;
+  reader.onload=async()=>{
+    const image=new Image();
+    image.src=reader.result;
+    try { await image.decode(); } catch { reportError(); return; }
+    if(request!==imageRequest)return;
+    customImage=image;
+    backdropPicker.querySelector('[value="custom"]').hidden=false;
+    backdropPicker.value=presetBackdrop='custom';
+    if(stage.dataset.layout==='presets'){
+      backdropName=undefined;
+      selectBackdrop('custom');
+    }
+  };
+  reader.readAsDataURL(file);
+});
 const requestedLayout = new URLSearchParams(location.search).get('layout');
 show(Object.hasOwn(layouts, requestedLayout) ? requestedLayout : 'scene');
 window.glassDemo = { get available() { return scene.available; }, get material() { return { ...material }; }, get source() { return sourceReady; }, get slider() { const knob = scene.shapes.find(shape => shape.slider); return knob && { knob: { ...knob }, track: { ...scene.sliderTrack } }; }, get shapes() { return scene.shapes.map(shape => ({ ...shape })); }, get bases() { return structuredClone(scene.controlBases); }, get layout() { return document.querySelector('[data-layout][aria-pressed="true"]').dataset.layout; } };
