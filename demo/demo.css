@@ -44,12 +44,11 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
 }
 .segment button[aria-pressed="true"] { color: var(--selection-ink, #202427); text-shadow: var(--selection-halo, none); font-weight: 700; }
 @media (forced-colors: none) { #stage.fallback .segment button[aria-pressed="true"] { color: #202427; } }
-#status { position: absolute; z-index: 4; left: 16px; top: 16px; margin: 0; padding: 7px 10px; border-radius: 10px; background: rgb(247 244 236 / .9); font-size: 13px; }
 :focus-visible { outline: 3px solid #083f67; outline-offset: 4px; }
 #stage.fallback .glass { background: rgb(236 247 248 / .9); border-radius: 28px; }
-#stage.fallback .probe { border-radius: 50%; }
+#stage.fallback .probe { border-radius: var(--button-radius, 50%); }
 @media (prefers-reduced-motion: reduce) { .switch .knob, .segment .selection { transition: none; } }
-@media (forced-colors: active) { #scene { display: none; } #stage, #status { background: Canvas; color: CanvasText; } .glass { border: 1px solid ButtonText; background: Canvas; } }
+@media (forced-colors: active) { #scene { display: none; } #stage { background: Canvas; color: CanvasText; } .glass { border: 1px solid ButtonText; background: Canvas; } }
 
 body {
   display: grid;
@@ -97,3 +96,39 @@ body {
 }
 
 @media (max-width: 550px) { .probe { left: calc(74% - 43px); top: 16%; width: 86px; height: 86px; } }
+
+.probe {
+  border-radius: var(--button-radius, 50%);
+  padding: 0 10px;
+  overflow: hidden;
+  font: inherit;
+  font-weight: 650;
+  text-align: center;
+  overflow-wrap: anywhere;
+  color: #17242b;
+  text-shadow: 0 0 5px #edf5ef, 0 0 3px #edf5ef;
+}
+.text-tools { position: absolute; top: 16px; left: 16px; z-index: 4; }
+.text-tools button, #copy-button, #add-button {
+  min-height: 44px; min-width: 44px; padding: 6px 12px;
+  border: 1px solid #d2ccbc; border-radius: 10px; background: #fff;
+  color: #192529; cursor: pointer; font: inherit;
+}
+#text-tool { font-weight: 750; font-size: 20px; }
+#text-editor { margin-top: 6px; width: min(240px, calc(100vw - 32px)); padding: 12px; border-radius: 10px; background: #f8f7f2; color: #192529; }
+#text-editor input { width: 100%; margin: 5px 0; }
+.button-inspector { border-top: 1px solid #ddd8cb; padding-top: 14px; }
+.button-inspector header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.button-inspector h2 { margin: 0; font-size: 18px; }
+.button-inspector > label { display: block; margin-top: 8px; }
+.button-inspector select, .button-inspector input {
+  display: block; width: 100%; min-width: 0; min-height: 40px;
+  padding: 6px; font: inherit; color: inherit;
+}
+.size-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+#editor-message { margin: 8px 0 0; font-size: 13px; }
+#editor-message:empty { display: none; }
+#copy-dialog { max-width: min(640px, 95vw); border: 1px solid #d2ccbc; border-radius: 12px; }
+#copy-source { display: block; width: min(550px, 85vw); }
+html[data-glass-export] body { display: block; min-width: 0; }
+html[data-glass-export] #stage { min-height: 0; }

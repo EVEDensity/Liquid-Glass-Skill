@@ -10,14 +10,53 @@
   <main id="stage">
     <canvas id="scene" aria-hidden="true"></canvas>
     <section id="controls"></section>
-    <p id="status" role="status">Drag the glass. Buttons press, scale, and animate.</p>
+    <div class="text-tools">
+      <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" aria-expanded="false" title="Edit text">T</button>
+      <form id="text-editor" hidden>
+        <label for="button-text">Button text</label>
+        <input id="button-text" maxlength="100">
+        <button type="submit">Apply</button>
+      </form>
+    </div>
   </main>
   <aside id="presets-panel" aria-labelledby="presets-title">
     <h1 id="presets-title">Liquid glass presets</h1>
     <p class="preset-scope">Editing <strong>Scene</strong></p>
     <div id="preset-options" role="group" aria-label="Material preset"></div>
     <p id="preset-description" aria-live="polite"></p>
+    <section class="button-inspector" aria-labelledby="button-title">
+      <header>
+        <h2 id="button-title">Button</h2>
+        <button id="copy-button" type="button" aria-label="Copy button and effects" title="Copy button and effects">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+            <rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
+          </svg>
+        </button>
+      </header>
+      <label for="selected-button">Selected button</label>
+      <select id="selected-button"></select>
+      <label for="button-shape">Shape</label>
+      <select id="button-shape">
+        <option value="circle">Circle</option>
+        <option value="capsule">Capsule</option>
+        <option value="rounded">Rounded rectangle</option>
+        <option value="square">Square</option>
+      </select>
+      <div class="size-fields">
+        <label>Width (px)<input id="button-width" type="number" min="44" max="400" step="any"></label>
+        <label>Height (px)<input id="button-height" type="number" min="44" max="400" step="any"></label>
+      </div>
+      <button id="add-button" type="button">Add shape</button>
+      <p id="editor-message" role="status"></p>
+    </section>
   </aside>
+  <dialog id="copy-dialog">
+    <form method="dialog">
+      <label for="copy-source">Copy this HTML</label>
+      <textarea id="copy-source" readonly rows="10"></textarea>
+      <button>Close</button>
+    </form>
+  </dialog>
   <script type="module" src="./demo.js"></script>
 </body>
 </html>

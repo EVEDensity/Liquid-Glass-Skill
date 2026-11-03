@@ -26,6 +26,12 @@ node scripts/serve.mjs
 
 Open the [single glass scene](http://localhost:4173/demo/). Switch among six presets from the side panel to change the same controls in place. Drag the circle onto a glass knob to merge, or across a fixed rail to see the rail refract through the circle.
 
+### Edit and copy a button
+
+Select a glass shape on the canvas or in the Button panel. Use **T** to edit its text, and the inspector to set shape and dimensions. The copy icon puts a standalone HTML document on the clipboard. Paste it into an AI chat as code, or save it as `button.html` and open it in a WebGL2 browser.
+
+The export embeds a versioned configuration with the selected button ID, shape, dimensions, radius, label, position, and material. It also embeds the surrounding scene, grid image, CSS, and the same renderer and interaction code. Refraction and merging depend on neighboring pixels and shapes, so retaining this context avoids asking an AI to guess the effect. For a faithful reproduction, preserve the configuration and runtime when integrating it into another project. Screen scale, fonts, browser rendering, and a changed backdrop can still change the pixels.
+
 Development checks:
 
 ```sh

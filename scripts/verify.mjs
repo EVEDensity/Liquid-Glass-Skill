@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -104,6 +104,45 @@ try {
   assert.ok(thick.center.filter((value,index)=>Math.abs(value-plain.center[index])>50).length>5);
   assert.ok(prism.chromatic>100 && prism.chromatic>plain.chromatic+100);
   record('The six presets apply distinct blur, scrim, magnification and dispersion');
+
+  assert.equal(await page.locator('#status').count(),0);
+  await page.getByRole('button',{name:'Add shape',exact:true}).click();
+  await page.locator('#button-shape').selectOption('rounded');
+  const setSize=async(id,value)=>{
+    const field=page.locator(id);
+    await field.fill(String(value));
+    await field.press('Tab');
+  };
+  await setSize('#button-width',183);
+  await setSize('#button-height',74);
+  await page.getByRole('button',{name:'Edit button text',exact:true}).click();
+  const label='保存 </script> & Go';
+  await page.getByLabel('Button text',{exact:true}).fill(label);
+  await page.getByRole('button',{name:'Apply',exact:true}).click();
+  const edited=page.getByRole('button',{name:label,exact:true});
+  const editedBounds=await edited.boundingBox();
+  assert.deepEqual([editedBounds.width,editedBounds.height],[183,74]);
+  await page.waitForFunction(()=>window.glassDemo.shapes.length===5);
+  assert.equal(await page.evaluate(()=>window.glassDemo.shapes.at(-1).radius),16);
+  await page.getByRole('button',{name:'Copy button and effects',exact:true}).click();
+  await page.getByRole('status').getByText('Copied the button, backdrop, and effects.').waitFor();
+  const html=await page.evaluate(()=>navigator.clipboard.readText());
+  const exportPath=resolve(evidence,'copied-button.html');
+  await writeFile(exportPath,html,'utf8');
+  const restored=await context.newPage();
+  const external=[];
+  restored.on('request',request=>{if(/^https?:/.test(request.url()))external.push(request.url());});
+  restored.on('pageerror',error=>errors.push(error.message));
+  await restored.goto(pathToFileURL(exportPath).href);
+  await restored.waitForFunction(()=>window.glassDemo?.available&&window.glassDemo?.source&&window.glassDemo.shapes.length===5);
+  assert.deepEqual(await restored.locator('[data-export-selected]').boundingBox(),editedBounds);
+  assert.equal(await restored.locator('[data-export-selected]').textContent(),label);
+  assert.equal(await restored.evaluate(()=>window.glassDemo.material.name),'Prism');
+  assert.deepEqual(external,[]);
+  await restored.locator('[data-export-selected]').click();
+  await restored.waitForFunction(()=>window.glassDemo.shapes.at(-1).press>.3);
+  await restored.close();
+  record('Editor copies a runnable offline scene with the chosen geometry, label, preset and press effect');
   await ready(page);
   // Sample the actual rendered selector, rather than the CSS transition or its target.
   await page.waitForFunction(()=>window.glassDemo.shapes.some(s=>s.surface==='selection'));

@@ -1,6 +1,9 @@
 import { GlassScene, PRESETS } from '../assets/liquid-glass-renderer.js';
+import { mountButtonEditor } from './button-editor.js';
 
-let material = { ...PRESETS.apple, clearControls: true };
+const exportNode = document.querySelector('#glass-button-config');
+const exported = exportNode ? JSON.parse(exportNode.textContent) : null;
+let material = exported?.material ?? { ...PRESETS.apple, clearControls: true };
 const descriptions = {
   apple: 'Softens background detail and adds a light refractive edge.',
   clear: 'Keeps detail visible and dims the surrounding scene.',
@@ -12,12 +15,49 @@ const descriptions = {
 const scene = new GlassScene(document.querySelector('#scene'));
 const stage = document.querySelector('#stage');
 const root = document.querySelector('#controls');
-const status = document.querySelector('#status');
+if (exported) {
+  stage.style.width = exported.stage.width + 'px';
+  stage.style.height = exported.stage.height + 'px';
+  stage.style.backgroundImage = 'url("' + exported.backdrop + '")';
+}
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+let nextButtonId = 1;
+function shapeRadius(shape, width, height) {
+  const half = Math.min(width,height)/2;
+  if (shape === 'square') return 0;
+  if (shape === 'rounded') return Math.min(16,half);
+  return half;
+}
+function createEditableButton(config = {}) {
+  const button = document.createElement('button');
+  button.className = 'glass probe';
+  button.type = 'button';
+  button.dataset.buttonId = config.id ?? String(nextButtonId++);
+  button.dataset.shape = config.shape ?? 'circle';
+  button.toggleAttribute('data-export-selected',exported?.selected===button.dataset.buttonId);
+  setButtonText(button,config.text ?? '');
+  if (config.width != null) setButtonGeometry(button,button.dataset.shape,config.width,config.height);
+  if (config.x != null) {
+    button.style.left = config.x + 'px';
+    button.style.top = config.y + 'px';
+  }
+  return button;
+}
+function setButtonText(button,text) {
+  button.textContent = text;
+  button.setAttribute('aria-label',text || 'Glass button');
+}
+function setButtonGeometry(button,shape,width,height) {
+  button.dataset.shape = shape;
+  button.style.width = width + 'px';
+  button.style.height = height + 'px';
+  button.style.setProperty('--button-radius',shapeRadius(shape,width,height)+'px');
+}
 function makeScene() {
-  const circle = glass('probe', '', '', '');
-  circle.setAttribute('aria-label', 'Glass circle. Drag it or move it with the arrow keys.');
-  return [makeSwitch(true),makeSlider(35),makeSegment(0),circle];
+  const controls = exported?.controls;
+  const buttons = exported?.buttons.map(createEditableButton) ?? [createEditableButton()];
+  return [makeSwitch(controls?.switchOn ?? true),makeSlider(controls?.level ?? 35),
+    makeSegment(controls?.segment ?? 0),...buttons];
 }
 function makeSwitch(on) {
   const button = document.createElement('button');
@@ -31,7 +71,6 @@ function makeSwitch(on) {
   const commit = next => {
     on = next;
     button.setAttribute('aria-checked', String(on));
-    status.textContent = on ? 'Switch on.' : 'Switch off.';
     followTransition();
   };
   let gesture, skipPointerClick = false;
@@ -155,7 +194,6 @@ function makeSegment(selected) {
       buttons.forEach((item,i)=>item.setAttribute('aria-pressed',String(index===i)));
       schedule();
     }
-    status.textContent=names[index]+' selected.';
   }
   segment.style.setProperty('--selection-offset', (selected * 100 / 3) + '%');
   segment.append(...buttons);
@@ -166,7 +204,8 @@ function makeSlider(value) {
   piece.removeAttribute('tabindex');
   piece.removeAttribute('aria-label');
   const input = piece.querySelector('input');
-  input.addEventListener('input', () => { status.textContent = `Level ${input.value}.`; schedule(); });
+  input.value = value;
+  input.addEventListener('input', schedule);
   return piece;
 }
 
@@ -188,11 +227,13 @@ let transitionUntil = 0;
 const presses = new WeakMap();
 function showScene() {
   root.replaceChildren(...makeScene());
-  status.textContent = 'Drag the circle over a glass knob, then over its track.';
   pieces = [...root.children];
-  pieces.forEach(piece => presses.set(piece, { x: 0, y: 0, scale: 0, sx: 0, sy: 0, tx: 0, ty: 0, lens: piece.matches('.probe'), base: piece.style.transform }));
+  pieces.forEach(initPiece);
   bind();
   schedule();
+}
+function initPiece(piece) {
+  presses.set(piece,{x:0,y:0,scale:0,sx:0,sy:0,tx:0,ty:0,base:piece.style.transform});
 }
 function activePress(piece, now) {
   if (presses.get(piece).tapUntil > now) return 1;
@@ -292,12 +333,13 @@ function draw() {
       }
       return surface;
     }
-    const grow = 1 + press * (state.lens ? .30 : .15);
+    const isCircle = piece.dataset.shape === 'circle';
+    const grow = 1 + press * (isCircle ? .30 : .15);
     const geometry = boxFor(rect);
     geometry.width *= grow;
     geometry.height *= grow;
-    const radius = Math.min(geometry.width,geometry.height)/2;
-    return liquidSurface({...geometry,radius},state.lens ? {surface:'lens'} : {});
+    const radius = shapeRadius(piece.dataset.shape,geometry.width,geometry.height);
+    return liquidSurface({...geometry,radius},isCircle ? {surface:'lens'} : {});
   });
   if (opaque) return;
   scene.setSliderTrack(track);
@@ -356,8 +398,8 @@ function movePiece(piece, x, y) {
   piece.style.transform = `translate(${x}px, ${y}px) ${state.base}`;
   schedule();
 }
-function bind() {
-  for (const piece of pieces) {
+function bind(targets = pieces) {
+  for (const piece of targets) {
     piece.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
       if (piece.matches('.switch, .slider, .segment') || event.target.closest('input')) return;
@@ -367,8 +409,8 @@ function bind() {
       state.tapUntil = 0;
       state.contactX = event.clientX;
       state.contactY = event.clientY;
-      drag = { piece, innerButton, moved: false, pointerId: event.pointerId, x: event.clientX, y: event.clientY, originX: state.x, originY: state.y, lastX: event.clientX, lastY: event.clientY, time: performance.now() };
-      if (event.pointerId && !innerButton) piece.setPointerCapture(event.pointerId);
+      drag = { piece, innerButton: innerButton !== piece ? innerButton : null, moved: false, pointerId: event.pointerId, x: event.clientX, y: event.clientY, originX: state.x, originY: state.y, lastX: event.clientX, lastY: event.clientY, time: performance.now() };
+      if (event.pointerId && !drag.innerButton) piece.setPointerCapture(event.pointerId);
       startPress();
     });
     piece.addEventListener('pointermove', event => {
@@ -402,7 +444,7 @@ function bind() {
       if (drag?.piece !== piece || drag.pointerId !== event.pointerId) return;
       const state = presses.get(piece);
       state.skipClick = drag.moved;
-      if (state.lens && event.type === 'pointerup' && !drag.moved && !reduced.matches) {
+      if (piece.matches('.probe') && event.type === 'pointerup' && !drag.moved && !reduced.matches) {
         state.tapUntil = drag.time + 145;
       }
       drag = null;
@@ -416,6 +458,11 @@ function bind() {
         state.skipClick = false;
       }
     }, true);
+    if (piece.matches('.probe')) piece.addEventListener('click', event => {
+      if (event.detail !== 0 || reduced.matches) return;
+      presses.get(piece).tapUntil = performance.now()+145;
+      startPress();
+    });
     piece.addEventListener('pointerup', stopDrag);
     piece.addEventListener('pointercancel', stopDrag);
     piece.addEventListener('lostpointercapture', stopDrag);
@@ -428,7 +475,10 @@ function bind() {
       movePiece(piece, state.x + move[0], state.y + move[1]);
     });
   }
-  root.querySelectorAll('button, input').forEach(control => {
+  const controls = targets.flatMap(piece => piece.matches('.probe') ? [] : [
+    ...(piece.matches('button,input') ? [piece] : []), ...piece.querySelectorAll('button,input')
+  ]);
+  controls.forEach(control => {
     control.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
       const state = presses.get(control.closest('.glass'));
@@ -462,7 +512,7 @@ document.querySelector('#scene').addEventListener('glassfallback', schedule);
 window.addEventListener('resize', schedule);
 let sourceReady = false;
 const backdrop = new Image();
-backdrop.src = new URL('../assets/glass-grid.svg',import.meta.url).href;
+backdrop.src = exported?.backdrop ?? new URL('../assets/glass-grid.svg',import.meta.url).href;
 backdrop.decode().then(()=>{
   scene.setSource(backdrop);
   sourceReady = true;
@@ -479,7 +529,7 @@ function showPreset(key) {
   material = {...PRESETS[key],clearControls:true,presetOptics:key !== 'apple'};
   schedule();
 }
-for (const [key,preset] of Object.entries(PRESETS)) {
+for (const [key,preset] of exported ? [] : Object.entries(PRESETS)) {
   const button=document.createElement('button');
   button.type='button';
   button.dataset.preset=key;
@@ -487,6 +537,47 @@ for (const [key,preset] of Object.entries(PRESETS)) {
   button.addEventListener('click',()=>showPreset(key));
   options.append(button);
 }
-showPreset('apple');
+if (!exported) showPreset('apple');
 showScene();
+if (!exported) {
+  mountButtonEditor({
+    root, setButtonText, setButtonGeometry, schedule,
+    addButton() {
+      if (pieces.length >= 8) return null;
+      const offset = (pieces.length-4)*18;
+      const button = createEditableButton({
+        shape:'capsule',width:132,height:56,
+        x:Math.max(12,stage.clientWidth/2-66+offset),y:64+offset
+      });
+      root.append(button);
+      pieces.push(button);
+      initPiece(button);
+      bind([button]);
+      schedule();
+      return button;
+    },
+    snapshot(button) {
+      const stageBox = stage.getBoundingClientRect();
+      const buttons = pieces.filter(piece=>piece.matches('.probe')).map(piece=>{
+        const rect = piece.getBoundingClientRect();
+        return {
+          id:piece.dataset.buttonId,shape:piece.dataset.shape,text:piece.textContent,
+          x:rect.left-stageBox.left,y:rect.top-stageBox.top,width:rect.width,height:rect.height,
+          radius:shapeRadius(piece.dataset.shape,rect.width,rect.height)
+        };
+      });
+      return {
+        version:1, selected:button.dataset.buttonId,
+        stage:{width:stageBox.width,height:stageBox.height},
+        material:{...material},
+        controls:{
+          switchOn:root.querySelector('.switch').getAttribute('aria-checked')==='true',
+          level:root.querySelector('.slider input').valueAsNumber,
+          segment:[...root.querySelectorAll('.segment button')].findIndex(item=>item.getAttribute('aria-pressed')==='true')
+        },
+        buttons
+      };
+    }
+  });
+}
 window.glassDemo = { get available() { return scene.available; }, get material() { return { ...material }; }, get source() { return sourceReady; }, get slider() { const knob = scene.shapes.find(shape => shape.slider); return knob && { knob: { ...knob }, track: { ...scene.sliderTrack } }; }, get shapes() { return scene.shapes.map(shape => ({ ...shape })); }, get bases() { return structuredClone(scene.controlBases); } };
