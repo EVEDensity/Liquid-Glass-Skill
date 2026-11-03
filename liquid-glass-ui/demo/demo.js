@@ -159,10 +159,24 @@ function draw() {
   const box = stage.getBoundingClientRect();
   let track = null;
   const bases = {};
+  const now = performance.now();
+  let colorSettling = false;
   const shapes = pieces.map(piece => {
     const rect = piece.getBoundingClientRect();
     const state = presses.get(piece);
     const press = state?.scale || 0;
+    const motionAt = (x,y) => {
+      const elapsed = Math.max(8, now - (state.sampleTime ?? now));
+      const distance = state.sampleX == null ? 0 : Math.hypot(x-state.sampleX,y-state.sampleY);
+      const target = reduced.matches ? 0 : Math.min(1,distance / elapsed * 2.3);
+      const mix = 1 - Math.exp(-elapsed / (target > (state.motion || 0) ? 18 : 92));
+      state.motion = reduced.matches ? 0 : (state.motion || 0) + (target - (state.motion || 0)) * mix;
+      if (state.motion < .012 && target === 0) state.motion = 0;
+      colorSettling ||= state.motion > 0;
+      Object.assign(state,{sampleX:x,sampleY:y,sampleTime:now});
+      return state.motion;
+    };
+    const touch = press > 0 ? {contactX: state.contactX - box.left, contactY: state.contactY - box.top} : {};
     if (piece.matches('.slider')) {
       const input = piece.querySelector('input');
       const x = rect.left - box.left;
@@ -172,7 +186,7 @@ function draw() {
       track = { x, y, width: rect.width, height: 9, fillX };
       piece.style.setProperty('--thumb-x', (fillX - x) + 'px');
       const height = 39 + press * 12;
-      return { x: fillX, y, width: 60 + press * 44, height, radius: height / 2, press, slider: true };
+      return { x: fillX, y, width: 60 + press * 44, height, radius: height / 2, press, ...touch, motion: motionAt(fillX,y), slider: true };
     }
     const toggle = piece.matches('.switch');
     const segment = piece.matches('.segment');
@@ -184,7 +198,7 @@ function draw() {
       const knob = boxFor(piece.querySelector(toggle ? '.knob' : '.selection').getBoundingClientRect());
       knob.width += (toggle ? 30 : 23) * press;
       knob.height += 9 * press;
-      return { ...knob, radius: knob.height / 2, press, surface: toggle ? 'switch' : 'selection' };
+      return { ...knob, radius: knob.height / 2, press, ...touch, motion: motionAt(knob.x,knob.y), surface: toggle ? 'switch' : 'selection' };
     }
     const grow = 1 + press * .09;
     const geometry = boxFor(rect);
@@ -193,7 +207,7 @@ function draw() {
     return {
       ...geometry, x: geometry.x, y: geometry.y,
       radius: piece.matches('.card, .panel') ? Math.min(26, geometry.height / 2) : Math.min(geometry.width, geometry.height) / 2,
-      stretchX: state.sx, stretchY: state.sy, contactX: state.contactX - box.left, contactY: state.contactY - box.top, press
+      stretchX: state.sx, stretchY: state.sy, ...touch, motion: motionAt(geometry.x,geometry.y), press
     };
   });
   if (opaque) return;
@@ -202,6 +216,7 @@ function draw() {
   scene.setShapes(shapes);
   scene.setMaterial(material);
   scene.render();
+  if (colorSettling) schedule();
 }
 function schedule() { if (!frame) frame = requestAnimationFrame(draw); }
 let pressFrame = 0;
@@ -218,7 +233,7 @@ function animatePress(now) {
     const elapsed = state.lastFrame == null ? 16 : now - state.lastFrame;
     const ease = 1 - Math.exp(-elapsed / 56);
     state.scale = reduced.matches ? target : state.scale + (target - state.scale) * ease;
-    if (!drag || drag.piece !== piece || now - drag.time > 70 || reduced.matches) state.tx = state.ty = 0;
+    if (!drag || drag.piece !== piece || now - drag.time > 105 || reduced.matches) state.tx = state.ty = 0;
     // Damped spring: the tail lags the cursor, overshoots slightly, then settles.
     for (const [value, goal, velocity] of [['sx', 'tx', 'vx'], ['sy', 'ty', 'vy']]) {
       let speed = state[velocity] || 0;
@@ -317,7 +332,21 @@ function bind() {
     });
   }
   root.querySelectorAll('button, input').forEach(control => {
-    control.addEventListener('pointerdown', event => { if (event.button === 0) { control.classList.add('is-held'); startPress(); } });
+    control.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return;
+      const state = presses.get(control.closest('.glass'));
+      state.contactX = event.clientX;
+      state.contactY = event.clientY;
+      control.classList.add('is-held');
+      startPress();
+    });
+    control.addEventListener('pointermove', event => {
+      if (!control.classList.contains('is-held')) return;
+      const state = presses.get(control.closest('.glass'));
+      state.contactX = event.clientX;
+      state.contactY = event.clientY;
+      schedule();
+    });
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture', 'blur']) control.addEventListener(type, () => { control.classList.remove('is-held'); startPress(); });
   });
 }

@@ -104,7 +104,7 @@ Use `setControlBases({ toggle, segment })` for fixed sampled surfaces. The toggl
 
 Give the actual knob shapes `surface: 'switch'`, `slider: true`, or `surface: 'selection'`. The renderer blends both the contour and the material at a junction. An inactive track must not be added to `setShapes`. Its color still appears in a lens that crosses it. The demo's **Merge test** makes the difference visible on an original grid.
 
-Free glass can pass `stretchX` and `stretchY` in CSS pixels for deformation along the drag direction. Apply the stretch to the shader geometry around the actual control; do not scale its DOM translation. Drive stretch from pointer velocity and use a damped spring on release. The shader deforms the rear more than the leading face, keeping the hit area and labels anchored. Disable drag deformation under reduced motion.
+Free glass can pass `stretchX` and `stretchY` in CSS pixels for deformation along the drag direction. Apply the stretch to the shader geometry around the actual control; do not scale its DOM translation. Pass a normalized `motion` value from measured travel to add colored edge light only during movement. A stationary `press` still brightens and magnifies the lens. Drive stretch from pointer velocity and use a damped spring on release. The shader deforms the rear more than the leading face, keeping the hit area and labels anchored. Disable drag deformation under reduced motion.
 
 ## Dynamic sources
 

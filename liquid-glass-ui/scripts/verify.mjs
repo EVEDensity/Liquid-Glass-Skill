@@ -130,11 +130,13 @@ try {
     return t && Math.abs((t.fillX - t.x - 30) / (t.width - 60) - .36) < .001;
   });
   const sliderState = () => page.evaluate(() => window.glassDemo.slider);
+  await page.waitForFunction(() => window.glassDemo.slider?.knob.motion === 0);
   const rest = await sliderState();
   const origin = await page.locator('#scene').boundingBox();
   await page.mouse.move(origin.x + rest.knob.x, origin.y + rest.knob.y);
   await page.mouse.down();
   await page.waitForFunction(() => window.glassDemo.slider?.knob.press === 1);
+  assert.equal((await sliderState()).knob.motion, 0, 'Holding the same value must not add color');
   const held = await sliderState();
   assert.equal(held.knob.width, 104);
   assert.equal(held.knob.height, 51);
@@ -210,10 +212,27 @@ try {
       renderer.render();
       results.clearContrast.push(sample(110) - sample(120));
     }
+    ctx.fillStyle = '#646464';
+    ctx.fillRect(0,0,240,96);
+    renderer.setSource(source);
+    const optical = (press, motion, x) => {
+      renderer.setShapes([{x:120,y:48,width:80,height:52,radius:26,press,motion}]);
+      renderer.render();
+      const p = new Uint8Array(4);
+      gl.readPixels(x,47,1,1,gl.RGBA,gl.UNSIGNED_BYTE,p);
+      return [...p.slice(0,3)];
+    };
+    results.idleLight = optical(0,0,120)[0];
+    results.heldLight = optical(1,0,120)[0];
+    results.neutralRim = optical(1,0,82);
+    results.movingRim = optical(1,1,82);
     renderer.destroy(); canvas.remove();
     return results;
   });
   assert.equal(rail.error, 0);
+  assert.ok(rail.heldLight > rail.idleLight + 20, 'A stationary hold must visibly brighten the lens');
+  assert.equal(new Set(rail.neutralRim).size, 1, 'A stationary hold must not add chromatic tint');
+  assert.ok(Math.max(...rail.movingRim)-Math.min(...rail.movingRim)>10, 'Travel must add a visible colored rim');
   assert.ok(rail.clearBent > 25, 'Shared clear glass must still bend the track');
   assert.ok(rail.clearContrast.every(contrast => contrast > 70), 'Every resting control must reveal the grid through its center');
   assert.equal(rail.movedOutside, 0, 'Press changed the track outside the knob');
