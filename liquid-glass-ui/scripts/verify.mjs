@@ -152,6 +152,26 @@ try {
   await page.waitForFunction(x=>Math.abs(window.glassDemo.shapes.find(s=>s.surface==='selection').x-x)<.5,flow.start.x);
   await page.emulateMedia({reducedMotion:'no-preference'});
   record('Segment lens stretches, thins and settles while its track stays fixed');
+  const firstPeriod = page.getByRole('button',{name:'Day',exact:true});
+  const lastPeriod = page.getByRole('button',{name:'Month',exact:true});
+  const startButton = await firstPeriod.boundingBox();
+  const endButton = await lastPeriod.boundingBox();
+  await page.mouse.move(startButton.x+startButton.width/2,startButton.y+startButton.height/2);
+  await page.mouse.down();
+  await page.waitForFunction(()=>window.glassDemo.shapes.find(s=>s.surface==='selection').press===1);
+  const heldPeriod=await page.evaluate(()=>window.glassDemo.shapes.find(s=>s.surface==='selection'));
+  assert.ok(heldPeriod.width>=flow.start.width+45.5 && heldPeriod.height>=flow.start.height+15.5, JSON.stringify({heldPeriod,start:flow.start}));
+  await page.mouse.move(endButton.x+endButton.width/2-24,endButton.y+endButton.height/2,{steps:5});
+  await page.waitForFunction(x=>window.glassDemo.shapes.find(s=>s.surface==='selection').x>x+220,flow.start.x);
+  assert.equal(await firstPeriod.getAttribute('aria-pressed'),'true','The previous choice stays selected while dragging');
+  await page.mouse.up();
+  assert.equal(await lastPeriod.getAttribute('aria-pressed'),'true','Release should select the closest choice once');
+  await page.waitForFunction(x=>{
+    const s=window.glassDemo.shapes.find(s=>s.surface==='selection');
+    return s.press===0 && s.motion===0 && s.stretchX===0 && Math.abs(s.x-x)<.5;
+  },flow.end.x);
+  assert.deepEqual(await page.evaluate(()=>window.glassDemo.bases.segment),flow.base);
+  record('Segment glass follows a held drag and snaps to the nearest choice on release');
 
   await page.getByRole('button', { name: 'Slider', exact: true }).click();
   const range = page.getByRole('slider', { name: 'Glass level' });
@@ -171,8 +191,8 @@ try {
   await page.waitForFunction(() => window.glassDemo.slider?.knob.press === 1);
   assert.equal((await sliderState()).knob.motion, 0, 'Holding the same value must not add color');
   const held = await sliderState();
-  assert.equal(held.knob.width, 104);
-  assert.equal(held.knob.height, 51);
+  assert.equal(held.knob.width, 120);
+  assert.equal(held.knob.height, 58);
   assert.deepEqual(held.track, rest.track, 'Track moved or changed fill while holding the same value');
   assert.equal(held.knob.x, rest.knob.x);
   assert.equal(held.knob.y, rest.knob.y);

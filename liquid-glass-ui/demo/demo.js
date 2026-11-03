@@ -128,8 +128,12 @@ function makeSegment(selected) {
     const t = Math.max(0,Math.min(1,progress));
     return t*t*(3-2*t);
   };
+  let gesture;
+  let suppressClick = false;
   segment.selectionAt = now => {
-    const t = reduced.matches || !travel.duration ? 1 : Math.min(1,(now-travel.started)/travel.duration);
+    if (gesture?.moved) return {left:gesture.center-.5,right:gesture.center+.5,moving:false,dragging:true};
+    if (reduced.matches) travel.duration = 0;
+    const t = !travel.duration ? 1 : Math.min(1,(now-travel.started)/travel.duration);
     const leading = ease(t/.69);
     const trailing = ease((t-.22)/.78);
     const rightward = travel.to+.5 >= (travel.left+travel.right)/2;
@@ -143,19 +147,61 @@ function makeSegment(selected) {
     button.type = 'button';
     button.textContent = name;
     button.setAttribute('aria-pressed', String(index === selected));
-    button.addEventListener('click', () => {
-      buttons.forEach((item, i) => item.setAttribute('aria-pressed', String(index === i)));
-      if (index !== travel.to) {
-        const now = performance.now();
-        const { left, right } = segment.selectionAt(now);
-        const distance = Math.abs(index+.5-(left+right)/2);
-        travel = {left,right,to:index,started:now,duration:Math.min(500,350+distance*65)};
-        schedule();
+    button.addEventListener('click', event => {
+      if (event.detail && suppressClick) {
+        suppressClick = false;
+        return;
       }
-      status.textContent = name + ' selected.';
+      select(index);
     });
+    button.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      suppressClick = false;
+      if (index !== selected) return;
+      const {left,right}=segment.selectionAt(performance.now());
+      const center=(left+right)/2;
+      gesture={id:event.pointerId,start:event.clientX,origin:center,center,moved:false};
+    });
+    button.addEventListener('pointermove', event => {
+      if (gesture?.id !== event.pointerId) return;
+      if (!(event.buttons & 1)) { finish(event,true); return; }
+      const dx=event.clientX-gesture.start;
+      if (!gesture.moved) {
+        if (Math.abs(dx)<5) return;
+        gesture.moved=true;
+        button.setPointerCapture(event.pointerId);
+      }
+      const cell=segment.getBoundingClientRect().width/3;
+      gesture.center=Math.max(.5,Math.min(2.5,gesture.origin+dx/cell));
+      schedule();
+    });
+    const finish = (event,cancelled) => {
+      if (gesture?.id !== event.pointerId) return;
+      const preview=gesture;
+      gesture=undefined;
+      if (!preview.moved) return;
+      suppressClick=true;
+      select(cancelled ? selected : Math.floor(preview.center),{
+        left:preview.center-.5,right:preview.center+.5
+      });
+    };
+    button.addEventListener('pointerup', event=>finish(event,false));
+    button.addEventListener('pointercancel', event=>finish(event,true));
+    button.addEventListener('lostpointercapture', event=>finish(event,true));
     return button;
   });
+  function select(index, preview) {
+    if (preview || index !== selected) {
+      const now=performance.now();
+      const {left,right}=preview ?? segment.selectionAt(now);
+      const distance=Math.abs(index+.5-(left+right)/2);
+      travel={left,right,to:index,started:now,duration:Math.min(500,350+distance*65)};
+      selected=index;
+      buttons.forEach((item,i)=>item.setAttribute('aria-pressed',String(index===i)));
+      schedule();
+    }
+    status.textContent=names[index]+' selected.';
+  }
   segment.style.setProperty('--selection-offset', (selected * 100 / 3) + '%');
   segment.append(...buttons);
   return segment;
@@ -234,15 +280,23 @@ function draw() {
     };
     const liquidSurface = (geometry, extra = {}) => {
       const dx = state.sampleX == null ? 0 : geometry.x-state.sampleX;
+      const elapsed = Math.max(8,Math.min(45,now-(state.sampleTime ?? now)));
       const motion = motionAt(geometry.x,geometry.y);
-      // Moving selectors leave a short tail, while their native track stays fixed.
-      if (extra.slider || extra.surface === 'switch') {
-        const target = reduced.matches ? 0 : Math.max(-21,Math.min(21,dx*1.5));
-        state.knobTail = (state.knobTail || 0) + (target-(state.knobTail || 0))*.42;
+      const canTrail = extra.slider || extra.surface === 'switch' || (extra.surface === 'selection' && (extra.dragging || state.knobTail));
+      if (canTrail) {
+        const target = reduced.matches || (extra.surface === 'selection' && !extra.dragging)
+          ? 0 : Math.max(-32,Math.min(32,dx/elapsed*28));
+        const tail = state.knobTail || 0;
+        const response = 1-Math.exp(-elapsed/(Math.abs(target)>Math.abs(tail)?29:66));
+        state.knobTail = tail+(target-tail)*response;
         if (reduced.matches || Math.abs(state.knobTail)<.16) state.knobTail=0;
         colorSettling ||= state.knobTail!==0;
       }
-      return {...geometry,...extra,...touch,press,motion,stretchX:extra.slider||extra.surface==='switch' ? state.knobTail : state.sx,stretchY:state.sy};
+      const stretchX = canTrail ? state.knobTail : state.sx;
+      // Narrow the cross-section as the tail extends, then restore it as motion decays.
+      const height = geometry.height - (canTrail ? Math.min(9,Math.abs(stretchX)*.29) : 0);
+      const radius = Math.min(geometry.radius,height/2);
+      return {...geometry,height,radius,...extra,...touch,press,motion,stretchX,stretchY:state.sy};
     };
     const touch = press > 0 ? {contactX: state.contactX - box.left, contactY: state.contactY - box.top} : {};
     if (piece.matches('.slider')) {
@@ -253,8 +307,8 @@ function draw() {
       const fillX = x + 30 + (rect.width - 60) * fraction;
       track = { x, y, width: rect.width, height: 9, fillX };
       piece.style.setProperty('--thumb-x', (fillX - x) + 'px');
-      const height = 39 + press * 12;
-      return liquidSurface({ x: fillX, y, width: 60 + press * 44, height, radius: height / 2 },{slider:true});
+      const height = 39 + press * 19;
+      return liquidSurface({ x: fillX, y, width: 60 + press * 60, height, radius: height / 2 },{slider:true});
     }
     const toggle = piece.matches('.switch');
     const segment = piece.matches('.segment');
@@ -264,16 +318,19 @@ function draw() {
       if (toggle) bases.toggle = { ...base, on: piece.getAttribute('aria-checked') === 'true' };
       else bases.segment = base;
       let knob;
+      let dragging = false;
       if (toggle) {
         knob = boxFor(piece.querySelector('.knob').getBoundingClientRect());
-        knob.width += 24*press;
-        knob.height += 9*press;
+        knob.width += 42*press;
+        knob.height += 16*press;
       } else {
-        const {left,right,moving} = piece.selectionAt(now);
+        const selection = piece.selectionAt(now);
+        const {left,right,moving} = selection;
+        dragging = selection.dragging;
         const extension = Math.max(0,right-left-1);
         const cell = rect.width/3;
-        const width = Math.max(24,(right-left)*cell-6) + 27*press;
-        const height = 52 + 9*press - Math.min(9,extension*9);
+        const width = Math.max(24,(right-left)*cell-6) + 46*press;
+        const height = 52 + 16*press - Math.min(9,extension*9);
         const center = (left+right)*cell/2;
         knob = {x:rect.left-box.left+center,y:base.y,width,height};
         piece.style.setProperty('--selection-offset', (center-width/2-3) + 'px');
@@ -281,11 +338,11 @@ function draw() {
         piece.style.setProperty('--selection-height', height + 'px');
         if (moving) schedule();
       }
-      const surface = liquidSurface({...knob,radius:knob.height/2},{surface:toggle?'switch':'selection'});
+      const surface = liquidSurface({...knob,radius:knob.height/2},{surface:toggle?'switch':'selection',dragging});
       if (segment) piece.style.setProperty('--selection-ink', Math.max(press,surface.motion) > .58 ? '#fff' : '#202427');
       return surface;
     }
-    const grow = 1 + press * .09;
+    const grow = 1 + press * .15;
     const geometry = boxFor(rect);
     geometry.width *= grow;
     geometry.height *= grow;
