@@ -100,12 +100,13 @@ float shapeDistance(vec2 p,int i){
   }
   return roundedBox(q,s.zw*.5,u_radii[i]);
 }
-vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out float movement){
+vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out float movement,out float junction){
   vec4 field=vec4(1e5,0.,0.,0.);
   dynamics=vec4(0.,0.,1.,0.);
   contact=vec2(0.);
   sliderPress=0.;
   movement=0.;
+  junction=0.;
   for(int i=0;i<8;i++){
     if(i>=u_count)break;
     vec4 shape=u_shapes[i];
@@ -123,7 +124,10 @@ vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out
     float h=clamp(.5+.5*(field.x-candidate)/k,0.,1.);
     float blend=clamp(.5+.5*(field.x-candidate)/(k*1.65),0.,1.);
     field.yzw=mix(field.yzw,material,blend);
-    field.x=mix(field.x,candidate,h)-k*h*(1.-h);
+    // The smooth union also describes how much liquid was drawn into the neck.
+    float thickness=k*h*(1.-h);
+    junction=mix(junction,0.,h)+thickness;
+    field.x=mix(field.x,candidate,h)-thickness;
     dynamics=mix(dynamics,motion,blend);
     contact=mix(contact,u_contact[i],blend);
     movement=mix(movement,u_motion[i],blend);
@@ -134,8 +138,8 @@ void main(){
   vec2 p=vec2(gl_FragCoord.x,u_size.y-gl_FragCoord.y);
   vec4 dynamics;
   vec2 contact;
-  float sliderPress,movement;
-  vec4 merged=fieldAt(p,dynamics,contact,sliderPress,movement);
+  float sliderPress,movement,junction;
+  vec4 merged=fieldAt(p,dynamics,contact,sliderPress,movement,junction);
   float field=merged.x,scale=dynamics.z,press=dynamics.w;
   vec2 centre=dynamics.xy;
   float contactRadius=max(30.,scale*62.);
@@ -151,9 +155,21 @@ void main(){
     vec2 pull=(p-centre)*press*.09;
     float knob=clamp(merged.y+merged.z+merged.w,0.,1.);
     float engagement=1.-(1.-press)*(1.-smoothstep(.025,.44,movement));
-    vec3 clear=liquidLens(p-pull,n,field,engagement,true);
+    float neck=smoothstep(.10,2.2,junction);
+    float neckDepth=1.-smoothstep(12.,31.,depth);
+    float join=neck*neckDepth;
+    float envelope=smoothstep(0.,3.,depth)*(1.-smoothstep(12.,29.,depth));
+    // Bend the sampled backdrop around the new common contour, including fixed rails.
+    vec2 neckBend=n*envelope*join*min(20.,u_refraction*.98);
+    vec3 clear=liquidLens(p-pull+neckBend,n,field,max(engagement,join*.82),true);
+    // Broaden the rim into a soft caustic that inherits the sampled light.
+    float innerFocus=smoothstep(.35,2.8,depth)*(1.-smoothstep(3.2,10.5,depth));
+    vec3 rimLight=sampleSoft(p-pull+neckBend+n*4.,1.7);
+    float facing=.45+.55*abs(dot(n,normalize(vec2(-.72,-.68))));
+    vec3 caustic=mix(rimLight,vec3(1.),.74);
+    clear=mix(clear,caustic,join*innerFocus*facing*.80);
     // The quiet surface is milky; stretching opens up a clear, thicker lens.
-    float milk=mix(.65,.92,knob)*(1.-smoothstep(0.,1.,engagement));
+    float milk=mix(.65,.92,knob)*(1.-smoothstep(0.,1.,engagement))*(1.-join*.80);
     vec3 ivory=mix(vec3(.98,.987,.98),base,.13);
     float innerRim=1.-smoothstep(.35,3.6,depth);
     ivory=mix(ivory,vec3(1.),innerRim*.85);

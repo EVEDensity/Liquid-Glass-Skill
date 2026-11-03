@@ -333,9 +333,27 @@ try {
     const outsideWithMerge = pixel(116, 56);
     scene.setControlBases(); scene.render();
     const noBase = pixel(108, 56);
+    // Two resting shapes, a fixed red track and identical geometry in both optical frames.
+    scene.setShapes([circle, {...knob,surface:'switch'}]);
+    scene.setControlBases({toggle:{x:140,y:41,width:105,height:38,on:true}});
+    scene.setMaterial({clearControls:true,merge:24,refraction:0});
+    const frame = () => {
+      const pixels = new Uint8Array(240*112*4);
+      scene.render();
+      gl.readPixels(0,0,240,112,gl.RGBA,gl.UNSIGNED_BYTE,pixels);
+      return pixels;
+    };
+    const neutral=frame();
+    scene.setMaterial({refraction:18});
+    const optical=frame();
+    let neckChanges=0;
+    for(let y=46;y<=61;y++) for(let x=90;x<=94;x++){
+      const i=((111-y)*240+x)*4;
+      if(Math.abs(neutral[i]-optical[i])+Math.abs(neutral[i+1]-optical[i+1])+Math.abs(neutral[i+2]-optical[i+2])>18)neckChanges++;
+    }
     const error = gl.getError();
     scene.destroy(); canvas.remove();
-    return { results, baseOn, baseOff, outsideWithBase, outsideWithMerge, noBase, error };
+    return { results, baseOn, baseOff, outsideWithBase, outsideWithMerge, noBase, neckChanges, error };
   });
   assert.equal(fusion.error, 0);
   for (const [part, difference] of Object.entries(fusion.results)) assert.ok(difference > 10, part + ' failed to form a visible bridge (' + difference + ')');
@@ -343,6 +361,8 @@ try {
   assert.deepEqual(fusion.outsideWithMerge, fusion.outsideWithBase);
   assert.ok(fusion.baseOn[0] > fusion.noBase[0] + 35, 'The non-merging switch base should still tint the glass');
   record('Only glass surfaces form a bridge; a fixed control base still colors the glass');
+  assert.ok(fusion.neckChanges > 5, 'A joined outline must bend the sampled base at the neck (' + fusion.neckChanges + ' changed pixels)');
+  record('Joined glass optically bends the fixed base at its neck');
 
 
   // Controlled checkerboard fixture proves refraction changes pixels, not just labels.
