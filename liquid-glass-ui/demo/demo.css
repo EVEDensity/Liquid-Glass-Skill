@@ -1,7 +1,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "Segoe UI", sans-serif; }
-#stage { position: relative; min-height: 100svh; overflow: hidden; background: #9db8a4 url('../assets/glass-backdrop.svg') center/cover; }
+#stage { position: relative; min-height: 100svh; overflow: hidden; background: #dcecc4 url('../assets/glass-backdrop.svg') center/contain no-repeat; }
 #scene { position: absolute; inset: 0; width: 100%; height: 100%; }
 #controls { position: absolute; inset: 0; }
 .glass { position: absolute; display: flex; align-items: center; justify-content: center; color: #17321f; background: transparent; border: 0; padding: 0; touch-action: none; cursor: grab; }
@@ -12,15 +12,15 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
 .card .text { display: flex; flex-direction: column; } .card small { opacity: .72; }
 .dock { width: min(268px, calc(100vw - 120px)); height: 62px; justify-content: space-around; }
 .dock button, .search, .mini button { width: 44px; height: 44px; }
-.search, .lens { width: 62px; height: 62px; }
-.lens { width: min(210px, 48vw); height: min(210px, 48vw); }
+.search { width: 62px; height: 62px; }
+.lens { width: min(168px, 28vw); height: min(168px, 28vw); }
 .mini { width: 112px; height: 48px; justify-content: space-around; }
-.panel { width: min(340px, calc(100vw - 40px)); height: min(220px, 42vh); align-items: flex-start; padding: 28px; }
+.panel { width: min(330px, 48vw); height: min(190px, 30vh); border-radius: 34px; }
 .panel .text { display: flex; flex-direction: column; gap: 4px; } .panel strong { font-size: 18px; }
-.pill { width: 118px; height: 48px; gap: 8px; }
-.switch { width: 92px; height: 42px; border-radius: 999px; background: #d85a49; transition: background-color 240ms ease; }
+.pill { width: min(250px, 36vw); height: 74px; }
+.switch { width: 112px; height: 54px; border-radius: 999px; background: #e25b49; transition: background-color 240ms ease; }
 .switch[aria-pressed="true"] { background: #8d978f; }
-.knob { width: 34px; height: 34px; border-radius: 50%; background: #fff7f4; translate: 24px 0; transition: translate 240ms cubic-bezier(.2,.8,.2,1); }
+.knob { width: 42px; height: 42px; border-radius: 50%; background: #fff4f1; translate: 28px 0; transition: translate 240ms cubic-bezier(.2,.8,.2,1); }
 .switch[aria-pressed="true"] .knob { translate: -24px 0; }
 .slider { width: min(280px, calc(100vw - 64px)); height: 44px; }
 .slider input { width: 100%; accent-color: white; }

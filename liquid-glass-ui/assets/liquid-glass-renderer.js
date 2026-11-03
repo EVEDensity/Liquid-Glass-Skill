@@ -22,10 +22,21 @@ float roundedBox(vec2 p, vec2 halfSize, float radius){
   return length(max(q,0.))+min(max(q.x,q.y),0.)-radius;
 }
 vec2 coverUV(vec2 p){
-  float scale=max(u_size.x/u_sourceSize.x,u_size.y/u_sourceSize.y);
-  return clamp((p-u_size*.5)/(u_sourceSize*scale)+.5,vec2(.001),vec2(.999));
+  vec2 fitted=vec2(u_sourceSize.x/u_sourceSize.y*u_size.y,u_size.y);
+  if(fitted.x<u_size.x)fitted=vec2(u_size.x,u_sourceSize.y/u_sourceSize.x*u_size.x);
+  return clamp((p-u_size*.5)/fitted+.5,vec2(.001),vec2(.999));
 }
 vec3 sampleAt(vec2 p){return texture(u_source,coverUV(p)).rgb;}
+float fieldAt(vec2 point){
+  float field=1e5;
+  for(int i=0;i<12;i++){
+    if(i>=u_count)break;
+    vec4 s=u_shapes[i];float candidate=roundedBox(point-s.xy,s.zw*.5,u_radii[i]);
+    float k=max(u_merge,0.);float h=clamp(.5+.5*(field-candidate)/max(k,.001),0.,1.);
+    field=mix(field,candidate,h)-k*h*(1.-h);
+  }
+  return field;
+}
 vec2 normalFor(vec2 q, vec2 halfSize, float radius){
   float e=.75;
   vec2 n=vec2(roundedBox(q+vec2(e,0),halfSize,radius)-roundedBox(q-vec2(e,0),halfSize,radius),roundedBox(q+vec2(0,e),halfSize,radius)-roundedBox(q-vec2(0,e),halfSize,radius));
@@ -33,17 +44,21 @@ vec2 normalFor(vec2 q, vec2 halfSize, float radius){
 }
 void main(){
   vec2 p=vec2(gl_FragCoord.x,u_size.y-gl_FragCoord.y);
-  float field=1e5,d=1e5,scale=1.,press=0.;vec2 centre=vec2(0.),halfSize=vec2(1.);float radius=1.;
+  float field=1e5,d=1e5,scale=1.,press=0.;vec2 centre=vec2(0.),halfSize=vec2(1.),gradient=vec2(0.);float radius=1.;
   for(int i=0;i<12;i++){
     if(i>=u_count)break;
     vec4 s=u_shapes[i];float candidate=roundedBox(p-s.xy,s.zw*.5,u_radii[i]);
     float k=max(u_merge,0.);float h=clamp(.5+.5*(field-candidate)/max(k,.001),0.,1.);
     field=mix(field,candidate,h)-k*h*(1.-h); // smooth union lets nearby shapes melt together
-    if(candidate<d){d=candidate;centre=s.xy;halfSize=s.zw*.5;radius=u_radii[i];scale=u_sizeScale>0.?clamp(min(s.z,s.w)/100.,.75,1.8):1.;press=u_press[i];}
+    if(candidate<d){d=candidate;centre=s.xy;halfSize=s.zw*.5;radius=u_radii[i];scale=u_sizeScale>0.?clamp(min(s.z,s.w)/140.,.8,1.55):1.;press=u_press[i];}
+  }
+  {
+    float e=1.;
+    gradient=vec2(fieldAt(p+vec2(e,0.))-fieldAt(p-vec2(e,0.)),fieldAt(p+vec2(0.,e))-fieldAt(p-vec2(0.,e)));
   }
   vec3 base=sampleAt(p);
   if(field>2.){float shadow=exp(-max(field,0.)/15.)*u_shadow*.5;color=vec4(base*(1.-shadow),1.);return;}
-  vec2 q=p-centre,n=normalFor(q,halfSize,radius);
+  vec2 q=p-centre,n=length(gradient)>.001?normalize(gradient):normalFor(q,halfSize,radius);
   float edge=1.-smoothstep(0.,max(u_bezel*scale*(1.+press*.25),1.),max(-field,0.));
   float profile=u_edge>0.?edge*(1.-edge*edge):edge*edge;
   vec2 bend=n*u_refraction*scale*(1.+press*.45)*profile;
@@ -59,12 +74,13 @@ void main(){
   lens=mix(vec3(luma),lens,u_vibrancy);
   lens+=u_brightness;
   vec3 below=soft;
-  lens=mix(lens,below,u_pickup*.35);
+  vec3 picked=mix(vec3(luma),below,1.35);
+  lens=mix(lens,picked,clamp(u_pickup,0.,1.));
   lens=mix(lens,u_tint,u_tintAmount);
-  lens=mix(lens,vec3(luma+.08),u_frost);
+  lens=mix(lens,vec3(luma),clamp(u_frost*.2,0.,.25));
   vec2 light=vec2(cos(radians(u_lightAngle)),sin(radians(u_lightAngle)));
-  float facing=dot(n,light),rim=exp(-abs(field+.6)/max(u_rimWidth,0.3));
-  lens+=rim*u_specular*(.15+pow(max(facing,0.),2.)*.75+pow(max(-facing,0.),3.)*.25);
+  float facing=dot(n,light),rim=smoothstep(2.2,0.,abs(field));
+  lens+=rim*u_specular*(.18+pow(max(facing,0.),1.5)*.85);
   lens+=press*.08;
   float dark=step(luma,.42),lightMode=step(luma,.58);
   float autoMode=mix(lightMode,dark,smoothstep(.3,.62,luma));
@@ -77,7 +93,7 @@ void main(){
 }`;
 
 export const PRESETS = {
-  apple: { name: 'Apple Liquid Glass', refraction: 18, bezel: 20, magnify: 1, dispersion: 0.04, edge: 'convex', sizeScale: true, blur: 6, frost: 0.1, vibrancy: 1.35, brightness: 0.02, dim: 0, appearance: 'auto', pickup: 0.35, tintAmount: 0, tint: '#e8593c', specular: 0.7, rimWidth: 1.4, lightAngle: -135, shadow: 0.3, merge: 10, interactive: true },
+  apple: { name: 'Apple Liquid Glass', refraction: 32, bezel: 38, magnify: 1.06, dispersion: 0.16, edge: 'convex', sizeScale: true, blur: 8, frost: 0.02, vibrancy: 1.45, brightness: 0.05, dim: 0, appearance: 'auto', pickup: 0.58, tintAmount: 0, tint: '#e8593c', specular: 1.15, rimWidth: 1.4, lightAngle: -135, shadow: 0.18, merge: 46, interactive: true },
   clear: { name: 'Apple clear', refraction: 18, bezel: 16, magnify: 1, dispersion: 0.05, edge: 'convex', sizeScale: true, blur: 0.5, frost: 0.02, vibrancy: 1.1, brightness: 0, dim: 0.35, appearance: 'light', pickup: 0.1, tintAmount: 0, tint: '#e8593c', specular: 0.65, rimWidth: 1.4, lightAngle: -135, shadow: 0.18, merge: 10, interactive: true },
   thick: { name: 'Thick lens', refraction: 46, bezel: 44, magnify: 1.28, dispersion: 0.12, edge: 'convex', sizeScale: false, blur: 0, frost: 0, vibrancy: 1.05, brightness: 0.02, dim: 0, appearance: 'light', pickup: 0, tintAmount: 0, tint: '#e8593c', specular: 0.8, rimWidth: 2.2, lightAngle: -135, shadow: 0.45, merge: 24, interactive: true },
   frosted: { name: 'Frosted', refraction: 8, bezel: 12, magnify: 1, dispersion: 0, edge: 'convex', sizeScale: true, blur: 22, frost: 0.3, vibrancy: 1.4, brightness: 0.04, dim: 0, appearance: 'auto', pickup: 0.6, tintAmount: 0, tint: '#e8593c', specular: 0.35, rimWidth: 1, lightAngle: -135, shadow: 0.25, merge: 14, interactive: true },

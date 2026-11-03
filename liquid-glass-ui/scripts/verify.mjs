@@ -42,10 +42,13 @@ try {
   record('WebGL2 source loaded and shader linked');
   const screenshot = resolve(evidence, 'demo-desktop.png');
   await page.screenshot({ path: screenshot, fullPage: true });
-  assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 18);
-  assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 10);
-  assert.equal(await page.locator('.glass').count(), 4);
-  record('Controls layout renders four glass pieces');
+  assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 32);
+  assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 46);
+  assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .58);
+  assert.equal(await page.locator('#controls > .glass').count(), 6);
+  record('Scene layout renders the combined glass pieces');
+  await page.locator('#layouts [data-layout="controls"]').click();
+  await page.waitForFunction(() => window.glassDemo.layout === 'controls');
   const search = page.locator('.search');
   const before = await search.boundingBox();
   await search.focus();
@@ -163,7 +166,8 @@ try {
   const fallbackPage=await fallback.newPage();await ready(fallbackPage);
   assert.equal(await fallbackPage.evaluate(() => window.glassDemo.available), false);
   assert.equal(await fallbackPage.locator('#scene').isHidden(), true);
-  await fallbackPage.locator('.card').waitFor();
+  await fallbackPage.locator('#layouts [data-layout="controls"]').click();
+  await fallbackPage.locator('.dock').waitFor();
   assert.equal(await fallbackPage.locator('.dock button').count(), 3);
   record('WebGL unavailable: controls remain usable');
   await fallback.close();

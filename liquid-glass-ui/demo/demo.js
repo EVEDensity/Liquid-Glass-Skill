@@ -16,6 +16,16 @@ const icons = {
   more: '<circle cx="6" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="18" cy="12" r="1.2" fill="currentColor"/>'
 };
 const layouts = {
+  scene() {
+    return [
+      glass('lens', '', '9%', '18%'),
+      glass('switch', '<span class="knob"></span>', '39%', '27%'),
+      glass('slider', '<input aria-label="Glass level" type="range" min="0" max="100" value="28">', '12%', '57%'),
+      glass('panel', '', '43%', '43%'),
+      glass('pill', '', '68%', '34%'),
+      glass('segment', ['Day', 'Week', 'Month'].map((name, index) => `<button type="button" aria-pressed="${index === 0}">${name}</button>`).join(''), '16%', '76%')
+    ];
+  },
   controls() {
     return [
       glass('card', `${icon(icons.play, 'Play')}<span class="text"><strong>A good machine</strong><small>makes room</small></span>`, '34%', '43%'),
@@ -159,5 +169,5 @@ scene.setMaterial(PRESETS.apple);
 const image = new Image();
 image.src = new URL('../assets/glass-backdrop.svg', import.meta.url).href;
 image.decode().then(() => { scene.setSource(image); schedule(); }).catch(() => { scene.available = false; schedule(); });
-show('controls');
+show('scene');
 window.glassDemo = { get available() { return scene.available; }, get material() { return { ...PRESETS.apple }; }, get source() { return image.complete; }, get layout() { return document.querySelector('[data-layout][aria-pressed="true"]').dataset.layout; } };
