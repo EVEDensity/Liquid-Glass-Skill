@@ -19,11 +19,11 @@ const layouts = {
   scene() {
     return [
       glass('lens', '', '9%', '18%'),
-      glass('switch', '<span class="knob"></span>', '39%', '27%'),
-      glass('slider', '<input aria-label="Glass level" type="range" min="0" max="100" value="28">', '12%', '57%'),
+      glass('switch', '<span class="track"></span><span class="knob"></span>', '39%', '27%'),
+      glass('slider', '<span class="track"></span><span class="thumb"></span><input aria-label="Glass level" type="range" min="0" max="100" value="28">', '12%', '57%'),
       glass('panel', '', '43%', '43%'),
       glass('pill', '', '68%', '34%'),
-      glass('segment', ['Day', 'Week', 'Month'].map((name, index) => `<button type="button" aria-pressed="${index === 0}">${name}</button>`).join(''), '16%', '76%')
+      glass('segment', '<span class="selection"></span>' + ['Day', 'Week', 'Month'].map((name, index) => `<button type="button" aria-pressed="${index === 0}">${name}</button>`).join(''), '16%', '76%')
     ];
   },
   controls() {
@@ -52,13 +52,17 @@ const layouts = {
   ios() {
     const toggle = document.createElement('button');
     toggle.className = 'glass switch'; toggle.type = 'button'; toggle.setAttribute('aria-pressed', 'false'); toggle.setAttribute('aria-label', 'Glass setting'); toggle.style.left = 'calc(50% - 46px)'; toggle.style.top = '34%';
-    toggle.innerHTML = '<span class="knob"></span>';
+    toggle.innerHTML = '<span class="track"></span><span class="knob"></span>';
     toggle.addEventListener('click', () => { const on = toggle.getAttribute('aria-pressed') === 'true'; toggle.setAttribute('aria-pressed', String(!on)); status.textContent = on ? 'Switch off.' : 'Switch on.'; });
-    const slider = glass('slider', '<input aria-label="Glass level" type="range" min="0" max="100" value="35">', '50%', '49%');
+    const slider = glass('slider', '<span class="track"></span><span class="thumb"></span><input aria-label="Glass level" type="range" min="0" max="100" value="35">', '50%', '49%');
+    const thumb = slider.querySelector('.thumb');
+    const placeThumb = () => { const input = slider.querySelector('input'); thumb.style.translate = `${18 + (slider.clientWidth - 94) * input.value / 100}px 0`; };
+    slider.querySelector('input').addEventListener('input', placeThumb);
     slider.querySelector('input').addEventListener('input', event => { status.textContent = `Level ${event.target.value}.`; });
     const segment = document.createElement('div'); segment.className = 'glass segment'; segment.style.left = 'calc(50% - 160px)'; segment.style.top = '63%'; segment.setAttribute('role', 'group'); segment.setAttribute('aria-label', 'Period');
-    segment.innerHTML = ['Day', 'Week', 'Month'].map((name, index) => `<button type="button" aria-pressed="${index === 0}">${name}</button>`).join('');
-    segment.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { segment.querySelectorAll('button').forEach(item => item.setAttribute('aria-pressed', String(item === button))); status.textContent = `${button.textContent} selected.`; }));
+    segment.innerHTML = '<span class="selection"></span>' + ['Day', 'Week', 'Month'].map((name, index) => `<button type="button" aria-pressed="${index === 0}">${name}</button>`).join('');
+    const selection = segment.querySelector('.selection');
+    segment.querySelectorAll('button').forEach((button, index) => button.addEventListener('click', () => { segment.querySelectorAll('button').forEach(item => item.setAttribute('aria-pressed', String(item === button))); selection.style.translate = `${index * 100}% 0`; status.textContent = `${button.textContent} selected.`; }));
     return [toggle, slider, segment];
   }
 };
@@ -133,7 +137,8 @@ function movePiece(piece, x, y) {
 function bind() {
   for (const piece of pieces) {
     piece.addEventListener('pointerdown', event => {
-      if (event.button !== 0 || event.target.closest('button, input') || event.target.closest('#layouts')) return;
+      if (event.button !== 0 || event.target.closest('#layouts')) return;
+      if (event.target.closest('button, input') && !piece.matches('.switch, .segment')) return;
       const state = presses.get(piece);
       drag = { piece, pointerId: event.pointerId, x: event.clientX, y: event.clientY, originX: state.x, originY: state.y };
       if (event.pointerId) piece.setPointerCapture(event.pointerId);

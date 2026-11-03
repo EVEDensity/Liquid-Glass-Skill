@@ -98,11 +98,11 @@ try {
     if (!slider) throw new Error('layout=' + window.glassDemo.layout + ' children=' + document.querySelector('#controls').childElementCount);
     slider.value = '70';
     slider.dispatchEvent(new Event('input', { bubbles: true }));
-    document.querySelector('.segment button:nth-child(2)').click();
+    document.querySelectorAll('.segment button')[1].click();
     return {
       toggle: toggle.getAttribute('aria-pressed'),
       status: document.querySelector('#status').textContent,
-      week: document.querySelector('.segment button:nth-child(2)').getAttribute('aria-pressed')
+      week: document.querySelectorAll('.segment button')[1].getAttribute('aria-pressed')
     };
   });
   assert.equal(interaction.toggle, 'true');
