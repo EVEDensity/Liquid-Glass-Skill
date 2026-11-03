@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "liquid-glass-demo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["liquid-glass-ui/scripts/serve.mjs"],
+      "port": 4173
+    }
+  ]
+}

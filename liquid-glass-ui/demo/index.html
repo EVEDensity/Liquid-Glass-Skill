@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Liquid Glass UI · Interactive playground</title>
+  <link rel="stylesheet" href="./demo.css">
+</head>
+<body>
+  <main id="stage">
+    <canvas id="scene" aria-hidden="true"></canvas>
+    <header>
+      <a class="wordmark" href="./index.html" aria-label="Liquid Glass UI home">Liquid Glass UI</a>
+      <button class="icon-button" id="theme" type="button" aria-label="Switch to light theme"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
+    </header>
+    <section class="copy">
+      <p>Drag any piece of glass. Bring them close and they melt together.</p>
+      <h1>Light finds an edge.</h1>
+    </section>
+    <div class="glass-control card" data-glass tabindex="0" aria-label="Draggable glass card. Use arrow keys to move it."><strong>A good machine</strong><span>makes room</span></div>
+    <div class="glass-control dock" data-glass tabindex="0" aria-label="Draggable glass dock. Use arrow keys to move it.">
+      <button type="button" aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7M6 10v9h12v-9"/></svg></button>
+      <button type="button" aria-label="Grid"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></button>
+      <button type="button" aria-label="Signal"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8 8a5.6 5.6 0 0 0 0 8M16 8a5.6 5.6 0 0 1 0 8"/></svg></button>
+    </div>
+    <div class="glass-control search" data-glass tabindex="0" aria-label="Draggable search glass. Use arrow keys to move it."><button type="button" aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg></button></div>
+    <aside class="panel">
+      <h2>Preset</h2>
+      <div class="presets" role="group" aria-label="Glass presets">
+        <button type="button" data-preset="apple" aria-pressed="true">Apple Liquid Glass</button>
+        <button type="button" data-preset="clear">Apple clear</button>
+        <button type="button" data-preset="thick">Thick lens</button>
+        <button type="button" data-preset="frosted">Frosted</button>
+        <button type="button" data-preset="plain">Plain lens</button>
+        <button type="button" data-preset="prism">Prism</button>
+      </div>
+      <pre id="preset-json" aria-label="Current preset JSON"></pre>
+      <button class="solid-button" id="copy" type="button">Copy preset</button>
+      <p id="renderer-note" role="status">Preparing refraction…</p>
+    </aside>
+    <nav class="scenes" aria-label="Background scenes">
+      <button type="button" data-scene="lake" aria-pressed="true">Lake</button>
+      <button type="button" data-scene="dusk" aria-pressed="false">Dusk</button>
+      <label>Your image<input id="upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
+    </nav>
+    <p id="scene-caption">Lake · <span>Original artwork, rendered locally</span></p>
+  </main>
+  <p class="toast" id="toast" role="status" hidden></p>
+  <script type="module" src="./demo.js"></script>
+</body>
+</html>

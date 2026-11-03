@@ -1,0 +1,117 @@
+# Integration
+
+## Page structure
+
+Use one stage, one decorative canvas, and one DOM element per movable glass control.
+
+```html
+<main id="stage">
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div class="glass-control" data-glass tabindex="0">
+    <button type="button">Save</button>
+  </div>
+</main>
+<script type="module" src="./demo.js"></script>
+```
+
+The canvas fills the stage with `pointer-events: none`. Controls are absolutely positioned above it. Give each control `touch-action: none`, a grab cursor, and a keyboard-accessible move action.
+
+## Rendering loop
+
+```js
+import { GlassScene, PRESETS } from "../assets/liquid-glass-renderer.js";
+
+const scene = new GlassScene(canvas);
+let material = { ...PRESETS.apple };
+let frame = 0;
+
+function draw() {
+  frame = 0;
+  if (!scene.available) return;
+  const box = canvas.getBoundingClientRect();
+  scene.setShapes([...document.querySelectorAll("[data-glass]")].map((control) => {
+    const rect = control.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2 - box.left,
+      y: rect.top + rect.height / 2 - box.top,
+      width: rect.width,
+      height: rect.height,
+      radius: Math.min(rect.width, rect.height) / 2
+    };
+  }));
+  scene.setMaterial(material);
+  scene.render();
+}
+
+function schedule() {
+  if (!frame) frame = requestAnimationFrame(draw);
+}
+```
+
+Call `schedule()` after a drag step, arrow-key move, scroll, resize, or preset change. `ResizeObserver` inside `GlassScene` redraws after canvas size changes, but it does not know when a control moves.
+
+Ignore pointer events that begin on `button`, `a`, `input`, or `label`, so actions inside the glass still work. Clamp movement to the viewport. Arrow keys move 8px, or 24px with Shift.
+
+## Material keys
+
+| Key | Meaning | Apple preset |
+| --- | --- | --- |
+| `refraction` | Edge bend, CSS px | 18 |
+| `bezel` | Width of the curved rim, CSS px | 20 |
+| `magnify` | Center zoom | 1 |
+| `dispersion` | Rim color split, 0 to 1 | 0.04 |
+| `edge` | `convex` or `lip` | convex |
+| `sizeScale` | Larger shapes bend more | true |
+| `blur` | Backdrop softness, CSS px | 6 |
+| `frost` | Milky mix, 0 to 1 | 0.1 |
+| `vibrancy` | Saturation multiplier | 1.35 |
+| `brightness` | Exposure offset | 0.02 |
+| `dim` | Darkening around clear glass | 0 |
+| `appearance` | `auto`, `light`, or `dark` | auto |
+| `pickup` | Color absorbed from below | 0.35 |
+| `tintAmount`, `tint` | Explicit tint | 0, `#e8593c` |
+| `specular`, `rimWidth` | Bright rim | 0.7, 1.4 |
+| `lightAngle` | Degrees | -135 |
+| `shadow` | Contact shadow | 0.3 |
+| `merge` | Smooth-union distance, CSS px | 10 |
+| `interactive` | Pointer press grows and brightens the shape | true |
+
+`setMaterial` clamps numeric values and ignores unknown keys. Passing a partial object preserves the other current values.
+
+## Dynamic sources
+
+For a playing video or a canvas that changes, upload the current frame before drawing:
+
+```js
+scene.setSource(videoOrCanvas);
+scene.render();
+```
+
+Stop that loop when the page is hidden or the component unmounts. A static image needs one upload.
+
+## React
+
+```jsx
+useEffect(() => {
+  const scene = new GlassScene(canvasRef.current);
+  let frame = 0;
+  const draw = () => { frame = 0; /* setSource once, setShapes, render */ };
+  const schedule = () => { if (!frame) frame = requestAnimationFrame(draw); };
+  canvasRef.current.addEventListener("glassfallback", showOpaqueFallback);
+  return () => {
+    cancelAnimationFrame(frame);
+    canvasRef.current.removeEventListener("glassfallback", showOpaqueFallback);
+    scene.destroy();
+  };
+}, []);
+```
+
+Create the scene once. Do not rebuild it on every pointer move.
+
+## Fallback
+
+If `scene.available` is false, or the canvas emits `glassfallback`, hide the canvas and give controls an opaque background. Also do this for `prefers-reduced-transparency: reduce` and `forced-colors: active`. CSS in `liquid-glass.css` can style those controls, but it does not provide merge or real refraction.
+
+## Limits
+
+At most 12 shapes. Each shape accepts `press` from 0 to 1; the Apple preset uses it to scale the control, increase refraction, and brighten the rim. The merge is a 2D smooth union of rounded rectangles, not a liquid simulation. Rotated controls are not represented accurately. The shader cannot see HTML outside its texture.

@@ -1,0 +1,100 @@
+/* Liquid Glass UI — independent implementation, MIT. */
+:root {
+  --glass-blur: 12px;
+  --glass-radius: 28px;
+  --glass-tint: rgb(244 249 255 / .16);
+  --glass-ink: #f6f9ff;
+  --glass-rim: rgb(255 255 255 / .65);
+  --glass-shadow: rgb(7 21 38 / .22);
+  --glass-focus: #a8e6ff;
+}
+[data-theme="light"] {
+  color-scheme: light;
+  --glass-tint: rgb(255 255 255 / .62);
+  --glass-ink: #14283b;
+  --glass-shadow: rgb(21 47 65 / .14);
+  --glass-focus: #075b9b;
+}
+[data-theme="dark"] { color-scheme: dark; }
+.glass {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid rgb(255 255 255 / .24);
+  border-radius: var(--glass-radius);
+  color: var(--glass-ink);
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.45);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.45);
+  box-shadow: 0 12px 32px -12px var(--glass-shadow),
+    inset 0 1px 1px rgb(255 255 255 / .5),
+    inset 0 -1px 1px rgb(255 255 255 / .12);
+}
+.glass::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at var(--glass-x, 24%) var(--glass-y, 0%), rgb(255 255 255 / .2), transparent 65%);
+}
+.glass::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--glass-rim), rgb(255 255 255 / .05) 38%, rgb(255 255 255 / .12) 70%, rgb(255 255 255 / .5));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+.glass-content { position: relative; z-index: 1; }
+.glass-panel { padding: clamp(22px, 4vw, 36px); }
+.glass-pill { --glass-radius: 999px; }
+.glass-button, .glass-icon {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 22px;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 180ms ease, background-color 180ms ease;
+}
+.glass-icon { width: 48px; height: 48px; padding: 12px; flex: 0 0 auto; --glass-radius: 50%; }
+.glass-button:hover, .glass-icon:hover { background-color: rgb(255 255 255 / .25); }
+.glass-button:active, .glass-icon:active { transform: scale(.97); }
+.glass:focus-visible, .glass :focus-visible { outline: 3px solid var(--glass-focus); outline-offset: 4px; }
+.glass-button:disabled, .glass-icon:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.glass-clear { --glass-blur: 3px; --glass-tint: rgb(244 249 255 / .08); }
+.glass-frosted { --glass-blur: 24px; --glass-tint: rgb(27 48 67 / .86); }
+[data-theme="light"] .glass-frosted { --glass-tint: rgb(247 251 255 / .92); }
+[data-theme="light"] .glass-clear { --glass-tint: rgb(255 255 255 / .22); }
+/* Clear glass needs a known backdrop or a separate readable label surface. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: #223c50; }
+  [data-theme="light"] .glass { background: #edf5fc; }
+}
+[data-transparency="reduce"] .glass { background: #223c50; -webkit-backdrop-filter: none; backdrop-filter: none; }
+[data-theme="light"][data-transparency="reduce"] .glass,
+[data-theme="light"] [data-transparency="reduce"] .glass { background: #edf5fc; }
+@media (prefers-reduced-transparency: reduce) {
+  .glass { background: #223c50; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  [data-theme="light"] .glass { background: #edf5fc; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass-button, .glass-icon { transition: none; }
+  .glass-button:active, .glass-icon:active { transform: none; }
+}
+@media (forced-colors: active) {
+  .glass { background: Canvas; color: CanvasText; border: 1px solid ButtonText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .glass::before, .glass::after { display: none; }
+  .glass:focus-visible, .glass :focus-visible { outline-color: Highlight; }
+}
