@@ -70,9 +70,11 @@ let drag = null;
 let frame = 0;
 const presses = new WeakMap();
 function show(name) {
+  drag = null;
+  cancelAnimationFrame(pressFrame);
   root.replaceChildren(...layouts[name]());
   pieces = [...root.children];
-  pieces.forEach(piece => presses.set(piece, 0));
+  pieces.forEach(piece => presses.set(piece, { x: 0, y: 0, scale: 0 }));
   document.querySelectorAll('#layouts [data-layout]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.layout === name)));
   bind();
   schedule();
@@ -89,55 +91,63 @@ function draw() {
   const box = stage.getBoundingClientRect();
   scene.setShapes(pieces.map(piece => {
     const rect = piece.getBoundingClientRect();
-    const press = presses.get(piece) || 0;
-    const grow = 1 + press * .12;
-    piece.style.scale = String(grow);
+    const press = presses.get(piece)?.scale || 0;
+    const grow = 1 + press * .08;
+    piece.style.scale = grow.toFixed(3);
     return { x: rect.left + rect.width / 2 - box.left, y: rect.top + rect.height / 2 - box.top, width: rect.width * grow, height: rect.height * grow, radius: Math.min(rect.width, rect.height) / 2, press };
   }));
   scene.setMaterial(PRESETS.apple);
   scene.render();
 }
 function schedule() { if (!frame) frame = requestAnimationFrame(draw); }
+let pressFrame = 0;
 function animatePress() {
+  pressFrame = 0;
   let moving = false;
   for (const piece of pieces) {
+    const state = presses.get(piece);
     const target = activePress(piece);
-    let value = presses.get(piece) || 0;
-    value = reduced.matches ? target : value + (target - value) * .24;
-    if (Math.abs(value - target) < .015) value = target; else moving = true;
-    presses.set(piece, value);
+    state.scale = reduced.matches ? target : state.scale + (target - state.scale) * .22;
+    if (Math.abs(state.scale - target) < .01) state.scale = target; else moving = true;
   }
   schedule();
-  if (moving) requestAnimationFrame(animatePress);
+  if (moving) pressFrame = requestAnimationFrame(animatePress);
+}
+function startPress() { if (!pressFrame) pressFrame = requestAnimationFrame(animatePress); }
+function movePiece(piece, x, y) {
+  const state = presses.get(piece);
+  state.x = x; state.y = y;
+  piece.style.translate = `${x}px ${y}px`;
+  schedule();
 }
 function bind() {
   for (const piece of pieces) {
     piece.addEventListener('pointerdown', event => {
       if (event.button !== 0 || event.target.closest('button, input') || event.target.closest('#layouts')) return;
-      const current = new DOMMatrix(getComputedStyle(piece).transform);
-      drag = { piece, x: event.clientX, y: event.clientY, originX: current.m41, originY: current.m42 };
+      const state = presses.get(piece);
+      drag = { piece, pointerId: event.pointerId, x: event.clientX, y: event.clientY, originX: state.x, originY: state.y };
       if (event.pointerId) piece.setPointerCapture(event.pointerId);
     });
     piece.addEventListener('pointermove', event => {
-      if (drag?.piece !== piece) return;
-      piece.style.translate = `${drag.originX + event.clientX - drag.x}px ${drag.originY + event.clientY - drag.y}px`;
-      schedule();
+      if (drag?.piece !== piece || drag.pointerId !== event.pointerId) return;
+      movePiece(piece, drag.originX + event.clientX - drag.x, drag.originY + event.clientY - drag.y);
     });
-    piece.addEventListener('pointerup', () => { drag = null; });
+    const stopDrag = event => { if (!event || drag?.pointerId === event.pointerId) drag = null; };
+    piece.addEventListener('pointerup', stopDrag);
+    piece.addEventListener('pointercancel', stopDrag);
+    piece.addEventListener('lostpointercapture', () => { drag = null; });
     piece.addEventListener('keydown', event => {
       const step = event.shiftKey ? 24 : 8;
       const move = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[event.key];
       if (!move || event.target !== piece) return;
       event.preventDefault();
-      const current = new DOMMatrix(getComputedStyle(piece).transform);
-      piece.style.translate = `${current.m41 + move[0]}px ${current.m42 + move[1]}px`; schedule();
+      const state = presses.get(piece);
+      movePiece(piece, state.x + move[0], state.y + move[1]);
     });
   }
-  root.onpointerdown = () => requestAnimationFrame(animatePress);
-  root.onpointerup = () => requestAnimationFrame(animatePress);
   root.querySelectorAll('button, input').forEach(control => {
-    control.addEventListener('pointerdown', () => { control.classList.add('is-held'); requestAnimationFrame(animatePress); });
-    for (const type of ['pointerup', 'pointercancel', 'blur']) control.addEventListener(type, () => { control.classList.remove('is-held'); requestAnimationFrame(animatePress); });
+    control.addEventListener('pointerdown', () => { control.classList.add('is-held'); startPress(); });
+    for (const type of ['pointerup', 'pointercancel', 'blur']) control.addEventListener(type, () => { control.classList.remove('is-held'); startPress(); });
   });
 }
 document.querySelector('#layouts').addEventListener('click', event => {
