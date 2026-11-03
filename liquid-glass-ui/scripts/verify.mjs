@@ -190,10 +190,32 @@ try {
       bent, movedOutside, error: gl.getError(),
       transparency: resting[centerOffRail] - refracted[centerOffRail]
     };
+    renderer.setMaterial({ clearControls: true });
+    const clearStraight = read(1, 0), clearBent = read(1, 18);
+    results.clearBent = clearBent.filter((channel, i) => i % 4 === 0 && Math.abs(channel - clearStraight[i]) > 8).length;
+    renderer.setSliderTrack(null);
+    ctx.fillStyle = '#d1e2de';
+    ctx.fillRect(0, 0, 240, 96);
+    ctx.fillStyle = '#355367';
+    ctx.fillRect(118, 0, 4, 96);
+    renderer.setSource(source);
+    const sample = (x) => {
+      const pixel = new Uint8Array(4);
+      gl.readPixels(x, 47, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+      return pixel[0];
+    };
+    results.clearContrast = [];
+    for (const surface of [{slider:true}, {surface:'switch'}, {surface:'selection'}, {}]) {
+      renderer.setShapes([{x:120,y:48,width:80,height:52,radius:26,...surface}]);
+      renderer.render();
+      results.clearContrast.push(sample(110) - sample(120));
+    }
     renderer.destroy(); canvas.remove();
     return results;
   });
   assert.equal(rail.error, 0);
+  assert.ok(rail.clearBent > 25, 'Shared clear glass must still bend the track');
+  assert.ok(rail.clearContrast.every(contrast => contrast > 70), 'Every resting control must reveal the grid through its center');
   assert.equal(rail.movedOutside, 0, 'Press changed the track outside the knob');
   assert.ok(rail.bent > 25, `Lens failed to bend the track on a solid backdrop: ${rail.bent}px`);
   assert.ok(rail.transparency > 100, 'Held glass should reveal substantially more of the backdrop');
@@ -214,7 +236,7 @@ try {
   await page.mouse.move(probeBox.x + 25, probeBox.y + 100);
   await page.waitForFunction(() => {
     const circle = window.glassDemo.shapes.at(-1);
-    return Math.hypot(circle.stretchX, circle.stretchY) > 2;
+    return Math.hypot(circle.stretchX, circle.stretchY) > 8;
   });
   await page.mouse.up();
   await page.waitForFunction(() => {

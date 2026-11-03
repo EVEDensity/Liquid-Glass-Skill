@@ -49,9 +49,10 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
 @media (forced-colors: active) {
   #stage.fallback .glass:is(.switch, .segment) { background: Canvas; border: 1px solid ButtonText; color: ButtonText; }
   #stage.fallback :is(.switch .knob, .segment .selection) { background: Highlight; }
-  #stage .segment button[aria-pressed="true"] { color: HighlightText; }
+  #stage.fallback .segment button[aria-pressed="true"] { color: HighlightText; }
 }
-.segment button[aria-pressed="true"] { color: #202427; }
+.segment button[aria-pressed="true"] { color: #fff; font-weight: 700; }
+@media (forced-colors: none) { #stage.fallback .segment button[aria-pressed="true"] { color: #202427; } }
 .layouts { position: absolute; z-index: 4; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 6px; width: max-content; max-width: calc(100% - 20px); overflow: auto; padding: 6px; border-radius: 16px; background: rgb(247 244 236 / .94); }
 .layouts button { min-height: 44px; border: 0; border-radius: 10px; background: transparent; font: inherit; padding: 8px 12px; cursor: pointer; }
 .layouts button[aria-pressed="true"] { background: #24343d; color: white; }

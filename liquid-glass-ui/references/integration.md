@@ -93,7 +93,7 @@ scene.render();
 
 There is one slider rail per scene. Call `setSliderTrack(null)` when the slider is removed. The shader draws the rail over the original texture, so it appears at both the original and displaced sample coordinates. The filled end follows the input value. Keep the rail position, width, and height fixed during a press.
 
-With `slider: true`, the knob has a milky resting surface and a clearer held lens. Animate `press` from 0 to 1 while held and back to 0 on release or cancellation. Use elapsed time so the easing remains stable when rendering slows. Keep the transparent input's hit area fixed. With reduced motion, apply the state immediately. With no WebGL, show an opaque knob and a CSS rail driven by the same input value.
+The default slider has a milky resting surface and a clearer held lens. Set `clearControls: true` in the material for a clear center and refractive rim across the slider, switch, segmented selection, and standalone buttons, including at rest. Animate `press` from 0 to 1 while held and back to 0 on release or cancellation. Use elapsed time so the easing remains stable when rendering slows. Keep the transparent input's hit area fixed. With reduced motion, apply the state immediately. With no WebGL, show an opaque knob and a CSS rail driven by the same input value.
 
 Verify all three states on the same grid. Holding the same value should change only the knob and the pixels it covers. Dragging can change the filled length without moving the rail.
 
@@ -104,7 +104,7 @@ Use `setControlBases({ toggle, segment })` for fixed sampled surfaces. The toggl
 
 Give the actual knob shapes `surface: 'switch'`, `slider: true`, or `surface: 'selection'`. The renderer blends both the contour and the material at a junction. An inactive track must not be added to `setShapes`. Its color still appears in a lens that crosses it. The demo's **Merge test** makes the difference visible on an original grid.
 
-Free glass can pass `stretchX` and `stretchY` in CSS pixels for deformation along the drag direction. Apply the stretch to the shader geometry around the actual control; do not scale its DOM translation. Reset stretch on release and keep reduced motion free of drag deformation.
+Free glass can pass `stretchX` and `stretchY` in CSS pixels for deformation along the drag direction. Apply the stretch to the shader geometry around the actual control; do not scale its DOM translation. Drive stretch from pointer velocity and use a damped spring on release. The shader deforms the rear more than the leading face, keeping the hit area and labels anchored. Disable drag deformation under reduced motion.
 
 ## Dynamic sources
 

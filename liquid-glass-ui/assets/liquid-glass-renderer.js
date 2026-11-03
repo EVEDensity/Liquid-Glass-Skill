@@ -20,6 +20,7 @@ uniform vec2 u_stretch[12],u_contact[12];
 uniform vec4 u_switchBase,u_segmentBase; // center, width, height
 uniform float u_switchOn;
 uniform vec4 u_sliderTrack; // left, center Y, width, height
+uniform float u_clearControls;
 uniform float u_sliderFill; // filled track end X
 uniform vec3 u_tint;
 
@@ -59,11 +60,12 @@ vec3 sampleSoft(vec2 p,float blur){
   return mix(inactive,mix(base,vec3(.97,.96,.93),.96),fill);
 }
 vec3 sampleAt(vec2 p){return sampleSoft(p,0.);}
-vec3 sliderLens(vec2 p,vec2 normal,float field,float press){
+vec3 sliderLens(vec2 p,vec2 normal,float field,float press,bool clear){
   // Resting porcelain gives way to an edge lens with a clear center.
   float depth=max(-field,0.);
-  float t=clamp(depth/mix(7.,14.,press),0.,1.);
-  float bend=sin(t*3.141593)*mix(2.,6.4,press)*(u_refraction/18.);
+  float strength=clear?mix(.85,1.,press):press;
+  float t=clamp(depth/mix(7.,14.,strength),0.,1.);
+  float bend=sin(t*3.141593)*mix(2.,6.4,strength)*(u_refraction/18.);
   vec2 at=p-normal*bend;
   float softness=mix(1.55,1.65,press);
   vec3 lens=sampleAt(at)*.48;
@@ -72,12 +74,12 @@ vec3 sliderLens(vec2 p,vec2 normal,float field,float press){
   vec2 diagonal=vec2(softness*.7);
   lens+=(sampleAt(at+diagonal)+sampleAt(at-diagonal)+
          sampleAt(at+vec2(diagonal.x,-diagonal.y))+sampleAt(at+vec2(-diagonal.x,diagonal.y)))*.03;
-  lens=mix(lens,vec3(.985,.99,.98),mix(.90,.08,press));
+  lens=mix(lens,vec3(.985,.99,.98),clear?mix(.10,.06,press):mix(.90,.08,press));
   vec2 light=vec2(cos(radians(u_lightAngle)),sin(radians(u_lightAngle)));
   float facing=dot(normal,light);
   float direction=.32+.68*pow(abs(facing),1.6);
   float rim=1.-smoothstep(0.,max(u_rimWidth,.5)*2.5,depth);
-  float sheen=rim*mix(.73+.27*direction,direction,press)*u_specular*mix(1.35,1.08,press);
+  float sheen=rim*mix(.73+.27*direction,direction,strength)*u_specular*mix(1.35,1.08,press);
   return mix(lens,vec3(1.),clamp(sheen,0.,1.));
 }
 float shapeDistance(vec2 p,int i){
@@ -87,7 +89,11 @@ float shapeDistance(vec2 p,int i){
   if(stretch>.001){
     vec2 direction=u_stretch[i]/stretch;
     float halfSpan=dot(abs(direction),s.zw*.5);
-    q-=direction*dot(q,direction)*stretch/(2.*halfSpan+stretch);
+    float axis=dot(q,direction);
+    // Deform the trailing half more than the leading face.
+    float back=1.-smoothstep(-halfSpan*.6,halfSpan*.55,axis);
+    float extension=stretch*mix(.13,.87,back);
+    q-=direction*axis*extension/(halfSpan+extension);
   }
   return roundedBox(q,s.zw*.5,u_radii[i]);
 }
@@ -134,8 +140,12 @@ void main(){
   if(field>1.){color=vec4(base*(1.-shadow),1.);return;}
   vec2 n=length(gradient)>.001?normalize(gradient):normalize(p-centre+vec2(.0001));
   float mask=1.-smoothstep(-.8,.8,field);
+  if(u_clearControls>.5){
+    color=vec4(mix(base,sliderLens(p,n,field,press,true),mask),1.);
+    return;
+  }
   if(merged.y>.999){
-    color=vec4(mix(base,sliderLens(p,n,field,sliderPress),mask),1.);
+    color=vec4(mix(base,sliderLens(p,n,field,sliderPress,false),mask),1.);
     return;
   }
   float edge=1.-smoothstep(0.,max(u_bezel*scale*.55*(1.+press*.25),1.),max(-field,0.));
@@ -176,7 +186,7 @@ void main(){
     vec3 selection=mix(sampleSoft(at,3.),vec3(.91,.93,.92),.58-press*.24);
     lens=mix(lens,mix(selection,vec3(1.),rim*(.22+shine*.67)),merged.w);
   }
-  if(merged.y>.001)lens=mix(lens,sliderLens(p,n,field,sliderPress),merged.y);
+  if(merged.y>.001)lens=mix(lens,sliderLens(p,n,field,sliderPress,false),merged.y);
   vec3 outside=base*(1.-max(shadow,u_dim*mask));
   color=vec4(mix(outside,clamp(lens,0.,1.),mask),1.);
 }`;
@@ -204,7 +214,7 @@ export class GlassScene {
       this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
       const pos=gl.getAttribLocation(this.program,'a_position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
       this.texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.texture);for(const [key,value] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,key,value);
-      const names=['size','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      const names=['size','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       this.available=true;this.setMaterial(options);
       this.observer=new ResizeObserver(()=>this.render());this.observer.observe(canvas);
@@ -222,6 +232,7 @@ export class GlassScene {
     this.controlBases={toggle:copy(toggle),segment:copy(segment)};
   }
   setMaterial(values={}){
+    if(typeof values.clearControls==='boolean')this.material.clearControls=values.clearControls;
     for(const key of numeric)if(Number.isFinite(values[key]))this.material[key]=clamp(values[key],...ranges[key]);
     if(values.edge==='lip'||values.edge==='convex')this.material.edge=values.edge;
     if(['auto','light','dark'].includes(values.appearance))this.material.appearance=values.appearance;
@@ -243,6 +254,7 @@ export class GlassScene {
     base('switchBase',toggle);base('segmentBase',segment);gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);
     const track=this.sliderTrack;
     gl.uniform4f(this.uniforms.sliderTrack,(track?.x??0)*pixelScale,(track?.y??0)*pixelScale,(track?.width??0)*pixelScale,(track?.height??0)*pixelScale);
+    gl.uniform1f(this.uniforms.clearControls,this.material.clearControls?1:0);
     gl.uniform1f(this.uniforms.sliderFill,(track?.fillX??0)*pixelScale);
     const m=this.material;for(const key of ['refraction','bezel','blur','rimWidth','merge'])gl.uniform1f(this.uniforms[key],m[key]*pixelScale);for(const key of numeric.filter(key=>!['refraction','bezel','blur','rimWidth','merge'].includes(key)))gl.uniform1f(this.uniforms[key],m[key]);
     gl.uniform1f(this.uniforms.edge,m.edge==='lip'?1:0);gl.uniform1f(this.uniforms.sizeScale,m.sizeScale?1:0);gl.uniform1f(this.uniforms.appearance,m.appearance==='light'?0:m.appearance==='dark'?1:2);gl.uniform3fv(this.uniforms.tint,hexToRgb(m.tint));gl.drawArrays(gl.TRIANGLES,0,6);

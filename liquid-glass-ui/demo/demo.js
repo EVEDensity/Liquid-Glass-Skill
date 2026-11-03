@@ -1,5 +1,6 @@
 import { GlassScene, PRESETS } from '../assets/liquid-glass-renderer.js';
 
+const material = { ...PRESETS.apple, clearControls: true };
 const scene = new GlassScene(document.querySelector('#scene'));
 const stage = document.querySelector('#stage');
 const root = document.querySelector('#controls');
@@ -181,16 +182,16 @@ function draw() {
       if (toggle) bases.toggle = { ...base, on: piece.getAttribute('aria-checked') === 'true' };
       else bases.segment = base;
       const knob = boxFor(piece.querySelector(toggle ? '.knob' : '.selection').getBoundingClientRect());
-      knob.width += 9 * press;
-      knob.height += 4 * press;
+      knob.width += (toggle ? 30 : 23) * press;
+      knob.height += 9 * press;
       return { ...knob, radius: knob.height / 2, press, surface: toggle ? 'switch' : 'selection' };
     }
-    const grow = 1 + press * .065;
+    const grow = 1 + press * .09;
     const geometry = boxFor(rect);
     geometry.width *= grow;
     geometry.height *= grow;
     return {
-      ...geometry, x: geometry.x - state.sx * .26, y: geometry.y - state.sy * .26,
+      ...geometry, x: geometry.x, y: geometry.y,
       radius: piece.matches('.card, .panel') ? Math.min(26, geometry.height / 2) : Math.min(geometry.width, geometry.height) / 2,
       stretchX: state.sx, stretchY: state.sy, contactX: state.contactX - box.left, contactY: state.contactY - box.top, press
     };
@@ -199,7 +200,7 @@ function draw() {
   scene.setSliderTrack(track);
   scene.setControlBases(bases);
   scene.setShapes(shapes);
-  scene.setMaterial(PRESETS.apple);
+  scene.setMaterial(material);
   scene.render();
 }
 function schedule() { if (!frame) frame = requestAnimationFrame(draw); }
@@ -217,11 +218,25 @@ function animatePress(now) {
     const elapsed = state.lastFrame == null ? 16 : now - state.lastFrame;
     const ease = 1 - Math.exp(-elapsed / 56);
     state.scale = reduced.matches ? target : state.scale + (target - state.scale) * ease;
-    if (!drag || drag.piece !== piece || now - drag.time > 64 || reduced.matches) state.tx = state.ty = 0;
-    for (const [value, goal] of [['sx', 'tx'], ['sy', 'ty']]) {
-      const remaining = state[goal] - state[value];
-      state[value] = reduced.matches || Math.abs(remaining) < .15 ? state[goal] : state[value] + remaining * ease;
-      if (state[value] !== 0 || state[goal] !== 0) moving = true;
+    if (!drag || drag.piece !== piece || now - drag.time > 70 || reduced.matches) state.tx = state.ty = 0;
+    // Damped spring: the tail lags the cursor, overshoots slightly, then settles.
+    for (const [value, goal, velocity] of [['sx', 'tx', 'vx'], ['sy', 'ty', 'vy']]) {
+      let speed = state[velocity] || 0;
+      if (!reduced.matches) {
+        const dt = Math.min(elapsed, 64) / 1000;
+        const steps = Math.max(1, Math.ceil(dt / .008));
+        const step = dt / steps;
+        for (let i = 0; i < steps; i++) {
+          speed += (390 * (state[goal] - state[value]) - 22 * speed) * step;
+          state[value] += speed * step;
+        }
+      }
+      if (reduced.matches || (Math.abs(state[value] - state[goal]) < .18 && Math.abs(speed) < 5)) {
+        state[value] = state[goal];
+        speed = 0;
+      }
+      state[velocity] = speed;
+      if (state[value] !== 0 || state[goal] !== 0 || speed !== 0) moving = true;
     }
     state.lastFrame = moving || Math.abs(state.scale - target) >= .01 ? now : null;
     if (Math.abs(state.scale - target) < .01) state.scale = target; else moving = true;
@@ -260,13 +275,13 @@ function bind() {
       const now = performance.now();
       const elapsed = Math.max(8, now - drag.time);
       const dx = event.clientX - drag.lastX, dy = event.clientY - drag.lastY;
-      const factor = Math.min(13 / elapsed, 19 / Math.max(1, Math.hypot(dx, dy)));
+      const factor = Math.min(31 / elapsed, 42 / Math.max(1, Math.hypot(dx, dy)));
       const state = presses.get(piece);
       if (!reduced.matches) {
         state.tx = dx * factor;
         state.ty = dy * factor;
         // Apply part of the impulse immediately so short gestures still deform the contour.
-        state.sx += (state.tx - state.sx) * .42;
+        state.sx += (state.tx - state.sx) * .48;
         state.sy += (state.ty - state.sy) * .42;
       }
       state.contactX = event.clientX;
@@ -323,7 +338,7 @@ window.addEventListener('blur', () => { drag = null; releaseControls(); startPre
 for (const query of ['(prefers-reduced-transparency: reduce)', '(forced-colors: active)']) matchMedia(query).addEventListener('change', schedule);
 document.querySelector('#scene').addEventListener('glassfallback', schedule);
 window.addEventListener('resize', schedule);
-scene.setMaterial(PRESETS.apple);
+scene.setMaterial(material);
 const backdrops = new Map();
 let backdropName, sourceReady = false;
 function selectBackdrop(name) {
@@ -344,4 +359,4 @@ function selectBackdrop(name) {
 }
 const requestedLayout = new URLSearchParams(location.search).get('layout');
 show(Object.hasOwn(layouts, requestedLayout) ? requestedLayout : 'scene');
-window.glassDemo = { get available() { return scene.available; }, get material() { return { ...PRESETS.apple }; }, get source() { return sourceReady; }, get slider() { const knob = scene.shapes.find(shape => shape.slider); return knob && { knob: { ...knob }, track: { ...scene.sliderTrack } }; }, get shapes() { return scene.shapes.map(shape => ({ ...shape })); }, get bases() { return structuredClone(scene.controlBases); }, get layout() { return document.querySelector('[data-layout][aria-pressed="true"]').dataset.layout; } };
+window.glassDemo = { get available() { return scene.available; }, get material() { return { ...material }; }, get source() { return sourceReady; }, get slider() { const knob = scene.shapes.find(shape => shape.slider); return knob && { knob: { ...knob }, track: { ...scene.sliderTrack } }; }, get shapes() { return scene.shapes.map(shape => ({ ...shape })); }, get bases() { return structuredClone(scene.controlBases); }, get layout() { return document.querySelector('[data-layout][aria-pressed="true"]').dataset.layout; } };
