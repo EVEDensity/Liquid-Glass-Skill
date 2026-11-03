@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -159,87 +159,69 @@ try {
   await page.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
   const handoff=await page.evaluate(()=>navigator.clipboard.readText());
   const spec=JSON.parse(handoff.slice(handoff.indexOf('{')));
-  assert.ok(handoff.length<2400);
-  assert.match(handoff,/github\.com\/EVEDensity\/Liquid-Glass-Skill\/tree\/[a-f0-9]{40}/);
-  assert.match(handoff,/await mountLiquidGlassReplica\(container, config\)/);
+  assert.ok(handoff.length<1400);
+  assert.match(handoff,/github\.com\/EVEDensity\/Liquid-Glass-Skill\/blob\/[a-f0-9]{40}\/assets\/glass-button\.js/);
+  assert.match(handoff,/createLiquidGlassButton\(container, config\)/);
+  assert.deepEqual(Object.keys(spec).sort(),['button','language','material','version']);
   assert.equal(spec.material.name,'Prism');
-  const selectedButton = spec.buttons.find(button=>button.id===spec.selected);
-  assert.deepEqual([selectedButton.width,selectedButton.height,selectedButton.shape,selectedButton.text],[183,74,'rounded',label]);
+  assert.deepEqual(spec.button,{shape:'rounded',text:label,width:183,height:74,radius:16});
   const compactPage = await context.newPage();
   const compactURL = new URL('/replica-test',url).href;
   await compactPage.route(compactURL,route=>route.fulfill({
-    contentType:'text/html',body:'<!doctype html><style>body{margin:0}</style><main></main>'
+    contentType:'text/html',body:'<!doctype html><style>body{background:#647784} main{padding:30px}</style><main><p>Host content</p></main>'
   }));
   await compactPage.goto(compactURL);
   await compactPage.evaluate(async config=>{
-    const {mountLiquidGlassReplica} = await import('/demo/replica.js');
-    await mountLiquidGlassReplica(document.querySelector('main'),config);
+    const {createLiquidGlassButton} = await import('/assets/glass-button.js');
+    createLiquidGlassButton(document.querySelector('main'),config);
   },spec);
-  const compact = compactPage.frames()[1];
-  await compact.waitForFunction(()=>window.glassDemo?.available&&window.glassDemo?.source&&window.glassDemo.shapes.length===5);
-  const originalPixels = await page.locator('#stage').screenshot({style:'.language-tools { visibility: hidden; }'});
-  assert.ok(originalPixels.equals(await compact.locator('#stage').screenshot()));
+  const compactButton = compactPage.getByRole('button',{name:label,exact:true});
+  assert.equal(await compactPage.getByRole('button').count(),1);
+  assert.equal(await compactPage.locator('canvas, iframe, svg, img, input').count(),0);
+  assert.equal(await compactPage.locator('main p').textContent(),'Host content');
+  assert.equal(await compactButton.evaluate(el=>getComputedStyle(document.body).backgroundColor),'rgb(100, 119, 132)');
+  const firstBackdrop = await compactButton.screenshot();
+  await compactPage.evaluate(()=>document.body.style.backgroundColor='#bd7555');
+  assert.ok(!firstBackdrop.equals(await compactButton.screenshot()),'Glass responds to the target page backdrop');
   await compactPage.close();
-  record('The compact AI handoff mounts an identical scene by passing its JSON directly to the runtime');
+  record('AI handoff mounts only the chosen button and uses the host page background');
   await page.getByRole('button',{name:'Copy offline JS',exact:true}).click();
   await page.getByRole('status').getByText('Offline JavaScript copied.').waitFor();
   const moduleCode = await page.evaluate(()=>navigator.clipboard.readText());
+  assert.ok(!/glass-grid|createElement\('iframe'\)|createElement\('canvas'\)/.test(moduleCode));
   const replicaPage = await context.newPage();
   const replicaRequests = [];
   replicaPage.on('request',request=>{if(/^https?:/.test(request.url()))replicaRequests.push(request.url());});
   replicaPage.on('pageerror',error=>errors.push(error.message));
-  await replicaPage.addStyleTag({content:'body { margin: 0; } button { display: none !important; }'});
+  await replicaPage.addStyleTag({content:'body { margin: 100px; }'});
   await replicaPage.evaluate(async code=>{
     const url = URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
     try {
       const {mountLiquidGlassButton} = await import(url);
-      mountLiquidGlassButton(document.body);
+      const button = mountLiquidGlassButton(document.body);
+      window.activations = 0;
+      button.addEventListener('click',()=>window.activations++);
     } finally {
       URL.revokeObjectURL(url);
     }
   },moduleCode);
-  const replica = replicaPage.frames()[1];
-  await replica.waitForFunction(()=>window.glassDemo?.available&&window.glassDemo?.source&&window.glassDemo.shapes.length===5);
-  const replicaButton = replica.locator('[data-export-selected]');
-  assert.deepEqual(await replicaButton.boundingBox(),editedBounds);
-  assert.equal(await replicaButton.textContent(),label);
-  assert.deepEqual(await replica.evaluate(()=>window.glassDemo.material),await page.evaluate(()=>window.glassDemo.material));
-  const replicaPixels = await replica.locator('#stage').screenshot();
-  if (!originalPixels.equals(replicaPixels)) {
-    await writeFile(resolve(evidence,'replica-original.png'),originalPixels);
-    await writeFile(resolve(evidence,'replica-pasted.png'),replicaPixels);
-  }
-  assert.ok(originalPixels.equals(replicaPixels),'JavaScript replica should render the captured scene pixel for pixel');
-  await replicaButton.click();
-  await replica.waitForFunction(()=>window.glassDemo.shapes.at(-1).press>.3);
-  await replicaPage.mouse.move(editedBounds.x+editedBounds.width/2,editedBounds.y+editedBounds.height/2);
+  const replicaButton = replicaPage.getByRole('button',{name:label,exact:true});
+  const copied = await replicaButton.boundingBox();
+  assert.deepEqual([copied.width,copied.height],[183,74]);
+  assert.equal(await replicaButton.evaluate(el=>getComputedStyle(el).borderRadius),'16px');
+  await replicaButton.press('Enter');
+  assert.equal(await replicaPage.evaluate(()=>window.activations),1);
+  await replicaPage.mouse.move(copied.x+copied.width/2,copied.y+copied.height/2);
   await replicaPage.mouse.down();
-  await replicaPage.mouse.move(editedBounds.x+editedBounds.width/2+36,editedBounds.y+editedBounds.height/2+20,{steps:5});
+  await replicaPage.waitForFunction(()=>parseFloat(getComputedStyle(document.querySelector('button'),'::before').scale)>1.1);
+  await replicaPage.mouse.move(copied.x+copied.width/2+36,copied.y+copied.height/2+20,{steps:5});
   await replicaPage.mouse.up();
   const dragged = await replicaButton.boundingBox();
-  assert.deepEqual([dragged.x,dragged.y],[editedBounds.x+36,editedBounds.y+20]);
+  assert.deepEqual([dragged.x,dragged.y],[copied.x+36,copied.y+20]);
+  assert.equal(await replicaPage.evaluate(()=>window.activations),1);
   assert.deepEqual(replicaRequests,[]);
   await replicaPage.close();
-  record('Copied JavaScript renders a pixel-identical, interactive replica without network requests');
-  await page.getByRole('button',{name:'Copy HTML',exact:true}).click();
-  await page.getByRole('status').getByText('Offline HTML copied.').waitFor();
-  const html=await page.evaluate(()=>navigator.clipboard.readText());
-  const exportPath=resolve(evidence,'copied-button.html');
-  await writeFile(exportPath,html,'utf8');
-  const restored=await context.newPage();
-  const external=[];
-  restored.on('request',request=>{if(/^https?:/.test(request.url()))external.push(request.url());});
-  restored.on('pageerror',error=>errors.push(error.message));
-  await restored.goto(pathToFileURL(exportPath).href);
-  await restored.waitForFunction(()=>window.glassDemo?.available&&window.glassDemo?.source&&window.glassDemo.shapes.length===5);
-  assert.deepEqual(await restored.locator('[data-export-selected]').boundingBox(),editedBounds);
-  assert.equal(await restored.locator('[data-export-selected]').textContent(),label);
-  assert.equal(await restored.evaluate(()=>window.glassDemo.material.name),'Prism');
-  assert.deepEqual(external,[]);
-  await restored.locator('[data-export-selected]').click();
-  await restored.waitForFunction(()=>window.glassDemo.shapes.at(-1).press>.3);
-  await restored.close();
-  record('Editor copies a runnable offline scene with the chosen geometry, label, preset and press effect');
+  record('Offline JS exports one native button with exact geometry, keyboard activation, and press/drag motion');
   await ready(page);
   // Sample the actual rendered selector, rather than the CSS transition or its target.
   await page.waitForFunction(()=>window.glassDemo.shapes.some(s=>s.surface==='selection'));

@@ -5,12 +5,11 @@ export const en = {
   shape:'Shape',circle:'Circle',capsule:'Capsule',rounded:'Rounded rectangle',square:'Square',
   width:'Width',height:'Height',widthSlider:'Width slider',heightSlider:'Height slider',
   linkedSize:'Width and height are linked.',
-  add:'Add shape',copyHTML:'Copy HTML',manualCopy:'Copy this text',close:'Close',
+  add:'Add shape',manualCopy:'Copy this text',close:'Close',
   copyReplica:'Copy for AI',copiedReplica:'Offline JavaScript copied.',
-  copiedSpec:'Copied. Paste this into your coding AI.',copiedHTML:'Offline HTML copied.',copyError:'Could not prepare the button. Try again.',
-  handoffTask:'Integrate this interactive liquid-glass button into the current project and verify it in a browser. Use the actual renderer from this pinned source:',
-  handoffFiles:'Copy demo/replica.js, demo/demo.js, demo/demo.css, assets/liquid-glass-renderer.js, assets/glass-grid.svg, and LICENSE into the project, preserving their relative paths. Serve them from the same origin.',
-  handoffMount:'Save the JSON below as liquid-glass.json. In the client code, import mountLiquidGlassReplica from demo/replica.js and call await mountLiquidGlassReplica(container, config). Keep the captured scene for matching refraction. Verify the selected ID, dimensions, label, and press/drag effects.',
+  copiedSpec:'Copied. Paste this into your coding AI.',copyError:'Could not prepare the button. Try again.',
+  handoffTask:'Integrate this single liquid-glass button into the current project. Keep the target page background and layout. Use this pinned standalone module:',
+  handoffMount:'Copy assets/glass-button.js and LICENSE from that revision. Import createLiquidGlassButton and call createLiquidGlassButton(container, config) with the JSON below. Connect the returned native button to the intended action. Verify its dimensions, label, and press/drag motion.',
   limit:'The scene supports up to five editable buttons.'
 };
 export const zh = {
@@ -20,11 +19,10 @@ export const zh = {
   shape:'形状',circle:'圆形',capsule:'胶囊',rounded:'圆角矩形',square:'正方形',
   width:'宽度',height:'高度',widthSlider:'宽度滑杆',heightSlider:'高度滑杆',
   linkedSize:'宽度和高度联动。',
-  add:'添加形状',copyHTML:'复制 HTML',manualCopy:'复制下方文本',close:'关闭',
+  add:'添加形状',manualCopy:'复制下方文本',close:'关闭',
   copyReplica:'复制给 AI',copiedReplica:'已复制离线 JavaScript。',
-  copiedSpec:'已复制，可直接粘贴给编程 AI。',copiedHTML:'已复制离线 HTML。',copyError:'无法准备按钮，请重试。',
-  handoffTask:'请在当前项目中集成这个可交互的液态玻璃按钮，并在浏览器验证。使用此固定版本的真实渲染器：',
-  handoffFiles:'把 demo/replica.js、demo/demo.js、demo/demo.css、assets/liquid-glass-renderer.js、assets/glass-grid.svg 和 LICENSE 复制到项目中，保留相对路径，并从同源提供这些文件。',
-  handoffMount:'将下方 JSON 保存为 liquid-glass.json。在客户端从 demo/replica.js 导入 mountLiquidGlassReplica，调用 await mountLiquidGlassReplica(container, config)。保留场景以还原折射，验证所选按钮的尺寸、文字和按压拖动效果。',
+  copiedSpec:'已复制，可直接粘贴给编程 AI。',copyError:'无法准备按钮，请重试。',
+  handoffTask:'请将这个液态玻璃按钮接入当前项目，保留目标页面的背景和布局。使用这个固定版本的独立模块：',
+  handoffMount:'从该版本复制 assets/glass-button.js 和 LICENSE，导入 createLiquidGlassButton，使用下方 JSON 调用 createLiquidGlassButton(container, config)。把返回的原生按钮接到项目动作，并验证尺寸、文字、按压和拖动。',
   limit:'场景最多支持五个可编辑按钮。'
 };

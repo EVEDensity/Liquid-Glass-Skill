@@ -599,25 +599,13 @@ if (!exported) {
       return button;
     },
     snapshot(button) {
-      const stageBox = stage.getBoundingClientRect();
-      const buttons = pieces.filter(piece=>piece.matches('.probe')).map(piece=>{
-        const rect = piece.getBoundingClientRect();
-        return {
-          id:piece.dataset.buttonId,shape:piece.dataset.shape,text:piece.textContent,
-          x:rect.left-stageBox.left,y:rect.top-stageBox.top,width:rect.width,height:rect.height,
-          radius:shapeRadius(piece.dataset.shape,rect.width,rect.height)
-        };
-      });
+      const {width,height} = button.getBoundingClientRect();
+      const shape = button.dataset.shape;
+      const {name,blur,frost,vibrancy,rimWidth,dispersion} = material;
       return {
-        version:1, selected:button.dataset.buttonId, language,
-        stage:{width:stageBox.width,height:stageBox.height},
-        material:{...material},
-        controls:{
-          switchOn:root.querySelector('.switch').getAttribute('aria-checked')==='true',
-          level:root.querySelector('.slider input').valueAsNumber,
-          segment:[...root.querySelectorAll('.segment button')].findIndex(item=>item.getAttribute('aria-pressed')==='true')
-        },
-        buttons
+        version:2, language,
+        button:{shape,text:button.textContent,width,height,radius:shapeRadius(shape,width,height)},
+        material:{name,blur,frost,vibrancy,rimWidth,dispersion}
       };
     }
   });

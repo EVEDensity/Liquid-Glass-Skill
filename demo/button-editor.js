@@ -1,43 +1,31 @@
 import { en, zh } from './language.js';
-import { loadReplicaSources, mountReplica, portableScene } from './replica.js';
 
-function portableHTML(config, sources) {
-  const scene = portableScene(config,sources);
-  const json = JSON.stringify(scene.config,null,2).replaceAll('<','\u005Cu003c');
-  return [
-    '<!doctype html>',
-    '<!-- Liquid Glass UI, MIT. The selected ID identifies the button to reproduce. Keep the stage, backdrop and renderer for matching refraction and merge behavior. -->',
-    '<html lang="'+(config.language==='zh'?'zh-CN':'en')+'" data-glass-export><meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    '<title>Liquid Glass button</title>',
-    '<!--\n'+sources.license.trim()+'\n-->',
-    '<style>'+scene.css+'</style>',
-    '<main id="stage"><canvas id="scene" aria-hidden="true"></canvas><section id="controls"></section></main>',
-    '<script id="glass-button-config" type="application/json">'+json+'</script>',
-    '<script type="module">\n'+scene.runtime+'\n</script>',
-    '</html>'
-  ].join('\n');
+async function loadButtonSources() {
+  const [runtime,license] = await Promise.all(['../assets/glass-button.js','../LICENSE'].map(async path=>{
+    const response = await fetch(new URL(path,import.meta.url));
+    if (!response.ok) throw new Error('Could not load '+path);
+    return response.text();
+  }));
+  return {runtime,license};
 }
 
 function portableJS(config, sources) {
-  const scene = JSON.stringify(portableScene(config,sources)).replaceAll('<','\u005Cu003c');
+  const json = JSON.stringify(config).replaceAll('<','\u005Cu003c');
   return [
     '// Save as glass-button.js. Import and call mountLiquidGlassButton(targetElement).',
-    '// The returned iframe contains the original backdrop and neighboring controls for matching optics.',
     '/*\n'+sources.license.trim()+'\n*/',
-    mountReplica.toString(),
+    sources.runtime.trim(),
     'export function mountLiquidGlassButton(target) {',
-    '  return mountReplica(target, '+scene+');',
+    '  return createLiquidGlassButton(target, '+json+');',
     '}'
   ].join('\n');
 }
 
 function aiSpec(config, strings) {
-  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/tree/56306702d8fcedad47ca23e555ea6782a0685894';
+  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/4f5479e87cfa442b312cfab47315927f7d24da37/assets/glass-button.js';
   return [
     strings.handoffTask,
     runtime,
-    strings.handoffFiles,
     strings.handoffMount,
     '',
     'liquid-glass.json',
@@ -54,7 +42,6 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
   const height = document.querySelector('#button-height');
   const copyJS = document.querySelector('#copy-button');
   const copyReplica = document.querySelector('#copy-replica');
-  const copyHTML = document.querySelector('#copy-html');
   const widthRange = document.querySelector('#width-range');
   const heightRange = document.querySelector('#height-range');
   const sizeLink = document.querySelector('#size-link');
@@ -138,21 +125,19 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
     }
   }
   copyReplica.addEventListener('click',()=>copyText(aiSpec(snapshot(selected),strings),'copiedSpec'));
-  async function copyExport(button, serialize, status) {
+  copyJS.addEventListener('click',async()=>{
     const config = snapshot(selected);
-    button.disabled = true;
+    copyJS.disabled = true;
     try {
-      runtime ??= loadReplicaSources();
-      await copyText(serialize(config,await runtime),status);
+      runtime ??= loadButtonSources();
+      await copyText(portableJS(config,await runtime),'copiedReplica');
     } catch {
       runtime = undefined;
       message.textContent = strings.copyError;
     } finally {
-      button.disabled = false;
+      copyJS.disabled = false;
     }
-  }
-  copyJS.addEventListener('click',()=>copyExport(copyJS,portableJS,'copiedReplica'));
-  copyHTML.addEventListener('click',()=>copyExport(copyHTML,portableHTML,'copiedHTML'));
+  });
   function setLanguage(language) {
     strings = language==='zh' ? zh : en;
     document.documentElement.lang = language==='zh' ? 'zh-CN' : 'en';
