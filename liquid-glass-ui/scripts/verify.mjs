@@ -144,7 +144,7 @@ try {
   await page.mouse.down();
   await page.waitForFunction(()=>window.glassDemo.shapes.find(s=>s.surface==='selection').press===1);
   const heldPeriod=await page.evaluate(()=>window.glassDemo.shapes.find(s=>s.surface==='selection'));
-  assert.ok(heldPeriod.width>=flow.start.width+45.5 && heldPeriod.height>=flow.start.height+15.5, JSON.stringify({heldPeriod,start:flow.start}));
+  assert.ok(heldPeriod.width>=flow.start.width+53.5 && heldPeriod.height>=flow.start.height+18.5, JSON.stringify({heldPeriod,start:flow.start}));
   await page.mouse.move(endButton.x+endButton.width/2-24,endButton.y+endButton.height/2,{steps:5});
   await page.waitForFunction(x=>window.glassDemo.shapes.find(s=>s.surface==='selection').x>x+220,flow.start.x);
   assert.equal(await firstPeriod.getAttribute('aria-pressed'),'true','The previous choice stays selected while dragging');
@@ -269,6 +269,19 @@ try {
     results.heldLight = optical(1,0,120)[0];
     results.neutralRim = optical(1,0,82);
     results.movingRim = optical(1,1,82);
+    ctx.fillStyle = '#ededed';
+    ctx.fillRect(0,0,240,96);
+    renderer.setSource(source);
+    renderer.setControlBases({segment:{x:120,y:48,width:216,height:58}});
+    renderer.setShapes([{x:120,y:48,width:188,height:71,radius:35.5,press:1,surface:'selection'}]);
+    renderer.render();
+    const readRed = (x,y) => {
+      const pixel=new Uint8Array(4);
+      gl.readPixels(x,95-y,1,1,gl.RGBA,gl.UNSIGNED_BYTE,pixel);
+      return pixel[0];
+    };
+    results.selectionProfile={body:readRed(120,48),shoulder:readRed(120,17),rim:readRed(120,13)};
+    renderer.setControlBases();
     ctx.fillStyle = '#31566d';
     ctx.fillRect(0,0,240,96);
     ctx.fillStyle = '#e85a3f';
@@ -289,6 +302,7 @@ try {
   assert.ok(Math.max(...rail.neutralRim)-Math.min(...rail.neutralRim)<=2, 'A stationary hold must not add chromatic tint');
   assert.ok(Math.max(...rail.movingRim)-Math.min(...rail.movingRim)>10, 'Travel must add a visible colored rim');
   assert.ok(rail.domeMagnification > 50, 'The water dome must magnify inside its body, away from the rim');
+  assert.ok(rail.selectionProfile.shoulder < rail.selectionProfile.body+50 && rail.selectionProfile.rim > rail.selectionProfile.shoulder+15, JSON.stringify(rail.selectionProfile));
   assert.ok(rail.clearBent > 25, 'Shared clear glass must still bend the track');
   assert.ok(rail.heldContrast.slice(0,3).every((held,i) => held > 70 && held > rail.clearContrast[i] + 35), 'Knobs and the selection must reveal more background on hold');
   assert.ok(rail.clearContrast[3] > 95 && rail.heldContrast[3] > 65, 'Standalone glass must preserve background detail at rest and while held');

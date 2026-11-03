@@ -236,6 +236,19 @@ void main(){
       water=mix(water,gathered,caustic*(.65+.19*press));
       clear=mix(clear,water,dome.x);
     }
+    if(merged.w>.001 && u_segmentBase.w>0. && u_presetOptics<.5){
+      // The held selector magnifies the track vertically into the capsule.
+      // An inward ray keeps the bright backdrop from appearing as two hard bars.
+      vec2 railRay=p-(p-centre)*vec2(.07,.24)*engagement;
+      railRay-=n*curve*min(3.4,u_refraction*.19)*engagement;
+      vec3 railLens=sampleSoft(railRay+neckBend*.55,1.5);
+      float innerGlow=exp(-depth/4.4);
+      float pinLight=1.-smoothstep(.24,1.8,depth);
+      float direction=.62+.38*abs(dot(n,normalize(vec2(-.66,-.75))));
+      float sheen=max(innerGlow*.26,pinLight*.64)*direction;
+      railLens=mix(railLens,vec3(1.),sheen);
+      clear=mix(clear,railLens,merged.w*(1.-join*.70)*engagement);
+    }
     if(join>.005){
       // The curved neck collects a wider footprint than the ordinary rim.
       vec2 neckRay=p-pull+neckBend+n*envelope*u_refraction*.34;
@@ -249,11 +262,12 @@ void main(){
     clear=mix(clear,caustic,join*innerFocus*facing*.80);
     // Only the thumb and selection carry a resting pale fill. The same union
     // blends that fill into the clear glass and removes the internal rim.
-    float restingFill=.92*(merged.y+merged.z)+.72*merged.w;
+    float restingFill=.92*(merged.y+merged.z)+.76*merged.w;
     float milk=restingFill*(1.-smoothstep(0.,1.,engagement))*(1.-join*.88);
     vec3 ivory=mix(vec3(.98,.987,.98),sampleSoft(p,2.),.13+.29*merged.w);
     float innerRim=1.-smoothstep(.35,3.6,depth);
-    ivory=mix(ivory,vec3(1.),innerRim*.85);
+    float selectionShoulder=merged.w*.15*exp(-depth/5.0);
+    ivory=mix(ivory,vec3(1.),max(innerRim*.85,selectionShoulder));
     clear=mix(clear,ivory,milk);
     // A stationary hold changes exposure and refraction; only travel adds chromatic light.
     vec2 delta=(p-contact)/contactRadius;

@@ -42,7 +42,7 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
   #stage.fallback :is(.switch .knob, .segment .selection) { background: Highlight; }
   #stage.fallback .segment button[aria-pressed="true"] { color: HighlightText; }
 }
-.segment button[aria-pressed="true"] { color: var(--selection-ink, #202427); font-weight: 700; }
+.segment button[aria-pressed="true"] { color: var(--selection-ink, #202427); text-shadow: var(--selection-halo, none); font-weight: 700; }
 @media (forced-colors: none) { #stage.fallback .segment button[aria-pressed="true"] { color: #202427; } }
 #status { position: absolute; z-index: 4; left: 16px; top: 16px; margin: 0; padding: 7px 10px; border-radius: 10px; background: rgb(247 244 236 / .9); font-size: 13px; }
 :focus-visible { outline: 3px solid #083f67; outline-offset: 4px; }

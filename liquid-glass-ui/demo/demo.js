@@ -275,8 +275,8 @@ function draw() {
         dragging = selection.dragging;
         const extension = Math.max(0,right-left-1);
         const cell = rect.width/3;
-        const width = Math.max(24,(right-left)*cell-6) + 46*press;
-        const height = 52 + 16*press - Math.min(9,extension*9);
+        const width = Math.max(24,(right-left)*cell-6) + 54*press;
+        const height = 52 + 19*press - Math.min(9,extension*9);
         const center = (left+right)*cell/2;
         knob = {x:rect.left-box.left+center,y:base.y,width,height};
         piece.style.setProperty('--selection-offset', (center-width/2-3) + 'px');
@@ -285,7 +285,11 @@ function draw() {
         if (moving) schedule();
       }
       const surface = liquidSurface({...knob,radius:knob.height/2},{surface:toggle?'switch':'selection',dragging});
-      if (segment) piece.style.setProperty('--selection-ink', Math.max(press,surface.motion) > .58 ? '#fff' : '#202427');
+      if (segment) {
+        const open = Math.max(press,surface.motion) > .58;
+        piece.style.setProperty('--selection-ink', open && material.presetOptics ? '#fff' : '#202427');
+        piece.style.setProperty('--selection-halo', open && !material.presetOptics ? '0 0 2px rgb(255 255 255 / .24)' : 'none');
+      }
       return surface;
     }
     const grow = 1 + press * (state.lens ? .30 : .15);
