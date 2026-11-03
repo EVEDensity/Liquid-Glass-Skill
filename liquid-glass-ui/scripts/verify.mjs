@@ -45,7 +45,7 @@ try {
   assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 18);
   assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 10);
   assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .35);
-  assert.equal(await page.locator('#controls > .glass').count(), 6);
+  assert.equal(await page.locator('#controls > .glass').count(), 7);
   record('Scene layout renders the combined glass pieces');
   await page.locator('#layouts [data-layout="controls"]').click();
   await page.waitForFunction(() => window.glassDemo.layout === 'controls');

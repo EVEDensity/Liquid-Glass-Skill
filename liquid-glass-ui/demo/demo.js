@@ -17,14 +17,21 @@ const icons = {
 };
 const layouts = {
   scene() {
-    return [
-      glass('lens', '', '58%', '18%'),
-      glass('switch', '<span class="track"></span><span class="knob"></span>', '39%', '27%'),
-      glass('slider', '<span class="track"></span><span class="thumb"></span><input aria-label="Glass level" type="range" min="0" max="100" value="28">', '12%', '57%'),
-      glass('panel', '', '43%', '43%'),
-      glass('pill', '', '68%', '34%'),
-      glass('segment', '<span class="selection"></span>' + ['Day', 'Week', 'Month'].map((name, index) => `<button type="button" aria-pressed="${index === 0}">${name}</button>`).join(''), '16%', '76%')
-    ];
+    const piece = (kind, x, y, width, height, html = '') => {
+      const element = glass(kind, html, `${x * 100}%`, `${y * 100}%`);
+      element.style.width = `${width}px`;
+      element.style.height = `${height}px`;
+      return element;
+    };
+    const lensA = piece('lens', .2404, .2676, 120, 120);
+    const lensB = piece('lens', .2154, .4918, 120, 120);
+    const toggle = piece('switch', .5187, .295, 60.8, 38.4, '<span class="track"></span><span class="knob"></span>');
+    const slider = piece('slider', .6889, .5, 280, 38.4, '<span class="track"></span><span class="thumb"></span><input aria-label="Glass level" type="range" min="0" max="100" value="82">');
+    const segment = piece('segment', .6532, .705, 320, 51.2, '<span class="selection"></span>' + ['Day', 'Week', 'Month'].map((name, index) => `<button type="button" aria-pressed="${index === 2}">${name}</button>`).join(''));
+    segment.querySelector('.selection').style.translate = '200% 0';
+    const panel = piece('panel', .6676, .7505, 220, 150);
+    const pill = piece('pill', .7404, .2075, 200, 64);
+    return [lensA, lensB, toggle, slider, segment, panel, pill];
   },
   controls() {
     return [
