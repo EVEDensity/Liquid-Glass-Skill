@@ -287,11 +287,12 @@ try {
     return results;
   });
   assert.equal(rail.error, 0);
-  assert.ok(rail.heldLight < rail.idleLight - 25, 'Holding must clear the resting milk from the center');
+  assert.ok(rail.heldLight > rail.idleLight + 22, 'Holding clear standalone glass must visibly brighten the lens');
   assert.ok(Math.max(...rail.neutralRim)-Math.min(...rail.neutralRim)<=2, 'A stationary hold must not add chromatic tint');
   assert.ok(Math.max(...rail.movingRim)-Math.min(...rail.movingRim)>10, 'Travel must add a visible colored rim');
   assert.ok(rail.clearBent > 25, 'Shared clear glass must still bend the track');
-  assert.ok(rail.heldContrast.every((held,i) => held > 70 && held > rail.clearContrast[i] + 35), 'All controls must reveal the background on hold and soften it at rest');
+  assert.ok(rail.heldContrast.slice(0,3).every((held,i) => held > 70 && held > rail.clearContrast[i] + 35), 'Knobs and the selection must reveal more background on hold');
+  assert.ok(rail.clearContrast[3] > 95 && rail.heldContrast[3] > 65, 'Standalone glass must preserve background detail at rest and while held');
   assert.equal(rail.movedOutside, 0, 'Press changed the track outside the knob');
   assert.ok(rail.bent > 25, `Lens failed to bend the track on a solid backdrop: ${rail.bent}px`);
   assert.ok(rail.transparency > 100, 'Held glass should reveal substantially more of the backdrop');

@@ -60,8 +60,8 @@ vec3 sampleSoft(vec2 p,float blur){
   return mix(inactive,mix(base,vec3(.97,.96,.93),.96),fill);
 }
 vec3 sampleAt(vec2 p){return sampleSoft(p,0.);}
-vec3 liquidLens(vec2 p,vec2 normal,float field,float press,bool clear){
-  // Resting porcelain gives way to an edge lens with a clear center.
+vec3 liquidLens(vec2 p,vec2 normal,float field,float press,bool clear,float chromatic){
+  // Sample the backdrop through a curved rim around a clear center.
   float depth=max(-field,0.);
   float strength=clear?mix(.85,1.,press):press;
   float t=clamp(depth/mix(7.,clear?19.:14.,strength),0.,1.);
@@ -74,7 +74,14 @@ vec3 liquidLens(vec2 p,vec2 normal,float field,float press,bool clear){
   vec2 diagonal=vec2(softness*.7);
   lens+=(sampleAt(at+diagonal)+sampleAt(at-diagonal)+
          sampleAt(at+vec2(diagonal.x,-diagonal.y))+sampleAt(at+vec2(-diagonal.x,diagonal.y)))*.03;
-  lens=mix(lens,vec3(.985,.99,.98),clear?mix(.10,.06,press):mix(.90,.08,press));
+  if(chromatic>.001){
+    // Offset the sampled rays, so an even backdrop stays neutral.
+    vec2 split=normal*sin(t*3.141593)*chromatic;
+    vec3 centerRay=sampleSoft(at,.65);
+    lens.r+=(sampleSoft(at-split,.65).r-centerRay.r)*.62;
+    lens.b+=(sampleSoft(at+split,.65).b-centerRay.b)*.62;
+  }
+  lens=mix(lens,vec3(.985,.99,.98),clear?mix(.045,.075,press):mix(.90,.08,press));
   vec2 light=vec2(cos(radians(u_lightAngle)),sin(radians(u_lightAngle)));
   float facing=dot(normal,light);
   float direction=.32+.68*pow(abs(facing),1.6);
@@ -154,6 +161,7 @@ void main(){
     float curve=sin(clamp(depth/18.,0.,1.)*3.141593);
     vec2 pull=(p-centre)*press*.09;
     float knob=clamp(merged.y+merged.z+merged.w,0.,1.);
+    float standalone=1.-knob;
     float engagement=1.-(1.-press)*(1.-smoothstep(.025,.44,movement));
     float neck=smoothstep(.10,2.2,junction);
     float neckDepth=1.-smoothstep(12.,31.,depth);
@@ -161,22 +169,31 @@ void main(){
     float envelope=smoothstep(0.,3.,depth)*(1.-smoothstep(12.,29.,depth));
     // Bend the sampled backdrop around the new common contour, including fixed rails.
     vec2 neckBend=n*envelope*join*min(20.,u_refraction*.98);
-    vec3 clear=liquidLens(p-pull+neckBend,n,field,max(engagement,join*.82),true);
+    float spectralBend=min(u_refraction/18.,2.)*(standalone*(1.25+press*2.5)+join*.8);
+    vec3 clear=liquidLens(p-pull+neckBend,n,field,max(engagement,join*.82),true,spectralBend);
+    if(join>.005){
+      // The curved neck collects a wider footprint than the ordinary rim.
+      vec2 neckRay=p-pull+neckBend+n*envelope*u_refraction*.34;
+      clear=mix(clear,sampleSoft(neckRay,2.4),join*envelope*.54);
+    }
     // Broaden the rim into a soft caustic that inherits the sampled light.
     float innerFocus=smoothstep(.35,2.8,depth)*(1.-smoothstep(3.2,10.5,depth));
     vec3 rimLight=sampleSoft(p-pull+neckBend+n*4.,1.7);
     float facing=.45+.55*abs(dot(n,normalize(vec2(-.72,-.68))));
     vec3 caustic=mix(rimLight,vec3(1.),.74);
     clear=mix(clear,caustic,join*innerFocus*facing*.80);
-    // The quiet surface is milky; stretching opens up a clear, thicker lens.
-    float milk=mix(.65,.92,knob)*(1.-smoothstep(0.,1.,engagement))*(1.-join*.80);
-    vec3 ivory=mix(vec3(.98,.987,.98),base,.13);
+    // Only the thumb and selection carry a resting pale fill. The same union
+    // blends that fill into the clear glass and removes the internal rim.
+    float restingFill=.92*(merged.y+merged.z)+.72*merged.w;
+    float milk=restingFill*(1.-smoothstep(0.,1.,engagement))*(1.-join*.88);
+    vec3 ivory=mix(vec3(.98,.987,.98),sampleSoft(p,2.),.13+.29*merged.w);
     float innerRim=1.-smoothstep(.35,3.6,depth);
     ivory=mix(ivory,vec3(1.),innerRim*.85);
     clear=mix(clear,ivory,milk);
     // A stationary hold changes exposure and refraction; only travel adds chromatic light.
     vec2 delta=(p-contact)/contactRadius;
-    float illumination=press*(.025+mix(.23,.035,knob)*exp(-dot(delta,delta)));
+    float illumination=press*(.025+mix(.25,.035,knob)*exp(-dot(delta,delta)));
+    illumination+=standalone*press*innerFocus*facing*.22;
     clear=mix(clear,vec3(1.),illumination);
     if(movement>.005){
       vec2 split=n*curve*movement*3.2;
@@ -191,7 +208,7 @@ void main(){
     return;
   }
   if(merged.y>.999){
-    color=vec4(mix(base,liquidLens(p,n,field,sliderPress,false),mask),1.);
+    color=vec4(mix(base,liquidLens(p,n,field,sliderPress,false,0.),mask),1.);
     return;
   }
   float edge=1.-smoothstep(0.,max(u_bezel*scale*.55*(1.+press*.25),1.),max(-field,0.));
@@ -232,7 +249,7 @@ void main(){
     vec3 selection=mix(sampleSoft(at,3.),vec3(.91,.93,.92),.58-press*.24);
     lens=mix(lens,mix(selection,vec3(1.),rim*(.22+shine*.67)),merged.w);
   }
-  if(merged.y>.001)lens=mix(lens,liquidLens(p,n,field,sliderPress,false),merged.y);
+  if(merged.y>.001)lens=mix(lens,liquidLens(p,n,field,sliderPress,false,0.),merged.y);
   vec3 outside=base*(1.-max(shadow,u_dim*mask));
   color=vec4(mix(outside,clamp(lens,0.,1.),mask),1.);
 }`;
