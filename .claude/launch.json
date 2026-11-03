@@ -4,7 +4,7 @@
     {
       "name": "liquid-glass-demo",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["liquid-glass-ui/scripts/serve.mjs"],
+      "runtimeArgs": ["scripts/serve.mjs"],
       "port": 4173
     }
   ]
