@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 // Uncompressed ZIP with CRC32, keeping packaging independent of OS and tooling.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const include = ['SKILL.md', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'assets', 'references', 'demo', 'scripts/serve.mjs', 'scripts/verify.mjs', 'scripts/package.mjs', 'package.json', 'package-lock.json', '.gitignore'];
+const include = ['SKILL.md', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'agents', 'assets', 'references', 'demo', 'scripts/serve.mjs', 'scripts/verify.mjs', 'scripts/package.mjs', 'package.json', 'package-lock.json', '.gitignore'];
 const entries = [];
 async function collect(path) {
   const absolute = resolve(root, path);

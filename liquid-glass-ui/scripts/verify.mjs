@@ -473,6 +473,52 @@ try {
     const clean=!button.style.getPropertyValue('--glass-x');host.remove();return clean;
   });
   assert.ok(cleanupResult); record('Pointer light unmount cleanup');
+  const mounted = await page.evaluate(async () => {
+    const {mountLiquidGlass}=await import('/assets/mount-liquid-glass.js');
+    const host=document.createElement('div');
+    host.style.cssText='position:fixed;inset:0 auto auto 0;width:220px;height:120px';
+    const canvas=document.createElement('canvas');
+    canvas.style.cssText='width:100%;height:100%';
+    canvas.setAttribute('aria-hidden','true');
+    const button=document.createElement('button');
+    button.textContent='Save';
+    let activations=0;
+    button.addEventListener('click',()=>activations++);
+    host.append(canvas,button);
+    document.body.append(host);
+    const source=document.createElement('canvas');
+    source.width=220;source.height=120;
+    const painter=source.getContext('2d');
+    painter.fillStyle='#688b8a';painter.fillRect(0,0,220,120);
+    let x=75;
+    const renderedCenters=[];
+    const states=[];
+    const binding=mountLiquidGlass({
+      canvas,source,
+      getFrame:()=>{
+        renderedCenters.push(x);
+        return {shapes:[{x,y:60,width:80,height:40,radius:20}]};
+      },
+      onAvailabilityChange:active=>states.push(active)
+    });
+    const frame=()=>new Promise(requestAnimationFrame);
+    await frame();await frame();
+    x=120;binding.invalidate();
+    await frame();await frame();
+    canvas.dispatchEvent(new Event('webglcontextlost',{cancelable:true}));
+    button.click();
+    const hiddenInFallback=canvas.hidden && !binding.available;
+    binding.destroy();binding.destroy();
+    const restored=!canvas.hidden;
+    host.remove();
+    return {renderedCenters,states,hiddenInFallback,restored,activations};
+  });
+  assert.ok(mounted.renderedCenters.includes(75)&&mounted.renderedCenters.includes(120));
+  assert.deepEqual(mounted.states,[true,false]);
+  assert.ok(mounted.hiddenInFallback && mounted.restored);
+  assert.equal(mounted.activations,1);
+  record('Reusable WebGL mount redraws a host control and falls back after context loss');
+
   await context.close();
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
   const phone = await mobile.newPage();phone.on('pageerror', e => errors.push(e.message));

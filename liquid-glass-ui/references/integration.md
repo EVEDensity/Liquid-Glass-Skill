@@ -1,56 +1,89 @@
 # Integration
 
-## Page structure
+## CSS glass for existing HTML
 
-Use one stage, one decorative canvas, and one DOM element per movable glass control.
+Copy `assets/liquid-glass.css` and load it once. Add the classes to the app's existing native element.
 
 ```html
-<main id="stage">
-  <canvas id="scene" aria-hidden="true"></canvas>
-  <div class="glass-control" data-glass tabindex="0">
-    <button type="button">Save</button>
-  </div>
-</main>
-<script type="module" src="./demo.js"></script>
+<link rel="stylesheet" href="./glass/liquid-glass.css">
+<button type="button" class="glass glass-pill glass-button">Save</button>
 ```
 
-The canvas fills the stage with `pointer-events: none`. Controls are absolutely positioned above it. Give each control `touch-action: none`, a grab cursor, and a keyboard-accessible move action.
+Use `glass-clear` on a predictable backdrop or `glass-frosted` when labels need a steadier surface. Scope colors and CSS variables to the relevant area with `data-theme="light"` or the app's theme. The optional `mountGlass(root)` helper from `liquid-glass.js` adds pointer highlights. Call its returned cleanup on unmount.
 
-## Rendering loop
+## WebGL2 glass over an image
+
+Copy `assets/liquid-glass-renderer.js` and `assets/mount-liquid-glass.js` into the same app directory. Use this structure in an existing interface and replace the local image URL with an app asset.
+
+```html
+<div id="glass-stage">
+  <canvas id="glass-canvas" aria-hidden="true"></canvas>
+  <button id="glass-save" type="button">Save</button>
+</div>
+<style>
+  #glass-stage {
+    position: relative;
+    min-height: 220px;
+    display: grid;
+    place-items: center;
+    background: #25465a url("./backdrop.jpg") center/cover;
+  }
+  #glass-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #glass-save {
+    position: relative;
+    min-width: 88px;
+    min-height: 44px;
+    border: 1px solid #c2d9e7;
+    border-radius: 999px;
+    background: #123047;
+    color: white;
+  }
+  #glass-stage[data-refractive] #glass-save { background: rgb(18 48 71 / .62); }
+  #glass-save:focus-visible { outline: 3px solid #a8e6ff; outline-offset: 3px; }
+</style>
+<script type="module" src="./glass-stage.js"></script>
+```
 
 ```js
-import { GlassScene, PRESETS } from "../assets/liquid-glass-renderer.js";
+// glass-stage.js
+import { PRESETS } from "./glass/liquid-glass-renderer.js";
+import { mountLiquidGlass } from "./glass/mount-liquid-glass.js";
 
-const scene = new GlassScene(canvas);
-let material = { ...PRESETS.apple };
-let frame = 0;
+const stage = document.querySelector("#glass-stage");
+const canvas = document.querySelector("#glass-canvas");
+const button = document.querySelector("#glass-save");
+const image = new Image();
+image.src = "./backdrop.jpg";
 
-function draw() {
-  frame = 0;
-  if (!scene.available) return;
-  const box = canvas.getBoundingClientRect();
-  scene.setShapes([...document.querySelectorAll("[data-glass]")].map((control) => {
-    const rect = control.getBoundingClientRect();
-    return {
-      x: rect.left + rect.width / 2 - box.left,
-      y: rect.top + rect.height / 2 - box.top,
-      width: rect.width,
-      height: rect.height,
-      radius: Math.min(rect.width, rect.height) / 2
-    };
-  }));
-  scene.setMaterial(material);
-  scene.render();
+let glass;
+try {
+  await image.decode();
+  glass = mountLiquidGlass({
+    canvas, source: image, material: PRESETS.apple,
+    getFrame() {
+      const stageBox = canvas.getBoundingClientRect();
+      const buttonBox = button.getBoundingClientRect();
+      return { shapes: [{
+        x: buttonBox.left - stageBox.left + buttonBox.width / 2,
+        y: buttonBox.top - stageBox.top + buttonBox.height / 2,
+        width: buttonBox.width,
+        height: buttonBox.height,
+        radius: buttonBox.height / 2
+      }] };
+    },
+    onAvailabilityChange: available => stage.toggleAttribute("data-refractive", available)
+  });
+} catch {
+  stage.removeAttribute("data-refractive");
 }
 
-function schedule() {
-  if (!frame) frame = requestAnimationFrame(draw);
-}
+// Call glass?.invalidate() after a control moves or changes size.
+// On unmount, call glass?.destroy() and remove the data-refractive attribute.
 ```
 
-Call `schedule()` after a drag step, arrow-key move, scroll, resize, or preset change. `ResizeObserver` inside `GlassScene` redraws after canvas size changes, but it does not know when a control moves.
+The helper coalesces redraw requests and handles resizing, forced colors, reduced transparency, and WebGL context loss. For a video or changing canvas, pass `liveSource: true` and invalidate from the app's frame loop after the source updates. Load pixels before mounting. Pass `sliderTrack` and `controlBases` through `getFrame` when sampling fixed tracks.
 
-Preserve native inputs and keyboard actions. For a draggable glass button, distinguish activation from dragging by waiting for a small pointer movement before capturing the pointer and suppressing its click. Arrow keys move standalone glass by 8px, or 24px with Shift.
+CSS cover positioning and canvas sampling must use the same backdrop crop. Use a stage-local canvas and notify it after position changes. A DOM section the renderer cannot sample belongs on the CSS path. For React or another framework, mount after the DOM and source are ready and tear down from the component cleanup.
 
 ## Material keys
 

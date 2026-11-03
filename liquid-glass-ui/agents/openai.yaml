@@ -1,0 +1,4 @@
+interface:
+  display_name: "Liquid Glass UI"
+  short_description: "Build and tune interactive glass controls"
+  default_prompt: "Use $liquid-glass-ui to add interactive glass to the requested controls in this web app."

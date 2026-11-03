@@ -39,18 +39,9 @@ Tests use installed Microsoft Edge, then Playwright Chromium. Set `GLASS_BROWSER
 
 ## Use it as a skill
 
-Place the unpacked `liquid-glass-ui/` folder at either location, without nesting another copy inside it:
+Install the folder named `liquid-glass-ui` in your agent's skills directory or in the project's `.agents/skills/` directory. The folder must contain `SKILL.md` directly. In Codex, use `$liquid-glass-ui` and identify the target controls, backdrop, and the interaction you want.
 
-- Project skill: `<project>/.claude/skills/liquid-glass-ui/SKILL.md`
-- Personal skill: `~/.claude/skills/liquid-glass-ui/SKILL.md` (`%USERPROFILE%\.claude\skills\liquid-glass-ui\SKILL.md` on Windows)
-
-In a new session:
-
-```text
-/liquid-glass-ui Restyle this page with movable liquid glass and merging controls.
-```
-
-You can also point an agent directly at [SKILL.md](SKILL.md).
+The skill chooses between CSS glass for live DOM and true WebGL2 refraction for a backdrop supplied as pixels. The [integration recipes](references/integration.md) show how to attach both paths to an existing app. The demo is a reference for checking the effect.
 
 ## Use the renderer
 

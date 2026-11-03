@@ -1,97 +1,27 @@
 ---
 name: liquid-glass-ui
-description: >-
-  Create or restyle interfaces with movable liquid glass: refractive edges, specular rims, frosted or clear surfaces, and shapes that melt together when dragged close. Use for Liquid Glass, Apple-like glass, transparent refractive navigation, glass toolbars, floating controls, dialogs, and players. Includes an independent WebGL2 renderer, the full preset parameter set, native controls, light and dark themes, and accessibility fallbacks.
+description: Implement, restyle, or debug interactive liquid glass in web interfaces. Use for refractive buttons, switches, sliders, segmented controls, toolbars, and floating surfaces with press, drag, or merge behavior. Choose CSS glass for arbitrary page content or WebGL2 refraction for a backdrop the app can supply as pixels.
+license: MIT
 ---
 
 # Liquid Glass UI
 
-Reusable UI skill for refractive glass controls. The visual direction is informed by [Good Machines — Liquid Glass](https://goodmachines.ai/lab/liquid-glass). This project is an independent implementation with original artwork. It is not Apple's implementation and does not include that site's code, images, video, or fonts.
+Work on the target interface and keep its layout, controls, design tokens, and input semantics. Use the demo as a visual reference or regression fixture. Apply glass only to the requested surfaces.
 
-## What to build
+## Choose the rendering path
 
-The demo puts a movable circle, switch, slider, segmented control, and six material choices in one scene. Test glass against both a movable knob and its fixed base.
+- **CSS glass** fits arbitrary DOM, text, and scrolling content. Copy `assets/liquid-glass.css` for blur, tint, and a rim. Add `assets/liquid-glass.js` only if the user wants pointer highlights. CSS glass cannot bend or merge backdrop pixels.
+- **WebGL2 refraction** fits images, video, and canvases controlled by the app. Copy `assets/liquid-glass-renderer.js` and `assets/mount-liquid-glass.js`. Keep the actual controls in HTML above an `aria-hidden` canvas. Use the app's original layout and a permitted backdrop.
+- **Glass plus an opaque fallback** fits readability or browser constraints. Handle reduced transparency, forced colors, and WebGL context loss. Give the fallback the same native actions and usable contrast.
 
-Use the WebGL2 renderer whenever the backdrop is an image, canvas, or video that this page controls. CSS blur is only the fallback when WebGL2, reduced transparency, or forced colors make refraction unavailable. Neither mode refracts arbitrary DOM behind the canvas.
+Read [integration](references/integration.md) for runnable wiring and the shape API. Read [materials](references/design-system.md) when selecting presets or treating different control states. Use [acceptance](references/acceptance.md) to verify the target interface.
 
-Do the integration directly. Do not add remote fonts, CDNs, or runtime dependencies.
+## Implement and check
 
-For a liquid-glass slider, keep the native range input and follow the [slider integration](references/integration.md#liquid-glass-slider). Put fixed bases and rails in the backdrop sampled by the glass. Only freestanding glass, the switch and slider knobs, and the segmented selection belong to the merge field. A base may show through the glass without forming a bridge.
+1. Inspect the target markup, source backdrop, stacking order, and native input behavior. Keep actions and labels outside the decorative canvas.
+2. Choose the reference states that matter for this component. Separate idle, hold, travel, and release. A clear lens can stay transparent at rest. A selector can use a pale resting fill and reveal its track on hold.
+3. In WebGL, use one stage-local canvas. Map the actual visible glass outline to its center and dimensions. Submit only glass to the merge field. Fixed rails and bases can be sampled as background layers without joining the glass contour.
+4. Drive shape updates from the app's input and animation state. Keep track positions and hit targets stable. Apply stretch along the direction of travel and ease it out after release. Honor reduced motion.
+5. Check the actual target page with contrasting backdrop detail. Inspect idle, press, travel, and release as applicable. Verify keyboard and touch operation, mobile layout, and a readable fallback. Mention any visual or browser limits supported by the checks.
 
-For the milk-to-lens treatment used by the demo, set `scene.setMaterial({ ...PRESETS.apple, clearControls: true })`. Use it consistently across standalone buttons, knobs, and segmented selections. At rest, knobs and segmented selections carry a pale fill. Standalone buttons and lenses transmit the backdrop. Pressing opens the pale fill and increases the optical response, while joined shapes share one rim.
-
-## Workflow
-
-1. **Inspect the app.** Keep existing buttons, links, forms, dialogs, focus order, and keyboard behavior.
-2. **Choose the backdrop.** Use an authorized image or `assets/glass-backdrop.svg`. The backdrop needs visible contrast so refraction is readable.
-3. **Mount the renderer.** Copy `assets/` into the app, create one full-size canvas, load the source, then call `setSource`, `setMaterial(PRESETS.apple)`, `setShapes`, and `render`. Map each control from its center: `left + width / 2` and `top + height / 2`, relative to the canvas.
-4. **Animate every click.** Pointer dragging and arrow keys move a piece. Pressing scales it and strengthens the lens, then eases back. The switch knob slides, the slider updates while dragged, the segment selection moves, and Morph visibly splits or rejoins. Re-render on every animation frame.
-5. **Keep text in DOM.** The canvas is decorative and `aria-hidden`. Labels, icons, and buttons sit above it and receive pointer events. Treat a tap on an inner button as activation. On a draggable glass button, start the drag only after a movement threshold and suppress the click once the drag starts.
-6. **Verify.** Check dragging, merging, keyboard movement, light and dark theme, 320px width, reduced transparency, forced colors, and the no-WebGL fallback.
-
-Read [references/design-system.md](references/design-system.md) before choosing materials, [references/integration.md](references/integration.md) for the API, and [references/acceptance.md](references/acceptance.md) before delivery.
-
-## Presets
-
-`PRESETS` is exported by `assets/liquid-glass-renderer.js`. Start with `apple` unless the user names another preset. These are this project's tuned starting values, not published Apple constants.
-
-```js
-import { GlassScene, PRESETS } from "./assets/liquid-glass-renderer.js";
-
-const scene = new GlassScene(canvas);
-scene.setMaterial(PRESETS.apple);
-```
-
-`PRESETS.apple` is:
-
-```json
-{
-  "name": "Apple Liquid Glass",
-  "refraction": 18,
-  "bezel": 20,
-  "magnify": 1,
-  "dispersion": 0.04,
-  "edge": "convex",
-  "sizeScale": true,
-  "blur": 6,
-  "frost": 0.1,
-  "vibrancy": 1.35,
-  "brightness": 0.02,
-  "dim": 0,
-  "appearance": "auto",
-  "pickup": 0.35,
-  "tintAmount": 0,
-  "tint": "#e8593c",
-  "specular": 0.7,
-  "rimWidth": 1.4,
-  "lightAngle": -135,
-  "shadow": 0.3,
-  "merge": 10,
-  "interactive": true
-}
-```
-
-Also ship `clear`, `thick`, `frosted`, `plain`, and `prism`. Copy and paste must preserve every key. `edge` is `convex` or `lip`. `appearance` is `auto`, `light`, or `dark`. Distances are CSS pixels; the renderer converts device pixels.
-
-## Renderer contract
-
-- `new GlassScene(canvas, options)`; read `.available` before use.
-- `setShapes([{ x, y, width, height, radius }])`: center coordinates, up to eight rendered shapes. Overlapping glass shapes share a contour; do not submit base tracks as shapes.
-- `setMaterial(values)` accepts any subset of the preset keys.
-- `setSource(image | canvas | video)` after the source has pixels. Call it again for every video or canvas frame, then `render()`.
-- `render()` draws once. Resize observation is internal; movement still needs an explicit render.
-- `destroy()` on unmount. Listen for `glassfallback` and switch to opaque controls.
-
-## Delivery bar
-
-- Text contrast is at least 4.5:1, large text and essential non-text contrast at least 3:1, measured against the worst backdrop.
-- Controls are at least 44 by 44 CSS pixels and usable at 320px width.
-- Reduced motion, reduced transparency, forced colors, and missing WebGL all leave a readable interface.
-- Dragging and arrow keys move the selected piece. Nearby glass surfaces visibly join; rails and inactive tracks keep their own silhouettes.
-- Do not claim pixel parity with the reference page or call this an official Apple material.
-
-## Local preview
-
-From this skill root, run `node scripts/serve.mjs` and open `http://localhost:4173/demo/`. `npm install` and `npm test` are development-only. `node scripts/package.mjs` writes `dist/liquid-glass-ui.zip`.
-
-New code and original assets use the [MIT license](LICENSE). Source boundaries are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Run `node scripts/serve.mjs` from this folder and open `http://localhost:4173/demo/` to try the bundled switch, slider, segmented control, and lens with six presets. The materials are independently implemented and tuned against the public Good Machines demo.
