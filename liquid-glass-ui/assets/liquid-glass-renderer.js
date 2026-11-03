@@ -95,32 +95,26 @@ float shapeDistance(vec2 p,int i){
   float stretch=length(u_stretch[i]);
   if(stretch>.001){
     vec2 direction=u_stretch[i]/stretch;
-    bool lens=u_surface[i]==4.;
-    float halfSpan=lens ? min(s.z,s.w)*.5 : dot(abs(direction),s.zw*.5);
+    float halfSpan=dot(abs(direction),s.zw*.5);
     float axis=dot(q,direction);
     // Deform the trailing half more than the leading face.
     float back=1.-smoothstep(-halfSpan*.6,halfSpan*.55,axis);
-    float extension=stretch*mix(.13,lens ? 1.14 : .87,back);
+    float extension=stretch*mix(.13,.87,back);
     q-=direction*axis*extension/(halfSpan+extension);
     // The rear narrows as it stretches, instead of elongating a rigid capsule.
     vec2 across=vec2(-direction.y,direction.x);
-    float narrowing=back*min(.42,stretch/max(36.,halfSpan*2.)*.7);
-    if(lens){
-      // Compress the droplet across its direction of travel and taper its tail.
-      float strain=min(1.,stretch/max(1.,halfSpan));
-      narrowing=(.13+.48*back)*strain;
-    }
-    q+=across*dot(q,across)*narrowing;
+    q+=across*dot(q,across)*back*min(.42,stretch/max(36.,halfSpan*2.)*.7);
   }
   return roundedBox(q,s.zw*.5,u_radii[i]);
 }
-vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out float movement,out float junction){
+vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out float movement,out float junction,out vec2 dome){
   vec4 field=vec4(1e5,0.,0.,0.);
   dynamics=vec4(0.,0.,1.,0.);
   contact=vec2(0.);
   sliderPress=0.;
   movement=0.;
   junction=0.;
+  dome=vec2(0.);
   for(int i=0;i<8;i++){
     if(i>=u_count)break;
     vec4 shape=u_shapes[i];
@@ -130,9 +124,11 @@ vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out
     vec4 motion=vec4(shape.xy,scale,press);
     vec3 material=vec3(float(u_surface[i]==1.),float(u_surface[i]==2.),float(u_surface[i]==3.));
     if(u_surface[i]==1.)sliderPress=press;
+    float lens=float(u_surface[i]==4.);
+    vec2 droplet=vec2(lens,lens*min(shape.z,shape.w)*.5);
     float k=max(u_merge,0.)*(1.+.65*max(dynamics.w,press));
     if(k<=.001){
-      if(candidate<field.x){field=vec4(candidate,material);dynamics=motion;contact=u_contact[i];movement=u_motion[i];}
+      if(candidate<field.x){field=vec4(candidate,material);dynamics=motion;contact=u_contact[i];movement=u_motion[i];dome=droplet;}
       continue;
     }
     float h=clamp(.5+.5*(field.x-candidate)/k,0.,1.);
@@ -145,6 +141,7 @@ vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out
     dynamics=mix(dynamics,motion,blend);
     contact=mix(contact,u_contact[i],blend);
     movement=mix(movement,u_motion[i],blend);
+    dome=mix(dome,droplet,blend);
   }
   return field;
 }
@@ -153,7 +150,8 @@ void main(){
   vec4 dynamics;
   vec2 contact;
   float sliderPress,movement,junction;
-  vec4 merged=fieldAt(p,dynamics,contact,sliderPress,movement,junction);
+  vec2 dome;
+  vec4 merged=fieldAt(p,dynamics,contact,sliderPress,movement,junction,dome);
   float field=merged.x,scale=dynamics.z,press=dynamics.w;
   vec2 centre=dynamics.xy;
   float contactRadius=max(30.,scale*62.);
@@ -178,6 +176,25 @@ void main(){
     vec2 neckBend=n*envelope*join*min(20.,u_refraction*.98);
     float spectralBend=min(u_refraction/18.,2.)*(standalone*(1.25+press*2.5)+join*.8);
     vec3 clear=liquidLens(p-pull+neckBend,n,field,max(engagement,join*.82),true,spectralBend);
+    if(dome.x>.001){
+      // A convex drop magnifies across its body. Its rim gathers light separately.
+      float radius=max(1.,dome.y/dome.x);
+      vec2 radial=p-centre;
+      float r=clamp(length(radial)/radius,0.,1.);
+      float power=min(1.5,u_refraction/18.);
+      float zoom=(.24+press*.09)*power*(.83+.17*r*r);
+      vec2 ray=p-radial*zoom+neckBend*.74;
+      float edge=1.-smoothstep(0.,max(1.,radius*.25),depth);
+      float spread=power*(.65+press*.8)*edge;
+      vec3 water=sampleSoft(ray,.55);
+      water.r=sampleSoft(ray-n*spread,.55).r;
+      water.b=sampleSoft(ray+n*spread,.55).b;
+      float facing=.38+.62*abs(dot(n,normalize(vec2(-.7,-.72))));
+      float caustic=edge*edge*facing;
+      vec3 gathered=mix(sampleSoft(p+n*(3.+radius*.12),2.2),vec3(1.),.70);
+      water=mix(water,gathered,caustic*(.65+.19*press));
+      clear=mix(clear,water,dome.x);
+    }
     if(join>.005){
       // The curved neck collects a wider footprint than the ordinary rim.
       vec2 neckRay=p-pull+neckBend+n*envelope*u_refraction*.34;
@@ -291,7 +308,7 @@ export class GlassScene {
       this.contextLost=event=>{event.preventDefault();this.available=false;canvas.dispatchEvent(new Event('glassfallback'));};canvas.addEventListener('webglcontextlost',this.contextLost);
     } catch(error){this.error=error.message;this.destroy();} finally {shaders.forEach(shader=>gl.deleteShader(shader));}
   }
-  setShapes(shapes){this.shapes=shapes.slice(0,8).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1),slider:s.slider===true,motion:clamp(Number(s.motion)||0,0,1),surface:s.surface,contactX:Number.isFinite(s.contactX)?s.contactX:Number(s.x)||0,contactY:Number.isFinite(s.contactY)?s.contactY:Number(s.y)||0,stretchX:clamp(Number(s.stretchX)||0,s.surface==='lens'?-80:-48,s.surface==='lens'?80:48),stretchY:clamp(Number(s.stretchY)||0,s.surface==='lens'?-80:-48,s.surface==='lens'?80:48)};});}
+  setShapes(shapes){this.shapes=shapes.slice(0,8).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1),slider:s.slider===true,motion:clamp(Number(s.motion)||0,0,1),surface:s.surface,contactX:Number.isFinite(s.contactX)?s.contactX:Number(s.x)||0,contactY:Number.isFinite(s.contactY)?s.contactY:Number(s.y)||0,stretchX:clamp(Number(s.stretchX)||0,-48,48),stretchY:clamp(Number(s.stretchY)||0,-48,48)};});}
   setSliderTrack(track){
     this.sliderTrack=track && [track.x,track.y,track.width,track.height,track.fillX].every(Number.isFinite)
       && track.width>0 && track.height>0 ? {...track,height:Math.min(track.height,track.width)} : null;

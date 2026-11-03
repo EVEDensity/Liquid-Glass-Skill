@@ -285,6 +285,18 @@ try {
     results.heldLight = optical(1,0,120)[0];
     results.neutralRim = optical(1,0,82);
     results.movingRim = optical(1,1,82);
+    ctx.fillStyle = '#31566d';
+    ctx.fillRect(0,0,240,96);
+    ctx.fillStyle = '#e85a3f';
+    ctx.fillRect(129,0,6,96);
+    renderer.setSource(source);
+    renderer.setShapes([{x:120,y:48,width:64,height:64,radius:32,surface:'lens'}]);
+    renderer.setMaterial({refraction:0});
+    renderer.render();
+    const unmagnified=sample(136);
+    renderer.setMaterial({refraction:18});
+    renderer.render();
+    results.domeMagnification=sample(136)-unmagnified;
     renderer.destroy(); canvas.remove();
     return results;
   });
@@ -292,6 +304,7 @@ try {
   assert.ok(rail.heldLight > rail.idleLight + 22, 'Holding clear standalone glass must visibly brighten the lens');
   assert.ok(Math.max(...rail.neutralRim)-Math.min(...rail.neutralRim)<=2, 'A stationary hold must not add chromatic tint');
   assert.ok(Math.max(...rail.movingRim)-Math.min(...rail.movingRim)>10, 'Travel must add a visible colored rim');
+  assert.ok(rail.domeMagnification > 50, 'The water dome must magnify inside its body, away from the rim');
   assert.ok(rail.clearBent > 25, 'Shared clear glass must still bend the track');
   assert.ok(rail.heldContrast.slice(0,3).every((held,i) => held > 70 && held > rail.clearContrast[i] + 35), 'Knobs and the selection must reveal more background on hold');
   assert.ok(rail.clearContrast[3] > 95 && rail.heldContrast[3] > 65, 'Standalone glass must preserve background detail at rest and while held');
@@ -330,12 +343,19 @@ try {
   assert.equal(beforeDrag.bases.segment.width, 432);
   const probe = page.locator('.probe');
   const probeBox = await probe.boundingBox();
+  await page.mouse.click(probeBox.x+60,probeBox.y+60);
+  await page.waitForFunction(()=>window.glassDemo.shapes.at(-1).press>.5);
+  await page.waitForFunction(()=>window.glassDemo.shapes.at(-1).press===0);
   await page.mouse.move(probeBox.x + 60, probeBox.y + 60);
   await page.mouse.down();
+  await page.waitForFunction(() => window.glassDemo.shapes.at(-1).press===1);
+  const enlargedLens=await page.evaluate(()=>window.glassDemo.shapes.at(-1));
+  assert.ok(enlargedLens.width >= beforeDrag.shapes[3].width*1.29);
+  assert.equal(enlargedLens.width,enlargedLens.height);
   await page.mouse.move(probeBox.x + 25, probeBox.y + 100);
   await page.waitForFunction(() => {
     const circle = window.glassDemo.shapes.at(-1);
-    return Math.hypot(circle.stretchX, circle.stretchY) > 22;
+    return Math.hypot(circle.stretchX, circle.stretchY) > 8;
   });
   await page.mouse.up();
   await page.waitForFunction(() => {

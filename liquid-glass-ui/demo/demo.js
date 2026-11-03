@@ -249,7 +249,8 @@ function show(name) {
   bind();
   schedule();
 }
-function activePress(piece) {
+function activePress(piece, now) {
+  if (presses.get(piece).tapUntil > now) return 1;
   if (piece.matches('.slider')) return piece.querySelector('input').classList.contains('is-held') ? 1 : 0;
   return drag?.piece === piece || piece.matches('.is-held') || piece.querySelector('button.is-held') ? 1 : 0;
 }
@@ -342,7 +343,7 @@ function draw() {
       if (segment) piece.style.setProperty('--selection-ink', Math.max(press,surface.motion) > .58 ? '#fff' : '#202427');
       return surface;
     }
-    const grow = 1 + press * .15;
+    const grow = 1 + press * (state.lens ? .30 : .15);
     const geometry = boxFor(rect);
     geometry.width *= grow;
     geometry.height *= grow;
@@ -368,11 +369,11 @@ function animatePress(now) {
   let moving = false;
   for (const piece of pieces) {
     const state = presses.get(piece);
-    const target = activePress(piece);
+    const target = activePress(piece, now);
     const elapsed = state.lastFrame == null ? 16 : now - state.lastFrame;
     const ease = 1 - Math.exp(-elapsed / 56);
     state.scale = reduced.matches ? target : state.scale + (target - state.scale) * ease;
-    if (!drag || drag.piece !== piece || now - drag.time > (state.lens ? 160 : 105) || reduced.matches) state.tx = state.ty = 0;
+    if (!drag || drag.piece !== piece || now - drag.time > 105 || reduced.matches) state.tx = state.ty = 0;
     // Damped spring: the tail lags the cursor, overshoots slightly, then settles.
     for (const [value, goal, velocity] of [['sx', 'tx', 'vx'], ['sy', 'ty', 'vy']]) {
       let speed = state[velocity] || 0;
@@ -380,10 +381,8 @@ function animatePress(now) {
         const dt = Math.min(elapsed, 64) / 1000;
         const steps = Math.max(1, Math.ceil(dt / .008));
         const step = dt / steps;
-        const stiffness = state.lens ? 300 : 390;
-        const damping = state.lens ? 18 : 22;
         for (let i = 0; i < steps; i++) {
-          speed += (stiffness * (state[goal] - state[value]) - damping * speed) * step;
+          speed += (390 * (state[goal] - state[value]) - 22 * speed) * step;
           state[value] += speed * step;
         }
       }
@@ -396,6 +395,7 @@ function animatePress(now) {
     }
     state.lastFrame = moving || Math.abs(state.scale - target) >= .01 ? now : null;
     if (Math.abs(state.scale - target) < .01) state.scale = target; else moving = true;
+    if (state.tapUntil > now) moving = true;
   }
   schedule();
   if (moving || now < transitionUntil) pressFrame = requestAnimationFrame(animatePress);
@@ -415,6 +415,7 @@ function bind() {
       const state = presses.get(piece);
       const innerButton = event.target.closest('button');
       state.skipClick = false;
+      state.tapUntil = 0;
       state.contactX = event.clientX;
       state.contactY = event.clientY;
       drag = { piece, innerButton, moved: false, pointerId: event.pointerId, x: event.clientX, y: event.clientY, originX: state.x, originY: state.y, lastX: event.clientX, lastY: event.clientY, time: performance.now() };
@@ -423,26 +424,24 @@ function bind() {
     });
     piece.addEventListener('pointermove', event => {
       if (drag?.piece !== piece || drag.pointerId !== event.pointerId) return;
-      if (!drag.moved) {
+      const firstMove = !drag.moved;
+      if (firstMove) {
         if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 4) return;
         drag.moved = true;
         if (drag.innerButton && event.pointerId) piece.setPointerCapture(event.pointerId);
       }
       const now = performance.now();
-      const elapsed = Math.max(8, now - drag.time);
+      const elapsed = Math.max(8, firstMove ? Math.min(34, now-drag.time) : now-drag.time);
       const dx = event.clientX - drag.lastX, dy = event.clientY - drag.lastY;
       const state = presses.get(piece);
       const distance = Math.hypot(dx,dy);
-      const factor = state.lens
-        ? Math.min(68, 48*Math.sqrt(distance/elapsed)) / Math.max(1,distance)
-        : Math.min(31/elapsed, 42/Math.max(1,distance));
+      const factor = Math.min(31/elapsed, 42/Math.max(1,distance));
       if (!reduced.matches) {
         state.tx = dx * factor;
         state.ty = dy * factor;
         // Apply part of the impulse immediately so short gestures still deform the contour.
-        const impulse = state.lens ? .62 : .45;
-        state.sx += (state.tx - state.sx) * impulse;
-        state.sy += (state.ty - state.sy) * impulse;
+        state.sx += (state.tx - state.sx) * .48;
+        state.sy += (state.ty - state.sy) * .42;
       }
       state.contactX = event.clientX;
       state.contactY = event.clientY;
@@ -452,7 +451,11 @@ function bind() {
     });
     const stopDrag = event => {
       if (drag?.piece !== piece || drag.pointerId !== event.pointerId) return;
-      presses.get(piece).skipClick = drag.moved;
+      const state = presses.get(piece);
+      state.skipClick = drag.moved;
+      if (state.lens && event.type === 'pointerup' && !drag.moved && !reduced.matches) {
+        state.tapUntil = drag.time + 145;
+      }
       drag = null;
       startPress();
     };
