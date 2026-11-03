@@ -10,7 +10,7 @@ Reusable UI skill for refractive glass controls. The visual direction is informe
 
 ## What to build
 
-Start with the demo layout that matches the request. **Controls** has a glass dock and search button. **Merge test** has a movable circle, a switch, a slider, and a segmented control on a grid. Test glass against both a movable white part and its fixed base.
+The demo puts a movable circle, switch, slider, segmented control, and six material choices in one scene. Test glass against both a movable knob and its fixed base.
 
 Use the WebGL2 renderer whenever the backdrop is an image, canvas, or video that this page controls. CSS blur is only the fallback when WebGL2, reduced transparency, or forced colors make refraction unavailable. Neither mode refracts arbitrary DOM behind the canvas.
 

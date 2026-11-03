@@ -1,23 +1,13 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "Segoe UI", sans-serif; }
-#stage { position: relative; min-height: 100svh; overflow: hidden; background: #d7e4c8 url('../assets/glass-backdrop.svg') center/cover no-repeat; }
-#stage[data-layout="merge"] { background-image: url('../assets/glass-grid.svg'); }
+#stage { position: relative; min-height: 100svh; overflow: hidden; background: #d7e4c8 url('../assets/glass-grid.svg') center/cover no-repeat; }
 #scene { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #controls { position: absolute; inset: 0; }
 .glass { position: absolute; display: flex; align-items: center; justify-content: center; color: #17321f; background: transparent; border: 0; padding: 0; touch-action: none; cursor: grab; }
 .glass:active { cursor: grabbing; }
 .glass button, .segment button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.glass svg, .segment svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.card { width: min(300px, calc(100vw - 48px)); height: 84px; gap: 14px; }
-.card .text { display: flex; flex-direction: column; } .card small { opacity: .72; }
-.dock { width: min(268px, calc(100vw - 120px)); height: 62px; justify-content: space-around; }
-.dock button, .search, .mini button { width: 44px; height: 44px; }
-.search { width: 62px; height: 62px; }
-.lens { width: min(132px, 22vw); height: min(132px, 22vw); }
-.mini { width: 112px; height: 48px; justify-content: space-around; }
-.probe { width: 120px; height: 120px; border-radius: 50%; }
-.panel, .pill { background: transparent; }
+.probe { left: calc(74% - 60px); top: 42%; width: 120px; height: 120px; border-radius: 50%; }
 .switch { width: 102px; height: 45px; cursor: pointer; }
 .switch .track { position: absolute; inset: 0; border-radius: 999px; }
 .switch .knob { position: absolute; left: 3px; top: 3px; width: 60px; height: 39px; border-radius: 999px; transition: translate 220ms cubic-bezier(.2,.8,.2,1); }
@@ -54,25 +44,17 @@ body { min-width: 320px; background: #d7e2cf; color: #17321f; font: 15px/1.35 "S
 }
 .segment button[aria-pressed="true"] { color: var(--selection-ink, #202427); font-weight: 700; }
 @media (forced-colors: none) { #stage.fallback .segment button[aria-pressed="true"] { color: #202427; } }
-.layouts { position: absolute; z-index: 4; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; gap: 6px; width: max-content; max-width: calc(100% - 20px); overflow: auto; padding: 6px; border-radius: 16px; background: rgb(247 244 236 / .94); }
-.layouts button { min-height: 44px; border: 0; border-radius: 10px; background: transparent; font: inherit; padding: 8px 12px; cursor: pointer; }
-.layouts button[aria-pressed="true"] { background: #24343d; color: white; }
 #status { position: absolute; z-index: 4; left: 16px; top: 16px; margin: 0; padding: 7px 10px; border-radius: 10px; background: rgb(247 244 236 / .9); font-size: 13px; }
 :focus-visible { outline: 3px solid #083f67; outline-offset: 4px; }
 #stage.fallback .glass { background: rgb(236 247 248 / .9); border-radius: 28px; }
-#stage.fallback .search, #stage.fallback .lens, #stage.fallback .probe { border-radius: 50%; }
-@media (max-width: 720px) { .layouts { justify-content: flex-start; } .panel { height: 180px; } }
+#stage.fallback .probe { border-radius: 50%; }
 @media (prefers-reduced-motion: reduce) { .switch .knob, .segment .selection { transition: none; } }
-@media (forced-colors: active) { #scene { display: none; } #stage, .layouts, #status { background: Canvas; color: CanvasText; } .glass { border: 1px solid ButtonText; background: Canvas; } }
+@media (forced-colors: active) { #scene { display: none; } #stage, #status { background: Canvas; color: CanvasText; } .glass { border: 1px solid ButtonText; background: Canvas; } }
 
-body:has(#presets-panel:not([hidden])) {
+body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(270px, 340px);
 }
-#stage[data-layout="presets"][data-backdrop="grid"] {
-  background-image: url('../assets/glass-grid.svg');
-}
-.preset-sample { width: min(200px, calc(100% - 36px)); height: 64px; }
 #presets-panel {
   padding: 28px 22px;
   background: #f8f7f2;
@@ -104,15 +86,14 @@ body:has(#presets-panel:not([hidden])) {
   vertical-align: .1em;
 }
 #preset-description { min-height: 3.5em; margin: 14px 0 20px; }
-#presets-panel label { display: block; margin-top: 14px; font-weight: 600; }
-#preset-backdrop, #preset-image { max-width: 100%; margin-top: 5px; font: inherit; }
-#preset-backdrop { min-height: 44px; }
 @media (max-width: 700px) {
-  body:has(#presets-panel:not([hidden])) { display: block; }
-  #stage[data-layout="presets"] { min-height: 54svh; }
+  body { display: block; }
+  #stage { min-height: 54svh; }
   #presets-panel { border-inline-start: 0; border-top: 1px solid #ddd8cb; }
 }
 @media (forced-colors: active) {
   #presets-panel, #preset-options button { background: Canvas; color: CanvasText; }
   #preset-options button[aria-pressed="true"] { border: 2px solid Highlight; }
 }
+
+@media (max-width: 550px) { .probe { left: calc(74% - 43px); top: 16%; width: 86px; height: 86px; } }

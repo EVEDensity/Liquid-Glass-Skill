@@ -9,34 +9,14 @@
 <body>
   <main id="stage">
     <canvas id="scene" aria-hidden="true"></canvas>
-    <section id="controls" data-layout="controls"></section>
-    <nav id="layouts" class="layouts" aria-label="Glass layouts">
-      <button type="button" data-layout="scene" aria-pressed="true">Scene</button>
-      <button type="button" data-layout="controls">Controls</button>
-      <button type="button" data-layout="panel">Panel</button>
-      <button type="button" data-layout="lens">Lens</button>
-      <button type="button" data-layout="morph">Morph</button>
-      <button type="button" data-layout="slider">Slider</button>
-      <button type="button" data-layout="ios">iOS controls</button>
-      <button type="button" data-layout="merge">Merge test</button>
-      <button type="button" data-layout="presets">Presets</button>
-    </nav>
+    <section id="controls"></section>
     <p id="status" role="status">Drag the glass. Buttons press, scale, and animate.</p>
   </main>
-  <aside id="presets-panel" aria-labelledby="presets-title" hidden>
+  <aside id="presets-panel" aria-labelledby="presets-title">
     <h1 id="presets-title">Liquid glass presets</h1>
     <p class="preset-scope">Editing <strong>Scene</strong></p>
     <div id="preset-options" role="group" aria-label="Material preset"></div>
     <p id="preset-description" aria-live="polite"></p>
-    <label for="preset-backdrop">Backdrop</label>
-    <select id="preset-backdrop">
-      <option value="grid">Grid</option>
-      <option value="landscape">Landscape</option>
-      <option value="custom" hidden>My image</option>
-    </select>
-    <label for="preset-image">Use your own image</label>
-    <input id="preset-image" type="file" accept="image/*">
-    <p id="preset-image-error" role="status" hidden></p>
   </aside>
   <script type="module" src="./demo.js"></script>
 </body>

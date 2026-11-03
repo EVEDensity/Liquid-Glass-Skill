@@ -45,19 +45,24 @@ try {
   assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 18);
   assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 10);
   assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .35);
-  assert.equal(await page.locator('#controls > .glass').count(), 7);
-  record('Scene layout renders the combined glass pieces');
-  await page.getByRole('button',{name:'Presets',exact:true}).click();
-  await page.waitForFunction(()=>window.glassDemo.layout==='presets'&&window.glassDemo.source);
+  assert.equal(await page.locator('#controls > .glass').count(), 4);
+  assert.equal(await page.locator('#layouts').count(),0);
+  record('The single scene opens with four interactive controls and no layout bar');
   const presetLabels=['Apple Liquid Glass','Apple clear','Thick lens','Frosted','Plain lens','Prism'];
   const materials=[];
+  const sceneFrames=[];
+  const initialShapes=await page.evaluate(()=>window.glassDemo.shapes);
   for(const name of presetLabels){
     const button=page.getByRole('button',{name,exact:true});
     await button.click();
     assert.equal(await button.getAttribute('aria-pressed'),'true');
     materials.push(await page.evaluate(()=>window.glassDemo.material));
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    sceneFrames.push((await page.locator('#scene').screenshot()).toString('base64'));
   }
   assert.deepEqual(materials.map(m=>m.name),presetLabels);
+  assert.equal(new Set(sceneFrames).size,6);
+  assert.deepEqual(await page.evaluate(()=>window.glassDemo.shapes),initialShapes);
   const optics = await page.evaluate(async materials=>{
     const {GlassScene}=await import('/assets/liquid-glass-renderer.js');
     const canvas=document.createElement('canvas');
@@ -75,7 +80,7 @@ try {
     scene.setShapes([{x:128,y:72,width:180,height:74,radius:37}]);
     const gl=scene.gl;
     const colors=materials.map(material=>{
-      scene.setMaterial(material);
+      scene.setMaterial({...material,clearControls:false});
       scene.render();
       const rgba=new Uint8Array(256*144*4);
       gl.readPixels(0,0,256,144,gl.RGBA,gl.UNSIGNED_BYTE,rgba);
@@ -99,84 +104,8 @@ try {
   assert.ok(thick.center.filter((value,index)=>Math.abs(value-plain.center[index])>50).length>5);
   assert.ok(prism.chromatic>100 && prism.chromatic>plain.chromatic+100);
   record('The six presets apply distinct blur, scrim, magnification and dispersion');
-  await page.getByRole('button',{name:'Scene',exact:true}).click();
-  assert.ok(await page.evaluate(()=>window.glassDemo.material.clearControls));
-
-  await page.locator('#layouts [data-layout="controls"]').click();
-  await page.waitForFunction(() => window.glassDemo.layout === 'controls');
-  const search = page.locator('.search');
-  const before = await search.boundingBox();
-  await search.focus();
-  await page.keyboard.press('ArrowLeft');
-  const after = await search.boundingBox();
-  assert.equal(Math.round(before.x-after.x), 8);
-  const dragResult = await page.evaluate(() => {
-    const piece = document.querySelector('.search');
-    const before = piece.getBoundingClientRect().x;
-    piece.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 400, clientY: 500 }));
-    piece.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, buttons: 1, clientX: 300, clientY: 500 }));
-    piece.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
-    return before - piece.getBoundingClientRect().x;
-  });
-  assert.ok(dragResult >= 90, `Search glass only moved ${dragResult}px`);
-  record('Pointer dragging and keyboard movement');
-  const home = page.locator('.dock button').first();
-  const homeBox = await home.boundingBox();
-  await page.mouse.move(homeBox.x + homeBox.width / 2, homeBox.y + homeBox.height / 2);
-  await page.mouse.down();
-  await page.waitForFunction(() => window.glassDemo.shapes[1]?.press > .8);
-  await page.mouse.up();
-  await page.waitForFunction(() => window.glassDemo.shapes[1]?.press === 0);
-  record('Button press grows its glass and releases');
-  await page.getByRole('button', { name: 'Controls', exact: true }).click();
-  const searchButton = page.getByRole('button', { name: 'Search', exact: true });
-  const iconBounds = await searchButton.boundingBox();
-  const px = iconBounds.x + iconBounds.width / 2, py = iconBounds.y + iconBounds.height / 2;
-  await page.mouse.move(px, py);
-  await page.mouse.down();
-  await page.mouse.move(px - 34, py, { steps: 5 });
-  await page.mouse.up();
-  await page.waitForFunction(() => window.glassDemo.shapes[2]?.press === 0);
-  const movedIcon = await searchButton.boundingBox();
-  assert.ok(Math.abs(movedIcon.x - iconBounds.x + 34) < 1, 'Dragging directly on the icon must move the glass');
-  record('The search button can be dragged from its icon');
-  await page.emulateMedia({ reducedMotion: 'reduce', forcedColors: 'none', colorScheme: 'dark' });
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  record('System preference changes keep the page usable');
-  const layoutState = await page.evaluate(() => {
-    const names = [];
-    for (const name of ['panel', 'lens', 'morph', 'ios']) {
-      document.querySelector(`#layouts [data-layout="${name}"]`).click();
-      names.push(window.glassDemo.layout);
-    }
-    return { names, count: document.querySelectorAll('#controls > .glass').length, html: document.querySelector('#controls').innerHTML.slice(0, 300) };
-  });
-  assert.deepEqual(layoutState.names, ['panel', 'lens', 'morph', 'ios'], JSON.stringify(layoutState));
-  assert.equal(layoutState.count, 3, JSON.stringify(layoutState));
-  const interaction = await page.evaluate(() => {
-    const button = document.querySelector('#layouts [data-layout="ios"]');
-    if (!button) throw new Error('missing layout button');
-    button.click();
-    const toggle = document.querySelector('#controls .switch');
-    if (!toggle) throw new Error('missing switch');
-    toggle.click();
-    const slider = document.querySelector('#controls .slider input');
-    if (!slider) throw new Error('layout=' + window.glassDemo.layout + ' children=' + document.querySelector('#controls').childElementCount);
-    slider.value = '70';
-    slider.dispatchEvent(new Event('input', { bubbles: true }));
-    document.querySelectorAll('.segment button')[1].click();
-    return {
-      toggle: toggle.getAttribute('aria-checked'),
-      status: document.querySelector('#status').textContent,
-      week: document.querySelectorAll('.segment button')[1].getAttribute('aria-pressed')
-    };
-  });
-  assert.equal(interaction.toggle, 'false');
-  assert.equal(interaction.status, 'Week selected.');
-  assert.equal(interaction.week, 'true');
-  record('Panel, lens, morph, switch, slider, and segment animate');
+  await ready(page);
   // Sample the actual rendered selector, rather than the CSS transition or its target.
-  await page.getByRole('button',{name:'iOS controls',exact:true}).click();
   await page.waitForFunction(()=>window.glassDemo.shapes.some(s=>s.surface==='selection'));
   const flow = await page.evaluate(async () => {
     const shape = () => window.glassDemo.shapes.find(s=>s.surface==='selection');
@@ -228,7 +157,7 @@ try {
   assert.deepEqual(await page.evaluate(()=>window.glassDemo.bases.segment),flow.base);
   record('Segment glass follows a held drag and snaps to the nearest choice on release');
 
-  await page.getByRole('button', { name: 'Slider', exact: true }).click();
+  await ready(page);
   const range = page.getByRole('slider', { name: 'Glass level' });
   await range.focus();
   await page.keyboard.press('ArrowRight');
@@ -369,7 +298,7 @@ try {
   record(`Slider glass refracts its track (${rail.bent} pixels) and becomes clearer on hold`);
 
 
-  await page.getByRole('button', { name: 'Merge test', exact: true }).click();
+  await ready(page);
   await page.waitForFunction(() => window.glassDemo.source && window.glassDemo.shapes.length === 4);
   const testScene = () => page.evaluate(() => ({ shapes: window.glassDemo.shapes, bases: window.glassDemo.bases }));
   const toggleProbe = page.getByRole('switch', {name:'Glass setting'});
@@ -553,10 +482,6 @@ try {
   const fallbackPage=await fallback.newPage();await ready(fallbackPage);
   assert.equal(await fallbackPage.evaluate(() => window.glassDemo.available), false);
   assert.equal(await fallbackPage.locator('#scene').isHidden(), true);
-  await fallbackPage.locator('#layouts [data-layout="controls"]').click();
-  await fallbackPage.locator('.dock').waitFor();
-  assert.equal(await fallbackPage.locator('.dock button').count(), 3);
-  await fallbackPage.getByRole('button', { name: 'Slider', exact: true }).click();
   await fallbackPage.locator('.slider .track').waitFor();
   const fallbackRange = fallbackPage.getByRole('slider', { name: 'Glass level' });
   await fallbackRange.focus();

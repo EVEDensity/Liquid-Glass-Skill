@@ -24,9 +24,7 @@ The visual direction is informed by [Good Machines — Liquid Glass](https://goo
 node scripts/serve.mjs
 ```
 
-Open <http://localhost:4173/demo/>. Switch among Controls, Panel, Lens, Morph, Slider, and iOS controls. The Slider layout isolates the knob and fixed rail: hold or drag to see the rail refract through the wider, clearer knob. In **Controls**, drag the search icon toward the dock. In **Merge test**, drag the circle toward the white switch knob, slider knob, or selected segment to form a bridge. Drag it over a colored base or empty rail to see that layer bend through the glass without merging. Clicking scales the glass, Morph splits and rejoins, and the switch, slider, and segment animate.
-
-Open [Presets](http://localhost:4173/demo/?layout=presets) to compare Apple Liquid Glass, Apple clear, Thick lens, Frosted, Plain lens, and Prism on the same draggable sample. Use the grid to see edge displacement or choose a local photo to compare color and texture. The image is read in the browser. This layout uses the renderer’s standard preset path, and the interaction layouts use the existing control-specific material.
+Open the [single glass scene](http://localhost:4173/demo/). Switch among six presets from the side panel to change the same controls in place. Drag the circle onto a glass knob to merge, or across a fixed rail to see the rail refract through the circle.
 
 Development checks:
 

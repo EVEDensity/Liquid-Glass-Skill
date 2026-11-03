@@ -9,72 +9,16 @@ const descriptions = {
   plain: 'A sharp lens with no blur, haze, or tint.',
   prism: 'Separates colors strongly along the refractive edge.'
 };
-let chosenPreset = 'apple';
-let presetBackdrop = 'grid';
 const scene = new GlassScene(document.querySelector('#scene'));
 const stage = document.querySelector('#stage');
 const root = document.querySelector('#controls');
 const status = document.querySelector('#status');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-const icon = (paths, label) => `<button type="button" aria-label="${label}"><svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg></button>`;
-const icons = {
-  play: '<path d="M8 6v12l10-6z"/>',
-  home: '<path d="M4 11 12 4l8 7M6 10v9h12v-9"/>',
-  grid: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>',
-  signal: '<circle cx="12" cy="12" r="2"/><path d="M8 8a5.6 5.6 0 0 0 0 8M16 8a5.6 5.6 0 0 1 0 8"/>',
-  search: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  more: '<circle cx="6" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="18" cy="12" r="1.2" fill="currentColor"/>'
-};
-const layouts = {
-  scene() {
-    const piece = (kind, x, y, width, height, html = '') => {
-      const element = glass(kind, html, `${x * 100}%`, `${y * 100}%`);
-      element.style.width = `${width}px`;
-      element.style.height = `${height}px`;
-      return element;
-    };
-    const lensA = piece('lens', .2404, .2676, 120, 120);
-    const lensB = piece('lens', .2154, .4918, 120, 120);
-    const toggle = makeSwitch(true);
-    const slider = makeSlider(82);
-    const segment = makeSegment(2);
-    const panel = piece('panel', .6676, .7505, 220, 150);
-    const pill = piece('pill', .7404, .2075, 200, 64);
-    return [lensA, lensB, toggle, slider, segment, panel, pill];
-  },
-  controls() {
-    return [
-      glass('card', `${icon(icons.play, 'Play')}<span class="text"><strong>A good machine</strong><small>makes room</small></span>`, '50%', '42%'),
-      glass('dock', `${icon(icons.home, 'Home')}${icon(icons.grid, 'Grid')}${icon(icons.signal, 'Signal')}`, 'calc(50% - 174px)', 'auto', '92px'),
-      glass('search', icon(icons.search, 'Search'), 'calc(50% + 112px)', 'auto', '92px'),
-      glass('mini', `${icon(icons.plus, 'Add')}${icon(icons.more, 'More')}`, 'auto', '28px', '28px', '28px')
-    ];
-  },
-  panel() { return [glass('panel', '<span class="text"><strong>Liquid glass</strong><small>Drag me around</small></span>', '50%', '34%')]; },
-  lens() { return [glass('lens', '', '50%', '48%')]; },
-  morph() {
-    const more = glass('mini', icon(icons.more, 'More'), 'auto', '28px', '28px', '28px');
-    const action = glass('pill', `${icon(icons.plus, 'Add')}<span>New</span>`, '50%', 'auto', '92px');
-    action.dataset.morph = 'joined';
-    action.querySelector('button').addEventListener('click', () => {
-      const open = action.dataset.morph === 'open';
-      action.dataset.morph = open ? 'joined' : 'open';
-      action.style.scale = open ? '1' : '.72';
-      more.style.translate = open ? '0 0' : '-150px 260px';
-      status.textContent = open ? 'The pieces join back into one control.' : 'The control splits. Move the pieces and they merge again.';
-    });
-    return [more, action];
-  },
-  presets() { return [glass('preset-sample', '', '50%', '50%')]; },
-  slider() { return [makeSlider(35)]; },
-  ios() { return [makeSwitch(true), makeSlider(35), makeSegment(0)]; },
-  merge() {
-    const circle = glass('probe', '', 'calc(74% - 60px)', '42%');
-    circle.setAttribute('aria-label', 'Glass test circle. Drag it or move it with the arrow keys.');
-    return [...layouts.ios(), circle];
-  }
-};
+function makeScene() {
+  const circle = glass('probe', '', '', '');
+  circle.setAttribute('aria-label', 'Glass circle. Drag it or move it with the arrow keys.');
+  return [makeSwitch(true),makeSlider(35),makeSegment(0),circle];
+}
 function makeSwitch(on) {
   const button = document.createElement('button');
   button.className = 'glass switch';
@@ -226,7 +170,7 @@ function makeSlider(value) {
   return piece;
 }
 
-function glass(kind, html, x, y, bottom = '', right = '') {
+function glass(kind, html, x, y) {
   const element = document.createElement('div');
   element.className = `glass ${kind}`;
   element.dataset.glass = kind;
@@ -234,8 +178,6 @@ function glass(kind, html, x, y, bottom = '', right = '') {
   element.setAttribute('aria-label', `${kind} glass. Arrow keys move it.`);
   element.innerHTML = html;
   element.style.left = x; element.style.top = y;
-  if (bottom) element.style.bottom = bottom;
-  if (right) element.style.right = right;
   if (x === '50%') element.style.transform = 'translate(-50%, -50%)';
   return element;
 }
@@ -244,23 +186,11 @@ let drag = null;
 let frame = 0;
 let transitionUntil = 0;
 const presses = new WeakMap();
-function show(name) {
-  drag = null;
-  cancelAnimationFrame(pressFrame);
-  pressFrame = 0;
-  transitionUntil = 0;
-  stage.dataset.layout = name;
-  const preview = name === 'presets';
-  document.querySelector('#presets-panel').hidden = !preview;
-  material = preview ? {...PRESETS[chosenPreset],clearControls:false} : {...PRESETS.apple,clearControls:true};
-  selectBackdrop(preview ? presetBackdrop : name === 'merge' ? 'grid' : 'landscape');
-  root.replaceChildren(...layouts[name]());
-  if (preview) status.textContent = 'Switch materials or drag the sample across the backdrop.';
-  else if (name === 'merge') status.textContent = 'Drag the circle over a white knob, then over its track.';
-  else status.textContent = 'Drag the glass. Buttons respond to touch.';
+function showScene() {
+  root.replaceChildren(...makeScene());
+  status.textContent = 'Drag the circle over a glass knob, then over its track.';
   pieces = [...root.children];
-  pieces.forEach(piece => presses.set(piece, { x: 0, y: 0, scale: 0, sx: 0, sy: 0, tx: 0, ty: 0, lens: piece.matches('.probe, .lens'), base: piece.style.transform }));
-  document.querySelectorAll('#layouts [data-layout]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.layout === name)));
+  pieces.forEach(piece => presses.set(piece, { x: 0, y: 0, scale: 0, sx: 0, sy: 0, tx: 0, ty: 0, lens: piece.matches('.probe'), base: piece.style.transform }));
   bind();
   schedule();
 }
@@ -362,7 +292,7 @@ function draw() {
     const geometry = boxFor(rect);
     geometry.width *= grow;
     geometry.height *= grow;
-    const radius = piece.matches('.card, .panel') ? Math.min(26, geometry.height / 2) : Math.min(geometry.width, geometry.height) / 2;
+    const radius = Math.min(geometry.width,geometry.height)/2;
     return liquidSurface({...geometry,radius},state.lens ? {surface:'lens'} : {});
   });
   if (opaque) return;
@@ -425,7 +355,7 @@ function movePiece(piece, x, y) {
 function bind() {
   for (const piece of pieces) {
     piece.addEventListener('pointerdown', event => {
-      if (event.button !== 0 || event.target.closest('#layouts')) return;
+      if (event.button !== 0) return;
       if (piece.matches('.switch, .slider, .segment') || event.target.closest('input')) return;
       const state = presses.get(piece);
       const innerButton = event.target.closest('button');
@@ -513,10 +443,6 @@ function bind() {
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture', 'blur']) control.addEventListener(type, () => { control.classList.remove('is-held'); startPress(); });
   });
 }
-document.querySelector('#layouts').addEventListener('click', event => {
-  const button = event.target.closest('[data-layout]');
-  if (button) show(button.dataset.layout);
-});
 function releaseControls() {
   const held = root.querySelectorAll('.is-held');
   held.forEach(control => control.classList.remove('is-held'));
@@ -530,38 +456,24 @@ window.addEventListener('blur', () => { drag = null; releaseControls(); startPre
 for (const query of ['(prefers-reduced-transparency: reduce)', '(forced-colors: active)']) matchMedia(query).addEventListener('change', schedule);
 document.querySelector('#scene').addEventListener('glassfallback', schedule);
 window.addEventListener('resize', schedule);
-scene.setMaterial(material);
-const backdrops = new Map();
-let backdropName, customImage, sourceReady = false;
-function selectBackdrop(name) {
-  if (name === backdropName) return;
-  backdropName = name;
-  stage.dataset.backdrop = name;
-  stage.style.backgroundImage = name === 'custom' ? 'url("' + customImage.src + '")' : '';
-  sourceReady = false;
-  if (name === 'custom') backdrops.set(name,Promise.resolve(customImage));
-  if (!backdrops.has(name)) {
-    const image = new Image();
-    image.src = new URL(name === 'grid' ? '../assets/glass-grid.svg' : '../assets/glass-backdrop.svg', import.meta.url).href;
-    backdrops.set(name, image.decode().then(() => image));
-  }
-  backdrops.get(name).then(image => {
-    if (backdropName !== name) return;
-    scene.setSource(image);
-    sourceReady = true;
-    schedule();
-  }).catch(() => { if (backdropName === name) { scene.available = false; schedule(); } });
-}
+let sourceReady = false;
+const backdrop = new Image();
+backdrop.src = new URL('../assets/glass-grid.svg',import.meta.url).href;
+backdrop.decode().then(()=>{
+  scene.setSource(backdrop);
+  sourceReady = true;
+  schedule();
+}).catch(()=>{
+  scene.available=false;
+  schedule();
+});
 const options = document.querySelector('#preset-options');
 const presetDescription = document.querySelector('#preset-description');
 function showPreset(key) {
-  chosenPreset = key;
   for (const button of options.children) button.setAttribute('aria-pressed',String(button.dataset.preset === key));
   presetDescription.textContent = descriptions[key];
-  if (stage.dataset.layout === 'presets') {
-    material = {...PRESETS[key],clearControls:false};
-    schedule();
-  }
+  material = {...PRESETS[key],clearControls:true,presetOptics:key !== 'apple'};
+  schedule();
 }
 for (const [key,preset] of Object.entries(PRESETS)) {
   const button=document.createElement('button');
@@ -571,43 +483,6 @@ for (const [key,preset] of Object.entries(PRESETS)) {
   button.addEventListener('click',()=>showPreset(key));
   options.append(button);
 }
-showPreset(chosenPreset);
-const backdropPicker = document.querySelector('#preset-backdrop');
-const imagePicker = document.querySelector('#preset-image');
-const imageError = document.querySelector('#preset-image-error');
-let imageRequest = 0;
-backdropPicker.addEventListener('change',()=>{
-  imageRequest++;
-  presetBackdrop=backdropPicker.value;
-  selectBackdrop(presetBackdrop);
-});
-imagePicker.addEventListener('change',()=>{
-  const file=imagePicker.files[0];
-  if(!file)return;
-  imageError.hidden=true;
-  const request=++imageRequest;
-  const reader=new FileReader();
-  const reportError=()=>{
-    if(request!==imageRequest)return;
-    imageError.textContent='This image could not be opened.';
-    imageError.hidden=false;
-  };
-  reader.onerror=reportError;
-  reader.onload=async()=>{
-    const image=new Image();
-    image.src=reader.result;
-    try { await image.decode(); } catch { reportError(); return; }
-    if(request!==imageRequest)return;
-    customImage=image;
-    backdropPicker.querySelector('[value="custom"]').hidden=false;
-    backdropPicker.value=presetBackdrop='custom';
-    if(stage.dataset.layout==='presets'){
-      backdropName=undefined;
-      selectBackdrop('custom');
-    }
-  };
-  reader.readAsDataURL(file);
-});
-const requestedLayout = new URLSearchParams(location.search).get('layout');
-show(Object.hasOwn(layouts, requestedLayout) ? requestedLayout : 'scene');
-window.glassDemo = { get available() { return scene.available; }, get material() { return { ...material }; }, get source() { return sourceReady; }, get slider() { const knob = scene.shapes.find(shape => shape.slider); return knob && { knob: { ...knob }, track: { ...scene.sliderTrack } }; }, get shapes() { return scene.shapes.map(shape => ({ ...shape })); }, get bases() { return structuredClone(scene.controlBases); }, get layout() { return document.querySelector('[data-layout][aria-pressed="true"]').dataset.layout; } };
+showPreset('apple');
+showScene();
+window.glassDemo = { get available() { return scene.available; }, get material() { return { ...material }; }, get source() { return sourceReady; }, get slider() { const knob = scene.shapes.find(shape => shape.slider); return knob && { knob: { ...knob }, track: { ...scene.sliderTrack } }; }, get shapes() { return scene.shapes.map(shape => ({ ...shape })); }, get bases() { return structuredClone(scene.controlBases); } };

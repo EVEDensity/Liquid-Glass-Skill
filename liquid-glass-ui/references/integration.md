@@ -80,7 +80,7 @@ Preserve native inputs and keyboard actions. For a draggable glass button, disti
 
 ## Liquid-glass slider
 
-Use the demo's **Slider** layout as the working example. Keep a real `<input type="range">` above the canvas for pointer, touch, and keyboard input. Put the rail in the renderer's sample layer and only the knob in the glass field:
+Use the slider in the demo scene as the working example. Keep a real `<input type="range">` above the canvas for pointer, touch, and keyboard input. Put the rail in the renderer's sample layer and only the knob in the glass field:
 
 ```js
 // Coordinates are CSS pixels relative to the canvas. x is the rail's left edge.
@@ -102,7 +102,7 @@ Verify all three states on the same grid. Holding the same value should change o
 
 Use `setControlBases({ toggle, segment })` for fixed sampled surfaces. The toggle base takes `{ x, y, width, height, on }`; the segment base takes `{ x, y, width, height }`. Coordinates are CSS pixels from the canvas origin; these two boxes are centered on `x, y`. Clear them with `setControlBases()`. Use `setSliderTrack` for the rail.
 
-Give the actual knob shapes `surface: 'switch'`, `slider: true`, or `surface: 'selection'`. Use the demo’s shared liquid surface behavior for related controls. A hold enlarges the active glass, and travel stretches and thins it before it settles. Segment selection also follows a held horizontal drag and commits the nearest item on release. The renderer blends the contour and material at a junction. In the milk-to-lens mode, the neck gets stronger refraction and a soft highlight colored by the sampled backdrop. A rail is still only a sample source, so crossing it alone does not create a junction. An inactive track must not be added to `setShapes`. Its color still appears in a lens that crosses it. The demo's **Merge test** makes the difference visible on an original grid.
+Give the actual knob shapes `surface: 'switch'`, `slider: true`, or `surface: 'selection'`. Use the demo’s shared liquid surface behavior for related controls. A hold enlarges the active glass, and travel stretches and thins it before it settles. Segment selection also follows a held horizontal drag and commits the nearest item on release. The renderer blends the contour and material at a junction. In the milk-to-lens mode, the neck gets stronger refraction and a soft highlight colored by the sampled backdrop. A rail is still only a sample source, so crossing it alone does not create a junction. An inactive track must not be added to `setShapes`. Its color still appears in a lens that crosses it. The demo scene makes the difference visible on an original grid.
 
 Free glass can pass `stretchX` and `stretchY` in CSS pixels for deformation along the drag direction. Apply the stretch to the shader geometry around the actual control; do not scale its DOM translation. Pass a normalized `motion` value from measured travel to add colored edge light only during movement. A stationary `press` still opens and magnifies the lens without adding color fringing. Drive stretch from pointer velocity and use a damped spring on release. The shader deforms the rear more than the leading face, keeping the hit area and labels anchored. Disable drag deformation under reduced motion.
 
