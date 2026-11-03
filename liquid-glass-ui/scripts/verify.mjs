@@ -109,6 +109,86 @@ try {
   assert.equal(interaction.status, 'Week selected.');
   assert.equal(interaction.week, 'true');
   record('Panel, lens, morph, switch, slider, and segment animate');
+  await page.getByRole('button', { name: 'Slider', exact: true }).click();
+  const range = page.getByRole('slider', { name: 'Glass level' });
+  await range.focus();
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await range.inputValue(), '36');
+  await page.waitForFunction(() => {
+    const t = window.glassDemo.slider?.track;
+    return t && Math.abs((t.fillX - t.x - 30) / (t.width - 60) - .36) < .001;
+  });
+  const sliderState = () => page.evaluate(() => window.glassDemo.slider);
+  const rest = await sliderState();
+  const origin = await page.locator('#scene').boundingBox();
+  await page.mouse.move(origin.x + rest.knob.x, origin.y + rest.knob.y);
+  await page.mouse.down();
+  await page.waitForFunction(() => window.glassDemo.slider?.knob.press === 1);
+  const held = await sliderState();
+  assert.equal(held.knob.width, 104);
+  assert.equal(held.knob.height, 51);
+  assert.deepEqual(held.track, rest.track, 'Track moved or changed fill while holding the same value');
+  assert.equal(held.knob.x, rest.knob.x);
+  assert.equal(held.knob.y, rest.knob.y);
+  await page.mouse.up();
+  await page.waitForFunction(() => window.glassDemo.slider?.knob.press === 0);
+  assert.deepEqual(await sliderState(), rest, 'Release must return the knob to its resting shape');
+  await page.mouse.move(origin.x + rest.knob.x, origin.y + rest.knob.y);
+  await page.mouse.down();
+  await page.mouse.move(origin.x + rest.knob.x + 78, origin.y + rest.knob.y + 9, { steps: 4 });
+  assert.ok(Number(await range.inputValue()) > 36, 'Dragging the knob must change the value');
+  await page.waitForFunction(x => window.glassDemo.slider.track.fillX > x, rest.track.fillX);
+  const { fillX, ...movedTrack } = (await sliderState()).track;
+  assert.deepEqual({ ...movedTrack, fillX: rest.track.fillX }, rest.track);
+  await page.mouse.up();
+  await page.waitForFunction(() => window.glassDemo.slider?.knob.press === 0);
+  record('Slider presses, drags and releases independently of its fixed track');
+
+  const rail = await page.evaluate(async () => {
+    const { GlassScene } = await import('/assets/liquid-glass-renderer.js');
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'position:fixed;top:0;left:0;width:240px;height:96px';
+    document.body.append(canvas);
+    const source = document.createElement('canvas');
+    source.width = 240; source.height = 96;
+    const ctx = source.getContext('2d');
+    ctx.fillStyle = '#527878';
+    ctx.fillRect(0, 0, 240, 96);
+    const renderer = new GlassScene(canvas);
+    renderer.setSource(source);
+    renderer.setSliderTrack({ x: 12, y: 48, width: 216, height: 9, fillX: 120 });
+    const gl = renderer.gl;
+    const read = (press, refraction) => {
+      const width = 60 + press * 44, height = 39 + press * 12;
+      renderer.setShapes([{ x: 120, y: 48, width, height, radius: height / 2, press, slider: true }]);
+      renderer.setMaterial({ refraction });
+      renderer.render();
+      const pixels = new Uint8Array(240 * 96 * 4);
+      gl.readPixels(0, 0, 240, 96, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      return pixels;
+    };
+    const resting = read(0, 18), straight = read(1, 0), refracted = read(1, 18);
+    const centerOffRail = ((96 - 58 - 1) * 240 + 120) * 4;
+    let bent = 0, movedOutside = 0;
+    for (let i = 0; i < refracted.length; i += 4) {
+      if (Math.abs(refracted[i] - straight[i]) > 8) bent++;
+      const x = (i / 4) % 240;
+      if ((x < 66 || x > 174) && refracted[i] !== resting[i]) movedOutside++;
+    }
+    const results = {
+      bent, movedOutside, error: gl.getError(),
+      transparency: resting[centerOffRail] - refracted[centerOffRail]
+    };
+    renderer.destroy(); canvas.remove();
+    return results;
+  });
+  assert.equal(rail.error, 0);
+  assert.equal(rail.movedOutside, 0, 'Press changed the track outside the knob');
+  assert.ok(rail.bent > 25, `Lens failed to bend the track on a solid backdrop: ${rail.bent}px`);
+  assert.ok(rail.transparency > 100, 'Held glass should reveal substantially more of the backdrop');
+  record(`Slider glass refracts its track (${rail.bent} pixels) and becomes clearer on hold`);
+
+
   // Controlled checkerboard fixture proves refraction changes pixels, not just labels.
   const renderResult = await page.evaluate(async () => {
     const { GlassScene } = await import('/assets/liquid-glass-renderer.js');
@@ -169,6 +249,13 @@ try {
   await fallbackPage.locator('#layouts [data-layout="controls"]').click();
   await fallbackPage.locator('.dock').waitFor();
   assert.equal(await fallbackPage.locator('.dock button').count(), 3);
+  await fallbackPage.getByRole('button', { name: 'Slider', exact: true }).click();
+  await fallbackPage.locator('.slider .track').waitFor();
+  const fallbackRange = fallbackPage.getByRole('slider', { name: 'Glass level' });
+  await fallbackRange.focus();
+  await fallbackPage.keyboard.press('End');
+  assert.equal(await fallbackRange.inputValue(), '100');
+  await fallbackPage.waitForFunction(() => document.querySelector('.slider').style.getPropertyValue('--thumb-x') === '386px');
   record('WebGL unavailable: controls remain usable');
   await fallback.close();
   const skill=await readFile(resolve(root,'SKILL.md'),'utf8');

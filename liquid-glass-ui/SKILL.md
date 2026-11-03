@@ -16,6 +16,8 @@ Use the WebGL2 renderer whenever the backdrop is an image, canvas, or video that
 
 Do the integration directly. Do not add remote fonts, CDNs, or runtime dependencies.
 
+For a liquid-glass slider, keep the native range input and follow the [slider integration](references/integration.md#liquid-glass-slider). Put the fixed rail in the backdrop sampled by the knob so it bends through the held glass.
+
 ## Workflow
 
 1. **Inspect the app.** Keep existing buttons, links, forms, dialogs, focus order, and keyboard behavior.

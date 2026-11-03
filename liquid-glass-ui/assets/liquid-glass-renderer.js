@@ -15,6 +15,9 @@ uniform float u_refraction,u_bezel,u_magnify,u_dispersion,u_edge,u_sizeScale;
 uniform float u_blur,u_frost,u_vibrancy,u_brightness,u_dim,u_appearance;
 uniform float u_pickup,u_tintAmount,u_specular,u_rimWidth,u_lightAngle,u_shadow,u_merge;
 uniform float u_press[12];
+uniform float u_slider[12];
+uniform vec4 u_sliderTrack; // left, center Y, width, height
+uniform float u_sliderFill; // filled track end X
 uniform vec3 u_tint;
 
 float roundedBox(vec2 p, vec2 halfSize, float radius){
@@ -26,7 +29,43 @@ vec2 coverUV(vec2 p){
   if(fitted.x<u_size.x)fitted=vec2(u_size.x,u_sourceSize.y/u_sourceSize.x*u_size.x);
   return clamp((p-u_size*.5)/fitted+.5,vec2(.001),vec2(.999));
 }
-vec3 sampleAt(vec2 p){return texture(u_source,coverUV(p)).rgb;}
+float trackMask(vec2 p, float from, float to, float radius){
+  vec2 q=p-vec2(clamp(p.x,from,to),u_sliderTrack.y);
+  return 1.-smoothstep(radius-.5,radius+.5,length(q));
+}
+vec3 sampleAt(vec2 p){
+  vec3 base=texture(u_source,coverUV(p)).rgb;
+  if(u_sliderTrack.w<=0.)return base;
+  float r=u_sliderTrack.w*.5;
+  float start=u_sliderTrack.x+r;
+  float end=u_sliderTrack.x+u_sliderTrack.z-r;
+  float rail=trackMask(p,start,end,r);
+  if(rail<=0.)return base;
+  float fill=trackMask(p,start,clamp(u_sliderFill,start,end),r);
+  vec3 inactive=mix(base,vec3(.35,.39,.38),rail*.43);
+  return mix(inactive,mix(base,vec3(.97,.96,.93),.96),fill);
+}
+vec3 sliderLens(vec2 p,vec2 normal,float field,float press){
+  // Resting porcelain gives way to an edge lens with a clear center.
+  float depth=max(-field,0.);
+  float t=clamp(depth/mix(7.,14.,press),0.,1.);
+  float bend=sin(t*3.141593)*mix(2.,6.4,press)*(u_refraction/18.);
+  vec2 at=p-normal*bend;
+  float softness=mix(1.55,1.65,press);
+  vec3 lens=sampleAt(at)*.48;
+  lens+=(sampleAt(at+vec2(softness,0.))+sampleAt(at-vec2(softness,0.))+
+         sampleAt(at+vec2(0.,softness))+sampleAt(at-vec2(0.,softness)))*.10;
+  vec2 diagonal=vec2(softness*.7);
+  lens+=(sampleAt(at+diagonal)+sampleAt(at-diagonal)+
+         sampleAt(at+vec2(diagonal.x,-diagonal.y))+sampleAt(at+vec2(-diagonal.x,diagonal.y)))*.03;
+  lens=mix(lens,vec3(.985,.99,.98),mix(.90,.08,press));
+  vec2 light=vec2(cos(radians(u_lightAngle)),sin(radians(u_lightAngle)));
+  float facing=dot(normal,light);
+  float direction=.32+.68*pow(abs(facing),1.6);
+  float rim=1.-smoothstep(0.,max(u_rimWidth,.5)*2.5,depth);
+  float sheen=rim*mix(.73+.27*direction,direction,press)*u_specular*mix(1.35,1.08,press);
+  return mix(lens,vec3(1.),clamp(sheen,0.,1.));
+}
 float fieldAt(vec2 point){
   float field=1e5;
   for(int i=0;i<8;i++){
@@ -44,16 +83,22 @@ vec2 normalFor(vec2 q, vec2 halfSize, float radius){
 }
 void main(){
   vec2 p=vec2(gl_FragCoord.x,u_size.y-gl_FragCoord.y);
-  float field=fieldAt(p),nearest=1e5,scale=1.,press=0.;vec2 centre=vec2(0.),halfSize=vec2(1.);float radius=1.;
+  float field=fieldAt(p),nearest=1e5,scale=1.,press=0.,slider=0.;vec2 centre=vec2(0.),halfSize=vec2(1.);float radius=1.;
   for(int i=0;i<8;i++){
     if(i>=u_count)break;
     vec4 s=u_shapes[i];float candidate=roundedBox(p-s.xy,s.zw*.5,u_radii[i]);
-    if(candidate<nearest){nearest=candidate;centre=s.xy;halfSize=s.zw*.5;radius=u_radii[i];scale=u_sizeScale>0.?clamp(min(s.z,s.w)/140.,.8,1.55):1.;press=u_press[i];}
+    if(candidate<nearest){nearest=candidate;centre=s.xy;halfSize=s.zw*.5;radius=u_radii[i];scale=u_sizeScale>0.?clamp(min(s.z,s.w)/140.,.8,1.55):1.;press=u_press[i];slider=u_slider[i];}
   }
   vec2 gradient=vec2(dFdx(field),-dFdy(field));
   vec3 base=sampleAt(p);
+  if(slider>0.5&&field>1.){color=vec4(base,1.);return;}
   if(field>2.){float shadow=exp(-max(field,0.)/15.)*u_shadow*.5;color=vec4(base*(1.-shadow),1.);return;}
   vec2 q=p-centre,n=length(gradient)>.001?normalize(gradient):normalFor(q,halfSize,radius);
+  if(slider>0.5){
+    float coverage=1.-smoothstep(-.65,.65,field);
+    color=vec4(mix(base,sliderLens(p,n,field,press),coverage),1.);
+    return;
+  }
   float edge=1.-smoothstep(0.,max(u_bezel*scale*.55*(1.+press*.25),1.),max(-field,0.));
   float profile=u_edge>0.?edge*(1.-edge*edge):edge*edge;
   vec2 bend=n*u_refraction*scale*.75*(1.+press*.45)*profile;
@@ -102,7 +147,7 @@ const hexToRgb=hex=>{const n=Number.parseInt(String(hex).replace('#',''),16);ret
 
 export class GlassScene {
   constructor(canvas, options = {}) {
-    this.canvas=canvas; this.shapes=[]; this.material={...PRESETS.apple}; this.available=false; this.destroyed=false; this.source=null;
+    this.canvas=canvas; this.shapes=[]; this.sliderTrack=null; this.material={...PRESETS.apple}; this.available=false; this.destroyed=false; this.source=null;
     this.gl=canvas.getContext('webgl2',{alpha:false,antialias:false}); if(!this.gl)return; const gl=this.gl, shaders=[];
     try {
       for(const [type,code] of [[gl.VERTEX_SHADER,vertex],[gl.FRAGMENT_SHADER,fragment]]){const shader=gl.createShader(type);shaders.push(shader);gl.shaderSource(shader,code);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader));}
@@ -110,14 +155,18 @@ export class GlassScene {
       this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
       const pos=gl.getAttribLocation(this.program,'a_position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
       this.texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.texture);for(const [key,value] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,key,value);
-      const names=['size','sourceSize','source','count','shapes[0]','radii[0]','press[0]','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      const names=['size','sourceSize','source','count','shapes[0]','radii[0]','press[0]','slider[0]','sliderTrack','sliderFill','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       this.available=true;this.setMaterial(options);
       this.observer=new ResizeObserver(()=>this.render());this.observer.observe(canvas);
       this.contextLost=event=>{event.preventDefault();this.available=false;canvas.dispatchEvent(new Event('glassfallback'));};canvas.addEventListener('webglcontextlost',this.contextLost);
     } catch(error){this.error=error.message;this.destroy();} finally {shaders.forEach(shader=>gl.deleteShader(shader));}
   }
-  setShapes(shapes){this.shapes=shapes.slice(0,12).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1)};});}
+  setShapes(shapes){this.shapes=shapes.slice(0,12).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1),slider:s.slider===true};});}
+  setSliderTrack(track){
+    this.sliderTrack=track && [track.x,track.y,track.width,track.height,track.fillX].every(Number.isFinite)
+      && track.width>0 && track.height>0 ? {...track,height:Math.min(track.height,track.width)} : null;
+  }
   setMaterial(values={}){
     for(const key of numeric)if(Number.isFinite(values[key]))this.material[key]=clamp(values[key],...ranges[key]);
     if(values.edge==='lip'||values.edge==='convex')this.material.edge=values.edge;
@@ -134,8 +183,11 @@ export class GlassScene {
     if(!this.available||this.destroyed||!this.source)return;const gl=this.gl,box=this.canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
     const scale=Math.min(dpr,1);const width=Math.max(1,Math.round(box.width*scale)),height=Math.max(1,Math.round(box.height*scale));if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
-    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12);const pixelScale=width/Math.max(1,box.width);this.shapes.forEach((s,i)=>{shapes.set([s.x*pixelScale,s.y*pixelScale,s.width*pixelScale,s.height*pixelScale],i*4);radii[i]=s.radius*pixelScale;press[i]=s.press;});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);
-    const m=this.material;for(const key of ['refraction','bezel','blur','rimWidth','merge'])gl.uniform1f(this.uniforms[key],m[key]*dpr);for(const key of numeric.filter(key=>!['refraction','bezel','blur','rimWidth','merge'].includes(key)))gl.uniform1f(this.uniforms[key],m[key]);
+    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),sliders=new Float32Array(12);const pixelScale=width/Math.max(1,box.width);this.shapes.forEach((s,i)=>{shapes.set([s.x*pixelScale,s.y*pixelScale,s.width*pixelScale,s.height*pixelScale],i*4);radii[i]=s.radius*pixelScale;press[i]=s.press;sliders[i]=s.slider?1:0;});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['slider[0]'],sliders);
+    const track=this.sliderTrack;
+    gl.uniform4f(this.uniforms.sliderTrack,(track?.x??0)*pixelScale,(track?.y??0)*pixelScale,(track?.width??0)*pixelScale,(track?.height??0)*pixelScale);
+    gl.uniform1f(this.uniforms.sliderFill,(track?.fillX??0)*pixelScale);
+    const m=this.material;for(const key of ['refraction','bezel','blur','rimWidth','merge'])gl.uniform1f(this.uniforms[key],m[key]*pixelScale);for(const key of numeric.filter(key=>!['refraction','bezel','blur','rimWidth','merge'].includes(key)))gl.uniform1f(this.uniforms[key],m[key]);
     gl.uniform1f(this.uniforms.edge,m.edge==='lip'?1:0);gl.uniform1f(this.uniforms.sizeScale,m.sizeScale?1:0);gl.uniform1f(this.uniforms.appearance,m.appearance==='light'?0:m.appearance==='dark'?1:2);gl.uniform3fv(this.uniforms.tint,hexToRgb(m.tint));gl.drawArrays(gl.TRIANGLES,0,6);
   }
   destroy(){this.observer?.disconnect();if(this.contextLost)this.canvas.removeEventListener('webglcontextlost',this.contextLost);if(this.gl){if(this.texture)this.gl.deleteTexture(this.texture);if(this.buffer)this.gl.deleteBuffer(this.buffer);if(this.program)this.gl.deleteProgram(this.program);}this.available=false;this.destroyed=true;}

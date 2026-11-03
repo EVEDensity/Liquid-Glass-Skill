@@ -16,4 +16,5 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }).end(data);
   } catch { res.writeHead(404).end('Not found'); }
 });
-server.listen(4173, '127.0.0.1', () => console.log('Liquid Glass UI: http://localhost:4173'));
+const port = Number(process.env.GLASS_PORT ?? 4173);
+server.listen(port, '127.0.0.1', () => console.log(`Liquid Glass UI: http://localhost:${server.address().port}`));

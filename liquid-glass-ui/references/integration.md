@@ -78,6 +78,26 @@ Ignore pointer events that begin on `button`, `a`, `input`, or `label`, so actio
 
 `setMaterial` clamps numeric values and ignores unknown keys. Passing a partial object preserves the other current values.
 
+## Liquid-glass slider
+
+Use the demo's **Slider** layout as the working example. Keep a real `<input type="range">` above the canvas for pointer, touch, and keyboard input. Put the rail in the renderer's sample layer and only the knob in the glass field:
+
+```js
+// Coordinates are CSS pixels relative to the canvas. x is the rail's left edge.
+scene.setSliderTrack({ x, y, width: railWidth, height: 9, fillX: knobX });
+const width = 60 + 44 * press;
+const height = 39 + 12 * press;
+scene.setShapes([{ x: knobX, y, width, height, radius: height / 2, slider: true, press }]);
+scene.render();
+```
+
+There is one slider rail per scene. Call `setSliderTrack(null)` when the slider is removed. The shader draws the rail over the original texture, so it appears at both the original and displaced sample coordinates. The filled end follows the input value. Keep the rail position, width, and height fixed during a press.
+
+With `slider: true`, the knob has a milky resting surface and a clearer held lens. Animate `press` from 0 to 1 while held and back to 0 on release or cancellation. Use elapsed time so the easing remains stable when rendering slows. Keep the transparent input's hit area fixed. With reduced motion, apply the state immediately. With no WebGL, show an opaque knob and a CSS rail driven by the same input value.
+
+Verify all three states on the same grid. Holding the same value should change only the knob and the pixels it covers. Dragging can change the filled length without moving the rail.
+
+
 ## Dynamic sources
 
 For a playing video or a canvas that changes, upload the current frame before drawing:
