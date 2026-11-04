@@ -1,3 +1,4 @@
+import { stepGlassMotion, applyGlassImpulse, sampleGlassMotion } from '../assets/glass-motion.js';
 import { GlassScene, PRESETS } from '../assets/liquid-glass-renderer.js';
 import { mountButtonEditor } from './button-editor.js';
 
@@ -266,15 +267,9 @@ function draw() {
     const state = presses.get(piece);
     const press = state?.scale || 0;
     const motionAt = (x,y) => {
-      const elapsed = Math.max(8, now - (state.sampleTime ?? now));
-      const distance = state.sampleX == null ? 0 : Math.hypot(x-state.sampleX,y-state.sampleY);
-      const target = reduced.matches ? 0 : Math.min(1,distance / elapsed * 2.3);
-      const mix = 1 - Math.exp(-elapsed / (target > (state.motion || 0) ? 18 : 92));
-      state.motion = reduced.matches ? 0 : (state.motion || 0) + (target - (state.motion || 0)) * mix;
-      if (state.motion < .012 && target === 0) state.motion = 0;
-      colorSettling ||= state.motion > 0;
-      Object.assign(state,{sampleX:x,sampleY:y,sampleTime:now});
-      return state.motion;
+      const motion = sampleGlassMotion(state,x,y,now,reduced.matches);
+      colorSettling ||= motion > 0;
+      return motion;
     };
     const liquidSurface = (geometry, extra = {}) => {
       const dx = state.sampleX == null ? 0 : geometry.x-state.sampleX;
@@ -372,31 +367,7 @@ function animatePress(now) {
   for (const piece of pieces) {
     const state = presses.get(piece);
     const target = activePress(piece, now);
-    const elapsed = state.lastFrame == null ? 16 : now - state.lastFrame;
-    const ease = 1 - Math.exp(-elapsed / 56);
-    state.scale = reduced.matches ? target : state.scale + (target - state.scale) * ease;
-    if (!drag || drag.piece !== piece || now - drag.time > 105 || reduced.matches) state.tx = state.ty = 0;
-    // Damped spring: the tail lags the cursor, overshoots slightly, then settles.
-    for (const [value, goal, velocity] of [['sx', 'tx', 'vx'], ['sy', 'ty', 'vy']]) {
-      let speed = state[velocity] || 0;
-      if (!reduced.matches) {
-        const dt = Math.min(elapsed, 64) / 1000;
-        const steps = Math.max(1, Math.ceil(dt / .008));
-        const step = dt / steps;
-        for (let i = 0; i < steps; i++) {
-          speed += (390 * (state[goal] - state[value]) - 22 * speed) * step;
-          state[value] += speed * step;
-        }
-      }
-      if (reduced.matches || (Math.abs(state[value] - state[goal]) < .18 && Math.abs(speed) < 5)) {
-        state[value] = state[goal];
-        speed = 0;
-      }
-      state[velocity] = speed;
-      if (state[value] !== 0 || state[goal] !== 0 || speed !== 0) moving = true;
-    }
-    state.lastFrame = moving || Math.abs(state.scale - target) >= .01 ? now : null;
-    if (Math.abs(state.scale - target) < .01) state.scale = target; else moving = true;
+    moving = stepGlassMotion(state,target,now,drag?.piece===piece && now-drag.time<=105,reduced.matches) || moving;
     if (state.tapUntil > now) moving = true;
   }
   schedule();
@@ -436,15 +407,7 @@ function bind(targets = pieces) {
       const elapsed = Math.max(8, firstMove ? Math.min(34, now-drag.time) : now-drag.time);
       const dx = event.clientX - drag.lastX, dy = event.clientY - drag.lastY;
       const state = presses.get(piece);
-      const distance = Math.hypot(dx,dy);
-      const factor = Math.min(31/elapsed, 42/Math.max(1,distance));
-      if (!reduced.matches) {
-        state.tx = dx * factor;
-        state.ty = dy * factor;
-        // Apply part of the impulse immediately so short gestures still deform the contour.
-        state.sx += (state.tx - state.sx) * .48;
-        state.sy += (state.ty - state.sy) * .42;
-      }
+      applyGlassImpulse(state,dx,dy,elapsed,reduced.matches);
       state.contactX = event.clientX;
       state.contactY = event.clientY;
       Object.assign(drag, {lastX: event.clientX, lastY: event.clientY, time: now});

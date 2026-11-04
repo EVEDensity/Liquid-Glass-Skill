@@ -1,7 +1,7 @@
 import { en, zh } from './language.js';
 
 async function loadButtonSources() {
-  const paths = ['liquid-glass-renderer.js','mount-liquid-glass.js','glass-button.js'].map(file=>'../assets/'+file);
+  const paths = ['liquid-glass-renderer.js','mount-liquid-glass.js','glass-motion.js','glass-button.js'].map(file=>'../assets/'+file);
   const [license,...modules] = await Promise.all(['../LICENSE',...paths].map(async path=>{
     const response = await fetch(new URL(path,import.meta.url));
     if (!response.ok) throw new Error('Could not load '+path);
@@ -23,7 +23,7 @@ function portableJS(config, sources) {
 }
 
 function aiSpec(config, strings) {
-  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/094aa34b66fc5163fed427e88d12394ff27122a8/assets/glass-button.js';
+  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/4ea2ac038b32cc3c926dea51ae2e9f827610cc95/assets/glass-button.js';
   return [
     strings.handoffTask,
     runtime,
