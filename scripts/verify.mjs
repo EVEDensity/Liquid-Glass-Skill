@@ -377,6 +377,9 @@ try {
   assert.equal(await page.evaluate(()=>document.elementFromPoint(175,165).dataset.shape),'custom');
   assert.notEqual(await page.evaluate(()=>document.elementFromPoint(260,174).dataset.shape),'custom');
   await page.locator('#text-tool').click();
+  await page.locator('#label-icon').selectOption('star');
+  assert.equal(await custom.locator('svg[data-glass-icon]').count(),1);
+  assert.equal(await custom.textContent(),'');
   await page.locator('#button-text').fill('形状');
   await page.locator('#label-size').fill('21');
   await page.locator('#label-weight').selectOption('750');
@@ -389,7 +392,7 @@ try {
   const customConfig = JSON.parse(customHandoff.split(/liquid-glass\.json\r?\n/).at(-1));
   assert.equal(customConfig.button.shape,'custom');
   assert.equal(customConfig.button.outline.length,7);
-  assert.deepEqual(customConfig.button.typography,{size:21,weight:750,family:'serif',x:28,y:64});
+  assert.deepEqual(customConfig.button.typography,{size:21,weight:750,family:'serif',icon:'star',x:28,y:64});
   const customStage = await page.locator('#stage').boundingBox();
   const customBox = await custom.boundingBox();
   const customPixels = await page.screenshot({clip:customBox,style:hideEditor,path:resolve(evidence,'custom-glass-shape.png')});
@@ -410,6 +413,7 @@ try {
     createLiquidGlassButton(target,config,{stage,source,requireExact:true});
   },{config:customConfig,stageBox:customStage,box:customBox});
   await customPage.locator('[data-refractive]').waitFor();
+  assert.equal(await customPage.locator('svg[data-glass-icon]').count(),1);
   await customPage.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   const copiedCustomPixels = await customPage.screenshot({clip:customBox,path:resolve(evidence,'custom-glass-export.png')});
   assert.ok(customPixels.equals(copiedCustomPixels),'A copied concave outline must render pixel for pixel');

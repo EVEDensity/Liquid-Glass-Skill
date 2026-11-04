@@ -24,7 +24,7 @@ function portableJS(config, sources) {
 }
 
 function aiSpec(config, strings) {
-  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/03b212ff550687efaeda33dd2641944ee0d97e99/assets/glass-button.js';
+  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/6b1a49621c5d8229387638c9424e12edf61e3373/assets/glass-button.js';
   return [
     strings.handoffTask,
     runtime,
@@ -46,9 +46,10 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
   const typographyFields = {
     size:document.querySelector('#label-size'),weight:document.querySelector('#label-weight'),
     family:document.querySelector('#label-family'),
+    icon:document.querySelector('#label-icon'),
     x:document.querySelector('#label-x'),y:document.querySelector('#label-y')
   };
-  const defaultTypography = {size:15,weight:650,family:'system',x:50,y:50};
+  const defaultTypography = {size:15,weight:650,family:'system',icon:'',x:50,y:50};
   const shape = document.querySelector('#button-shape');
   const width = document.querySelector('#button-width');
   const height = document.querySelector('#button-height');
@@ -192,7 +193,7 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
   for (const field of Object.values(typographyFields)) {
     field.addEventListener('input',()=>{
       const values = Object.fromEntries(Object.entries(typographyFields).map(([key,input])=>{
-        if (key==='family') return [key,input.value];
+        if (key==='family' || key==='icon') return [key,input.value];
         const value = input.value===''?defaultTypography[key]:Number(input.value);
         return [key,input.type==='number'?Math.min(Number(input.max),Math.max(Number(input.min),value)):value];
       }));

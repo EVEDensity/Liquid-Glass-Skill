@@ -216,14 +216,15 @@ body {
 }
 .size-fields { display: grid; gap: 2px; margin: 8px 0 12px; }
 .size-field {
-  display: grid; grid-template-columns: 3.1em minmax(0,1fr) 4.25em auto;
+  display: grid; grid-template-columns: 3.1em minmax(0,1fr) 6em auto;
   gap: 8px; align-items: center;
 }
 .size-field input[type="range"] {
   margin: 0; padding: 0; min-height: 44px; background: transparent; border: 0;
   accent-color: var(--panel-accent); cursor: ew-resize; touch-action: pan-y;
 }
-.size-field input[type="number"] { font-variant-numeric: tabular-nums; }
+.size-field input[type="number"] { appearance: textfield; font-variant-numeric: tabular-nums; }
+.size-field input::-webkit-inner-spin-button, .size-field input::-webkit-outer-spin-button { appearance: none; margin: 0; }
 .size-field span { font-size: 12px; color: var(--panel-muted); }
 #editor-message { margin: 8px 0 0; font-size: 13px; }
 #editor-message:empty { display: none; }
