@@ -158,10 +158,10 @@ try {
   await page.getByRole('button',{name:'Copy for AI',exact:true}).click();
   await page.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
   const handoff=await page.evaluate(()=>navigator.clipboard.readText());
-  const spec=JSON.parse(handoff.slice(handoff.indexOf('{')));
+  const spec=JSON.parse(handoff.split(/liquid-glass\.json\r?\n/).at(-1));
   assert.ok(handoff.length<1400);
   assert.match(handoff,/github\.com\/EVEDensity\/Liquid-Glass-Skill\/blob\/[a-f0-9]{40}\/assets\/glass-button\.js/);
-  assert.match(handoff,/createLiquidGlassButton\(container, config\)/);
+  assert.match(handoff,/createLiquidGlassButton\(container, config, \{stage, source\}\)/);
   assert.deepEqual(Object.keys(spec).sort(),['button','language','material','version']);
   assert.equal(spec.material.name,'Prism');
   assert.deepEqual(spec.button,{shape:'rounded',text:label,width:183,height:74,radius:16});
@@ -185,10 +185,73 @@ try {
   assert.ok(!firstBackdrop.equals(await compactButton.screenshot()),'Glass responds to the target page backdrop');
   await compactPage.close();
   record('AI handoff mounts only the chosen button and uses the host page background');
+
+  const opticalPage = await context.newPage();
+  const stageSize = await page.locator('#stage').boundingBox();
+  await opticalPage.route(compactURL,route=>route.fulfill({
+    contentType:'text/html',body:'<!doctype html><body style="margin:0"><main style="position:relative"><div style="position:absolute"></div></main></body>'
+  }));
+  await opticalPage.goto(compactURL);
+  await opticalPage.evaluate(async ({spec,stageSize,editedBounds})=>{
+    const stage = document.querySelector('main');
+    Object.assign(stage.style,{width:stageSize.width+'px',height:stageSize.height+'px',background:'url(/assets/glass-grid.svg) center/cover'});
+    const target = stage.firstElementChild;
+    Object.assign(target.style,{left:editedBounds.x-stageSize.x+'px',top:editedBounds.y-stageSize.y+'px'});
+    const source = new Image();
+    source.src = '/assets/glass-grid.svg';
+    await source.decode();
+    const {createLiquidGlassButton} = await import('/assets/glass-button.js');
+    createLiquidGlassButton(target,spec,{stage,source});
+  },{spec,stageSize,editedBounds});
+  const opticalButton = opticalPage.getByRole('button',{name:label,exact:true});
+  await opticalPage.locator('button[data-refractive]').waitFor();
+  assert.deepEqual(await opticalButton.boundingBox(),editedBounds);
+  const clip = {...editedBounds};
+  const originalGlass = await page.screenshot({clip});
+  const exportedGlass = await opticalPage.screenshot({clip});
+  const averageError = await opticalPage.evaluate(async shots=>{
+    const pixels = await Promise.all(shots.map(async shot=>{
+      const image = new Image();
+      image.src='data:image/png;base64,'+shot;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width=image.width; canvas.height=image.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(image,0,0);
+      return ctx.getImageData(0,0,canvas.width,canvas.height).data;
+    }));
+    return pixels[0].reduce((sum,value,index)=>sum+Math.abs(value-pixels[1][index]),0)/pixels[0].length;
+  },[originalGlass,exportedGlass].map(shot=>shot.toString('base64')));
+  assert.ok(averageError<5,`WebGL export differs by ${averageError.toFixed(2)} per channel`);
+  await writeFile(resolve(evidence,'button-webgl-reference.png'),originalGlass);
+  await writeFile(resolve(evidence,'button-webgl-export.png'),exportedGlass);
+  const center = [clip.x+clip.width/2,clip.y+clip.height/2];
+  const expandedClip = {x:clip.x-16,y:clip.y-12,width:clip.width+32,height:clip.height+24};
+  await page.bringToFront();
+  await page.mouse.move(...center);
+  await page.mouse.down();
+  await page.waitForFunction(()=>window.glassDemo.shapes.at(-1).press>.96);
+  await page.screenshot({clip:expandedClip,path:resolve(evidence,'button-webgl-reference-held.png')});
+  await page.mouse.up();
+  await opticalPage.bringToFront();
+  await opticalPage.mouse.move(...center);
+  await opticalPage.mouse.down();
+  await opticalPage.waitForTimeout(300);
+  const heldGlass = await opticalPage.screenshot({clip});
+  assert.ok(!heldGlass.equals(exportedGlass));
+  await opticalPage.screenshot({clip:expandedClip,path:resolve(evidence,'button-webgl-export-held.png')});
+  await opticalPage.mouse.move(center[0]+32,center[1]+18,{steps:5});
+  await opticalPage.mouse.up();
+  const moved = await opticalButton.boundingBox();
+  assert.deepEqual([moved.x,moved.y],[clip.x+32,clip.y+18]);
+  await opticalButton.evaluate(el=>el.disposeLiquidGlass());
+  assert.equal(await opticalPage.locator('canvas').count(),0);
+  await opticalPage.close();
+  record(`Single-button WebGL export matches the demo optics on the same pixels (mean channel error ${averageError.toFixed(2)}/255)`);
   await page.getByRole('button',{name:'Copy offline JS',exact:true}).click();
   await page.getByRole('status').getByText('Offline JavaScript copied.').waitFor();
   const moduleCode = await page.evaluate(()=>navigator.clipboard.readText());
-  assert.ok(!/glass-grid|createElement\('iframe'\)|createElement\('canvas'\)/.test(moduleCode));
+  assert.ok(!/glass-grid|createElement\('iframe'\)/.test(moduleCode));
   const replicaPage = await context.newPage();
   const replicaRequests = [];
   replicaPage.on('request',request=>{if(/^https?:/.test(request.url()))replicaRequests.push(request.url());});
@@ -198,6 +261,7 @@ try {
     const url = URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
     try {
       const {mountLiquidGlassButton} = await import(url);
+      window.mountCopiedGlass = mountLiquidGlassButton;
       const button = mountLiquidGlassButton(document.body);
       window.activations = 0;
       button.addEventListener('click',()=>window.activations++);
@@ -219,6 +283,20 @@ try {
   const dragged = await replicaButton.boundingBox();
   assert.deepEqual([dragged.x,dragged.y],[copied.x+36,copied.y+20]);
   assert.equal(await replicaPage.evaluate(()=>window.activations),1);
+  await replicaPage.evaluate(()=>{
+    document.querySelector('button').remove();
+    const stage = document.createElement('main');
+    Object.assign(stage.style,{position:'relative',width:'360px',height:'180px'});
+    document.body.append(stage);
+    const source = document.createElement('canvas');
+    source.width=360; source.height=180;
+    const ctx=source.getContext('2d');
+    ctx.fillStyle='#314c42';
+    ctx.fillRect(0,0,360,180);
+    window.mountCopiedGlass(stage,{stage,source});
+  });
+  await replicaPage.locator('button[data-refractive]').waitFor();
+  assert.equal(await replicaPage.locator('canvas').count(),1);
   assert.deepEqual(replicaRequests,[]);
   await replicaPage.close();
   record('Offline JS exports one native button with exact geometry, keyboard activation, and press/drag motion');

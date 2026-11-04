@@ -12,6 +12,7 @@ Work on the target interface and keep its layout, controls, design tokens, and i
 
 - **CSS glass** fits arbitrary DOM, text, and scrolling content. Copy `assets/liquid-glass.css` for blur, tint, and a rim. Add `assets/liquid-glass.js` only if the user wants pointer highlights. CSS glass cannot bend or merge backdrop pixels.
 - **WebGL2 refraction** fits images, video, and canvases controlled by the app. Copy `assets/liquid-glass-renderer.js` and `assets/mount-liquid-glass.js`. Keep the actual controls in HTML above an `aria-hidden` canvas. Use the app's original layout and a permitted backdrop.
+- **Exported standalone button** uses `assets/glass-button.js`. Pass the positioned host stage and its decoded pixel source to reproduce the demo optics. Without a source, the same button uses CSS glass.
 - **Glass plus an opaque fallback** fits readability or browser constraints. Handle reduced transparency, forced colors, and WebGL context loss. Give the fallback the same native actions and usable contrast.
 
 Read [integration](references/integration.md) for runnable wiring and the shape API. Read [materials](references/design-system.md) when selecting presets or treating different control states. Use [acceptance](references/acceptance.md) to verify the target interface.

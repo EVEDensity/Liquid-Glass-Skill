@@ -41,7 +41,17 @@ const button = mountLiquidGlassButton(document.querySelector('#preview'));
 button.addEventListener('click', handleClick);
 ```
 
-Both exports add a native button directly to the target page. Its CSS glass uses the host backdrop for blur, tint, and rim lighting. The demo's WebGL refraction and merging rely on access to backdrop pixels supplied by the host application.
+Both exports add a native button directly to the target page. To use the demo's WebGL optics, pass your own positioned stage and its decoded image or canvas:
+
+```js
+const button = mountLiquidGlassButton(container, { stage, source });
+button.addEventListener('click', handleClick);
+// When removing the component:
+button.disposeLiquidGlass?.();
+button.remove();
+```
+
+`stage` is a positioned ancestor of `container`. Display the source in the stage with centered cover sizing to match the renderer's sampling. For a video or a changing canvas, pass `liveSource: true` and call `button.invalidateLiquidGlass()` when new pixels are available. The WebGL layer draws only the button's lens. When no readable source is available, the button uses CSS blur and rim lighting over the page.
 
 Development checks:
 

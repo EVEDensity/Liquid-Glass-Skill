@@ -601,11 +601,10 @@ if (!exported) {
     snapshot(button) {
       const {width,height} = button.getBoundingClientRect();
       const shape = button.dataset.shape;
-      const {name,blur,frost,vibrancy,rimWidth,dispersion} = material;
       return {
         version:2, language,
         button:{shape,text:button.textContent,width,height,radius:shapeRadius(shape,width,height)},
-        material:{name,blur,frost,vibrancy,rimWidth,dispersion}
+        material:{...material}
       };
     }
   });

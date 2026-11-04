@@ -1,12 +1,13 @@
 import { en, zh } from './language.js';
 
 async function loadButtonSources() {
-  const [runtime,license] = await Promise.all(['../assets/glass-button.js','../LICENSE'].map(async path=>{
+  const paths = ['liquid-glass-renderer.js','mount-liquid-glass.js','glass-button.js'].map(file=>'../assets/'+file);
+  const [license,...modules] = await Promise.all(['../LICENSE',...paths].map(async path=>{
     const response = await fetch(new URL(path,import.meta.url));
     if (!response.ok) throw new Error('Could not load '+path);
     return response.text();
   }));
-  return {runtime,license};
+  return {runtime:modules.map(source=>source.replace(/^import .*;\r?\n/gm,'').trim()).join('\n'),license};
 }
 
 function portableJS(config, sources) {
@@ -15,14 +16,14 @@ function portableJS(config, sources) {
     '// Save as glass-button.js. Import and call mountLiquidGlassButton(targetElement).',
     '/*\n'+sources.license.trim()+'\n*/',
     sources.runtime.trim(),
-    'export function mountLiquidGlassButton(target) {',
-    '  return createLiquidGlassButton(target, '+json+');',
+    'export function mountLiquidGlassButton(target, options) {',
+    '  return createLiquidGlassButton(target, '+json+', options);',
     '}'
   ].join('\n');
 }
 
 function aiSpec(config, strings) {
-  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/4f5479e87cfa442b312cfab47315927f7d24da37/assets/glass-button.js';
+  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/35e6e065683e52d963dc51432dc7823feee63cb2/assets/glass-button.js';
   return [
     strings.handoffTask,
     runtime,

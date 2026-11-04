@@ -1,5 +1,8 @@
 export const en = {
   language:'Language',title:'Liquid glass',presets:'Material preset',button:'Button',
+  intro:'Shape a button, tune its optics, and take it into your project.',
+  preview:'Live preview',previewHint:'Press to expand. Drag to bend the grid.',
+  exportTitle:'Export button',exportHint:"Only the selected button. Refraction samples your project's backdrop.",
   editText:'Edit button text',copyJS:'Copy offline JS',buttonText:'Button text',
   selectionHint:'Click a glass shape on the canvas to edit it.',
   shape:'Shape',circle:'Circle',capsule:'Capsule',rounded:'Rounded rectangle',square:'Square',
@@ -9,11 +12,14 @@ export const en = {
   copyReplica:'Copy for AI',copiedReplica:'Offline JavaScript copied.',
   copiedSpec:'Copied. Paste this into your coding AI.',copyError:'Could not prepare the button. Try again.',
   handoffTask:'Integrate this single liquid-glass button into the current project. Keep the target page background and layout. Use this pinned standalone module:',
-  handoffMount:'Copy assets/glass-button.js and LICENSE from that revision. Import createLiquidGlassButton and call createLiquidGlassButton(container, config) with the JSON below. Connect the returned native button to the intended action. Verify its dimensions, label, and press/drag motion.',
+  handoffMount:'Copy glass-button.js, mount-liquid-glass.js, liquid-glass-renderer.js and LICENSE from that revision. Import createLiquidGlassButton and call createLiquidGlassButton(container, config, {stage, source}). Use a positioned stage and its own decoded image, canvas or video as source. If pixels are unavailable, omit options for CSS glass. Connect the native button to the intended action.',
   limit:'The scene supports up to five editable buttons.'
 };
 export const zh = {
   language:'语言',title:'液态玻璃',presets:'玻璃材质',button:'按钮',
+  intro:'调整按钮的形状与光学效果，然后接入你的项目。',
+  preview:'实时预览',previewHint:'按住观察放大，拖动观察网格折射。',
+  exportTitle:'导出按钮',exportHint:'仅导出所选按钮。折射取样自目标页面自己的背景。',
   editText:'编辑按钮文字',copyJS:'复制离线 JS',buttonText:'按钮文字',
   selectionHint:'点击画布上的玻璃形状即可编辑。',
   shape:'形状',circle:'圆形',capsule:'胶囊',rounded:'圆角矩形',square:'正方形',
@@ -23,6 +29,6 @@ export const zh = {
   copyReplica:'复制给 AI',copiedReplica:'已复制离线 JavaScript。',
   copiedSpec:'已复制，可直接粘贴给编程 AI。',copyError:'无法准备按钮，请重试。',
   handoffTask:'请将这个液态玻璃按钮接入当前项目，保留目标页面的背景和布局。使用这个固定版本的独立模块：',
-  handoffMount:'从该版本复制 assets/glass-button.js 和 LICENSE，导入 createLiquidGlassButton，使用下方 JSON 调用 createLiquidGlassButton(container, config)。把返回的原生按钮接到项目动作，并验证尺寸、文字、按压和拖动。',
+  handoffMount:'从该版本复制 glass-button.js、mount-liquid-glass.js、liquid-glass-renderer.js 和 LICENSE。导入并调用 createLiquidGlassButton(container, config, {stage, source})，其中 stage 是已定位的预览容器，source 是该容器已有的解码图片、画布或视频。取不到像素时省略第三个参数以使用 CSS 玻璃。将原生按钮接到项目动作。',
   limit:'场景最多支持五个可编辑按钮。'
 };
