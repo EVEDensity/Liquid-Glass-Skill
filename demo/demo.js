@@ -66,7 +66,7 @@ function setButtonGeometry(button,shape,width,height) {
   button.dataset.shape = shape;
   button.style.width = width + 'px';
   button.style.height = height + 'px';
-  button.style.setProperty('--button-radius',shapeRadius(shape,width,height)+'px');
+  button.style.setProperty('--button-radius',shape==='circle'?'50%':shapeRadius(shape,width,height)+'px');
 }
 function makeScene() {
   const controls = exported?.controls;
@@ -567,10 +567,11 @@ if (!exported) {
       const state = presses.get(button);
       const before = button.getBoundingClientRect();
       setButtonGeometry(button,shape,width,height);
+      if (anchorCorner) { schedule(); return; }
       const after = button.getBoundingClientRect();
       const dx = before.width-after.width;
       const dy = before.height-after.height;
-      movePiece(button,state.x+(anchorCorner?dx:dx/2),state.y+(anchorCorner?0:dy/2));
+      movePiece(button,state.x+dx/2,state.y+dy/2);
     },
     removeButton(button) {
       pieces.splice(pieces.indexOf(button),1);

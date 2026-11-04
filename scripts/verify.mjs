@@ -125,7 +125,7 @@ try {
   assert.equal(await page.locator('#status').count(),0);
   await page.locator('#height-range').press('ArrowRight');
   const circle = await page.locator('#controls .probe').boundingBox();
-  assert.deepEqual([circle.width,circle.height],[121,121]);
+  assert.deepEqual([circle.width,circle.height],[120,121]);
   await page.getByRole('button',{name:'Add shape',exact:true}).click();
   await page.locator('#button-shape').selectOption('rounded');
   const newButton = page.locator('#controls .probe').last();
@@ -141,13 +141,15 @@ try {
   assert.equal(during.height,initial.height);
   assert.equal(Number(await page.locator('#button-width').inputValue()),during.width);
   const handle = await page.locator('#canvas-resize').boundingBox();
+  assert.equal(handle.x+handle.width/2,during.x+during.width);
+  assert.equal(handle.y+handle.height/2,during.y+during.height);
   await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);
   await page.mouse.down();
-  await page.mouse.move(handle.x+handle.width/2-24,handle.y+handle.height/2+18,{steps:4});
+  await page.mouse.move(handle.x+handle.width/2+24,handle.y+handle.height/2+18,{steps:4});
   await page.mouse.up();
   const resized = await newButton.boundingBox();
   assert.deepEqual([resized.width,resized.height],[during.width+24,during.height+18]);
-  assert.equal(resized.x+resized.width,during.x+during.width);
+  assert.equal(resized.x,during.x);
   assert.equal(resized.y,during.y);
   const setSize=async(id,value)=>{
     const field=page.locator(id);
@@ -180,13 +182,14 @@ try {
   assert.equal(await page.locator('html').getAttribute('lang'),'zh-CN');
   await page.getByRole('button',{name:'周',exact:true}).waitFor();
   await page.getByRole('button',{name:'编辑按钮文字',exact:true}).waitFor();
-  await page.getByRole('button',{name:'复制给 AI',exact:true}).waitFor();
+  await page.locator('#canvas-copy').getByText('复制给 AI',{exact:true}).waitFor();
   assert.equal(await edited.textContent(),label);
   await page.getByRole('button',{name:'EN',exact:true}).click();
   await page.waitForFunction(()=>parseFloat(getComputedStyle(document.querySelector('.language-tools'),'::before').translate)===54);
   await page.getByRole('button',{name:'Week',exact:true}).waitFor();
   record('Canvas selection, live text and horizontal sizing work in both editor languages');
   await page.getByRole('button',{name:'Copy selected button for AI',exact:true}).click();
+  assert.equal(await page.locator('.canvas-tool-row button').first().textContent().then(text=>text.trim()),'Copy for AI');
   await page.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
   const handoff=await page.evaluate(()=>navigator.clipboard.readText());
   const spec=JSON.parse(handoff.split(/liquid-glass\.json\r?\n/).at(-1));
@@ -354,7 +357,7 @@ try {
   await page.getByRole('button',{name:'Delete selected button',exact:true}).click();
   assert.equal(await page.locator('#controls .probe').count(),0);
   assert.equal(await page.locator('#controls > .glass').count(),3);
-  assert.equal(await page.locator('#copy-replica').isDisabled(),true);
+  assert.equal(await page.locator('#copy-button').isDisabled(),true);
   await page.locator('#add-button').click();
   await page.locator('#canvas-tools').waitFor();
   record('Floating toolbar deletes only the selected shape and recovers when a shape is added');

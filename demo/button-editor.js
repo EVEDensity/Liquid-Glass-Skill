@@ -23,7 +23,7 @@ function portableJS(config, sources) {
 }
 
 function aiSpec(config, strings) {
-  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/4ea2ac038b32cc3c926dea51ae2e9f827610cc95/assets/glass-button.js';
+  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/1b2440e86299a734ea9c81394bd06aba1636a498/assets/glass-button.js';
   return [
     strings.handoffTask,
     runtime,
@@ -46,10 +46,8 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   const width = document.querySelector('#button-width');
   const height = document.querySelector('#button-height');
   const copyJS = document.querySelector('#copy-button');
-  const copyReplica = document.querySelector('#copy-replica');
   const widthRange = document.querySelector('#width-range');
   const heightRange = document.querySelector('#height-range');
-  const sizeLink = document.querySelector('#size-link');
   const add = document.querySelector('#add-button');
   const message = document.querySelector('#editor-message');
   const dialog = document.querySelector('#copy-dialog');
@@ -69,7 +67,7 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
     const above = rect.top-bounds.top-toolHeight-12;
     const y = above >= 6 ? above : Math.max(6,Math.min(bounds.height-toolHeight-6,rect.bottom-bounds.top+12));
     canvasTools.style.translate = `${x}px ${y}px`;
-    resizeHandle.style.translate = `${Math.max(14,Math.min(bounds.width-14,rect.left-bounds.left))}px ${Math.max(14,Math.min(bounds.height-14,rect.bottom-bounds.top))}px`;
+    resizeHandle.style.translate = `${Math.max(14,Math.min(bounds.width-14,rect.right-bounds.left))}px ${Math.max(14,Math.min(bounds.height-14,rect.bottom-bounds.top))}px`;
   }
   function showOverlay(visible) {
     canvasTools.hidden = resizeHandle.hidden = !visible;
@@ -77,14 +75,13 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
     else setTextEditor(false);
   }
   function sync() {
-    for (const control of [shape,width,height,widthRange,heightRange,copyReplica,copyJS]) control.disabled = !selected;
+    for (const control of [shape,width,height,widthRange,heightRange,copyJS]) control.disabled = !selected;
     if (selected) {
       shape.value = selected.dataset.shape;
       syncSize(selected.getBoundingClientRect());
     } else {
       width.value = height.value = '';
     }
-    sizeLink.hidden = !selected || !equalSides();
     add.disabled = root.querySelectorAll('.probe').length >= 5;
     add.title = add.disabled ? strings.limit : '';
     positionOverlay();
@@ -114,24 +111,18 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
     }
     positionOverlay();
   }
-  function equalSides() {
-    return shape.value === 'circle' || shape.value === 'square';
-  }
-  function applyDimensions(axis = 'width') {
+  function applyDimensions() {
     const rect = selected.getBoundingClientRect();
     const w = limit(width.valueAsNumber,rect.width);
     const h = limit(height.valueAsNumber,rect.height);
-    const linked = equalSides();
-    const side = axis === 'height' ? h : w;
-    setButtonGeometry(selected,shape.value,linked ? side : w,linked ? side : h);
+    setButtonGeometry(selected,shape.value,w,h);
     syncSize(selected.getBoundingClientRect());
   }
   const limit = (value,fallback) => Math.min(400,Math.max(44,Number.isFinite(value)?value:fallback));
   function resizeCorner(rect,dx,dy) {
-    const w = limit(rect.width-dx,rect.width);
+    const w = limit(rect.width+dx,rect.width);
     const h = limit(rect.height+dy,rect.height);
-    const side = Math.abs(dx)>Math.abs(dy)?w:h;
-    setButtonGeometry(selected,shape.value,equalSides()?side:w,equalSides()?side:h,true);
+    setButtonGeometry(selected,shape.value,w,h,true);
     syncSize(selected.getBoundingClientRect());
     positionOverlay();
   }
@@ -179,9 +170,9 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   });
   shape.addEventListener('change',()=>{applyDimensions();sync();});
   widthRange.addEventListener('input',()=>{width.value=widthRange.value;applyDimensions();});
-  heightRange.addEventListener('input',()=>{height.value=heightRange.value;applyDimensions('height');});
+  heightRange.addEventListener('input',()=>{height.value=heightRange.value;applyDimensions();});
   width.addEventListener('change',()=>applyDimensions());
-  height.addEventListener('change',()=>applyDimensions('height'));
+  height.addEventListener('change',applyDimensions);
   add.addEventListener('click',()=>{
     const button = addButton();
     if (button) select(button);
@@ -206,7 +197,6 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
       }).catch(()=>{});
     }
   }
-  copyReplica.addEventListener('click',copySelected);
   canvasCopy.addEventListener('click',copySelected);
   copyJS.addEventListener('click',async()=>{
     const config = snapshot(selected);

@@ -32,7 +32,7 @@ Click a glass shape on the canvas to edit it. Use **T** in the panel to edit its
 
 **Copy for AI** gives your coding agent the selected button's geometry, label, and material, along with pinned modules and the integration call `createLiquidGlassButton(container, config, { stage, source, requireExact: true })`. Exact mode needs a positioned stage and readable pixels. If WebGL is blocked or becomes unavailable, the button exposes `data-glass-unavailable` and uses a plain surface. Use identical source pixels, stage size, button position, browser and display scale for pixel comparisons. Compare an isolated button away from other controls because interacting surfaces change the optical field.
 
-When using the local skill, make the selection in the main demo on port 58423. Click an editable shape to open its toolbar. Use **T** to edit the label, copy to send the design, or delete to remove the shape. Drag the lower-left handle to resize. **Copy for AI** also returns the same configuration to the local server, which keeps the latest copy in memory.
+When using the local skill, make the selection in the main demo on port 58423. Click an editable shape to open its toolbar. Choose **Copy for AI** to send the design, **T** to edit the label, or delete to remove the shape. Drag the lower-right handle to set width and height independently. The local server keeps the latest copied configuration in memory.
 
 The copy icon exports a self-contained offline JavaScript module. Paste it into a project as `glass-button.js` and mount it into an existing element:
 
