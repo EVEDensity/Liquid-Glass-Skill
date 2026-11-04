@@ -25,13 +25,16 @@ function portableJS(config, sources) {
   ].join('\n');
 }
 
+const handoffRevision = '9560257262c5f29b17f9c629ba1b86328a62d26c';
+const handoffRepository = 'https://github.com/EVEDensity/Liquid-Glass-Skill';
+
 function aiSpec(config, strings) {
   if (config.version === 3) return [
     strings.selectionTask,
-    'https://github.com/EVEDensity/Liquid-Glass-Skill/tree/main',
+    handoffRepository+'/tree/'+handoffRevision,
     strings.selectionMount,'','liquid-glass.json',JSON.stringify(config)
   ].join('\n');
-  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/6b1a49621c5d8229387638c9424e12edf61e3373/assets/glass-button.js';
+  const runtime = handoffRepository+'/blob/'+handoffRevision+'/assets/glass-button.js';
   return [
     strings.handoffTask,
     runtime,
@@ -158,8 +161,14 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     canvasDelete.hidden = !editable();
     count.hidden = group.length<2;
     count.textContent = group.length || '';
+    updateCopyLabel();
     if (visible) positionOverlay();
     else setTextEditor(false);
+  }
+  function updateCopyLabel() {
+    const label = group.length>1 ? strings.canvasCopyMany : strings.canvasCopy;
+    canvasCopy.title = label;
+    canvasCopy.setAttribute('aria-label',label);
   }
   function sync() {
     for (const control of [shape,width,height,widthRange,heightRange]) control.disabled = !editable();
@@ -271,7 +280,9 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     const button = event.target.closest('.glass');
     if (button) {
       press = {button,started:performance.now(),x:event.clientX,y:event.clientY,moved:false};
+      const hadGroup = group.length>0;
       markGroup([]);
+      if (hadGroup) sync();
       showOverlay(false);
     } else if (event.target===root || event.target===stage) {
       select(null,false);
@@ -369,6 +380,7 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   }
   canvasCopy.addEventListener('click',copySelected);
   copyJS.addEventListener('click',async()=>{
+    if (!selection().length) return;
     const config = editable() ? snapshot(selected) : snapshotSelection(selection());
     copyJS.disabled = true;
     try {
@@ -408,6 +420,7 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     for (const element of document.querySelectorAll('[data-i18n]')) element.textContent = strings[element.dataset.i18n];
     for (const element of document.querySelectorAll('[data-aria]')) element.setAttribute('aria-label',strings[element.dataset.aria]);
     for (const element of document.querySelectorAll('[data-title]')) element.title = strings[element.dataset.title];
+    updateCopyLabel();
     message.textContent = '';
     onLanguageChange(language);
     if (selected) sync();

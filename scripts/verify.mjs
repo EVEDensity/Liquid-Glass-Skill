@@ -88,6 +88,9 @@ async function verifySelection(context) {
     const latest = await (await fetch('/api/glass-handoff')).json();
     return JSON.stringify(latest?.config)===JSON.stringify(expected);
   },config);
+  await selectionPage.locator('#copy-button').click();
+  await selectionPage.getByRole('status').getByText('Offline JavaScript copied.').waitFor();
+  const offline = await selectionPage.evaluate(()=>navigator.clipboard.readText());
   await selectionPage.keyboard.press('Escape');
   const selectionHost = await context.newPage();
   selectionHost.on('pageerror',error=>errors.push(error.message));
@@ -178,14 +181,6 @@ async function verifySelection(context) {
   const released=await sample(replica);
   await selectionPage.waitForFunction(expected=>JSON.stringify(window.glassDemo.shapes.slice(0,3))===JSON.stringify(expected),released.shapes);
   compareSelection('released',await sample(selectionPage),released);
-  await selectionPage.bringToFront();
-  await selectionPage.mouse.move(start.x,start.y);
-  await selectionPage.mouse.down();
-  await selectionPage.mouse.move(end.x,end.y,{steps:5});
-  await selectionPage.mouse.up();
-  await selectionPage.locator('#copy-button').click();
-  await selectionPage.getByRole('status').getByText('Offline JavaScript copied.').waitFor();
-  const offline = await selectionPage.evaluate(()=>navigator.clipboard.readText());
   const offlineResult = await selectionHost.evaluate(async code=>{
     const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
     try {
