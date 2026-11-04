@@ -10,9 +10,9 @@ Apply glass only to the named buttons or controls. Preserve the host background,
 
 ## Confirm the button design
 
-When the user has not chosen a shape or material, run `node scripts/serve.mjs --pick "Button label" 88 44 "#1a1a2e"` from the skill directory. Pass the target button's label, width and height in CSS pixels, and its existing solid backdrop or a representative swatch for preview. Open the `GLASS_PICKER` URL in a visible browser and wait on the same process for the user's `GLASS_SELECTION` JSON. The OS assigns a free loopback port. The page sends one choice and the server closes. Keep the target files intact until the choice arrives. If the browser cannot be opened, share the URL. A swatch confirms appearance only on that color.
+When the user has not chosen a shape or material, use the main demo at `http://localhost:4173/demo/`. Start `node scripts/serve.mjs` from the skill directory if the demo is not running. Ask the user to select a button, try the presets, and click **Copy for AI** when satisfied. The local server keeps the latest copied config in memory at `GET http://localhost:4173/api/glass-handoff`. Record the baseline `copiedAt` first and use only a new selection, or use the clipboard payload the user pastes. Keep target files intact until the choice arrives.
 
-Use the returned geometry and material directly. The picker, Copy for AI, and direct skill integration use `assets/glass-button.js` with the same renderer and motion modules. Reuse the original host pixels for WebGL. If the host pixels cannot be read, explain the CSS fallback and confirm it before changing the target. Do not add a background to make the optics work.
+Use the returned geometry and material directly. Copy for AI and direct skill integration use `assets/glass-button.js` with the same renderer and motion modules. Reuse the original host pixels for WebGL. If the host pixels cannot be read, explain the CSS fallback and confirm it before changing the target. Do not add a background to make the optics work.
 
 ## Choose the rendering path
 

@@ -125,7 +125,16 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
       copySource.select();
     }
   }
-  copyReplica.addEventListener('click',()=>copyText(aiSpec(snapshot(selected),strings),'copiedSpec'));
+  copyReplica.addEventListener('click',()=>{
+    const config = snapshot(selected);
+    copyText(aiSpec(config,strings),'copiedSpec');
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      // The local skill reads the exact config copied to the clipboard.
+      fetch('/api/glass-handoff',{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(config)
+      }).catch(()=>{});
+    }
+  });
   copyJS.addEventListener('click',async()=>{
     const config = snapshot(selected);
     copyJS.disabled = true;

@@ -180,6 +180,11 @@ try {
   await page.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
   const handoff=await page.evaluate(()=>navigator.clipboard.readText());
   const spec=JSON.parse(handoff.split(/liquid-glass\.json\r?\n/).at(-1));
+  await page.waitForFunction(async expected=>{
+    const latest = await (await fetch('/api/glass-handoff')).json();
+    return latest && JSON.stringify(latest.config)===expected;
+  },JSON.stringify(spec));
+  record('The main demo sends the same configuration to the local skill and clipboard');
   assert.ok(handoff.length<1400);
   assert.match(handoff,/github\.com\/EVEDensity\/Liquid-Glass-Skill\/blob\/[a-f0-9]{40}\/assets\/glass-button\.js/);
   assert.match(handoff,/createLiquidGlassButton\(container, config, \{stage, source, requireExact:true\}\)/);
