@@ -11,9 +11,10 @@
     <canvas id="scene" aria-hidden="true"></canvas>
     <section id="controls"></section>
     <div id="outline-editor" hidden>
-      <svg aria-hidden="true"><polyline/></svg>
+      <svg aria-hidden="true"><polygon/><polyline/><line/><circle r="4"/></svg>
       <div class="outline-instructions">
         <span data-i18n="drawHint">Draw one continuous outline. Release to close it.</span>
+        <label><span data-i18n="smoothing">Smoothing</span><input id="outline-smoothing" type="range" min="0" max="100" value="55"></label>
         <button id="cancel-outline" type="button" data-i18n="cancelDraw">Cancel</button>
       </div>
     </div>
@@ -31,6 +32,21 @@
       <div id="text-editor" hidden>
         <label for="button-text" data-i18n="buttonText">Button text</label>
         <input id="button-text" maxlength="100">
+        <div class="typography-fields">
+          <label><span data-i18n="fontSize">Size (px)</span><input id="label-size" type="number" min="8" max="72" value="15"></label>
+          <label><span data-i18n="fontWeight">Weight</span><select id="label-weight">
+            <option value="400" data-i18n="regular">Regular</option>
+            <option value="650" data-i18n="semibold">Semibold</option>
+            <option value="750" data-i18n="bold">Bold</option>
+          </select></label>
+          <label class="typography-family"><span data-i18n="fontFamily">Typeface</span><select id="label-family">
+            <option value="system" data-i18n="fontSystem">System</option>
+            <option value="serif" data-i18n="fontSerif">Serif</option>
+            <option value="mono" data-i18n="fontMono">Monospace</option>
+          </select></label>
+          <label><span data-i18n="textX">Horizontal (%)</span><input id="label-x" type="number" min="0" max="100" value="50"></label>
+          <label><span data-i18n="textY">Vertical (%)</span><input id="label-y" type="number" min="0" max="100" value="50"></label>
+        </div>
       </div>
     </div>
     <button id="canvas-resize" type="button" hidden aria-label="Resize selected button" data-aria="resizeButton" data-title="resizeButton"></button>

@@ -158,12 +158,17 @@ body {
 #outline-editor { position: absolute; inset: 0; z-index: 6; cursor: crosshair; touch-action: none; background: rgb(20 27 23 / .14); }
 #outline-editor svg { width: 100%; height: 100%; pointer-events: none; }
 #outline-editor polyline { fill: none; stroke: #fffaee; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+#outline-editor polygon { fill: rgb(255 250 238 / .2); fill-rule: evenodd; }
+#outline-editor line { stroke: #fffaee; stroke-width: 1.5; stroke-dasharray: 4 5; visibility: hidden; }
+#outline-editor circle { fill: #fffaee; visibility: hidden; }
 .outline-instructions {
   position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: max-content; max-width: calc(100% - 24px);
   padding: 5px 8px 5px 12px; border-radius: 10px; color: #fffaf0; background: #252823;
   font-size: 13px;
 }
+.outline-instructions label { display: flex; align-items: center; gap: 4px; }
+.outline-instructions input { width: 72px; accent-color: #e9cd9c; }
 .outline-instructions button {
   min-height: 40px; padding: 0 10px; border: 0; border-radius: 6px;
   background: #f8f4ec; color: #332c24; font: inherit; cursor: pointer; white-space: nowrap;
@@ -187,6 +192,9 @@ body {
 #canvas-tools :focus-visible, #canvas-resize:focus-visible { outline: 2px solid #f9dc9a; outline-offset: 2px; }
 #text-editor { padding: 4px 6px 6px; }
 #text-editor label { display: block; font-size: 13px; }
+.typography-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+.typography-family { grid-column: 1 / -1; }
+.typography-fields :is(input,select) { width: 100%; min-height: 32px; border: 1px solid #b5a690; border-radius: 6px; font: inherit; padding: 3px 5px; }
 #canvas-resize {
   width: 30px; height: 30px; padding: 0; transform: translate(-50%,-50%);
   border: 0; border-radius: 50%; background: transparent; cursor: nwse-resize; touch-action: none;
@@ -196,7 +204,7 @@ body {
   border: 2px solid #252823; background: #f8f4ec; box-shadow: 0 1px 5px rgb(0 0 0 / .28);
 }
 .selection-hint { margin: 0 0 10px; color: var(--panel-muted); font-size: 13px; }
-#button-text { display: block; width: 148px; min-height: 36px; margin-top: 4px; padding: 5px 7px; font: inherit; border: 1px solid #b5a690; border-radius: 6px; }
+#button-text { display: block; width: 100%; min-height: 36px; margin-top: 4px; padding: 5px 7px; font: inherit; border: 1px solid #b5a690; border-radius: 6px; }
 .button-inspector { border-top: 1px solid var(--panel-line); padding-top: 16px; }
 .button-inspector header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .button-inspector h2 { margin: 0; }

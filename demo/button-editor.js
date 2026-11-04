@@ -24,7 +24,7 @@ function portableJS(config, sources) {
 }
 
 function aiSpec(config, strings) {
-  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/ce25b57d9290e442f7f6a60ccc57ca4f031be12c/assets/glass-button.js';
+  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/03b212ff550687efaeda33dd2641944ee0d97e99/assets/glass-button.js';
   return [
     strings.handoffTask,
     runtime,
@@ -35,7 +35,7 @@ function aiSpec(config, strings) {
   ].join('\n');
 }
 
-export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,addButton,removeButton,snapshot,onLanguageChange}) {
+export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,setButtonGeometry,addButton,removeButton,snapshot,onLanguageChange}) {
   const canvasTools = document.querySelector('#canvas-tools');
   const canvasCopy = document.querySelector('#canvas-copy');
   const canvasDelete = document.querySelector('#canvas-delete');
@@ -43,6 +43,12 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   const textTool = document.querySelector('#text-tool');
   const textEditor = document.querySelector('#text-editor');
   const text = document.querySelector('#button-text');
+  const typographyFields = {
+    size:document.querySelector('#label-size'),weight:document.querySelector('#label-weight'),
+    family:document.querySelector('#label-family'),
+    x:document.querySelector('#label-x'),y:document.querySelector('#label-y')
+  };
+  const defaultTypography = {size:15,weight:650,family:'system',x:50,y:50};
   const shape = document.querySelector('#button-shape');
   const width = document.querySelector('#button-width');
   const height = document.querySelector('#button-height');
@@ -58,6 +64,7 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   let selected;
   let runtime;
   let resize;
+  let press;
   let strings = en;
   const outlineEditor = mountOutlineEditor(stage,{
     onDraw(geometry) {
@@ -111,6 +118,9 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
       selected = button;
       selected?.setAttribute('aria-current','true');
       text.value = selected?.textContent ?? '';
+      for (const [key,field] of Object.entries(typographyFields)) {
+        field.value = selected?.glassTypography?.[key] ?? defaultTypography[key];
+      }
       message.textContent = '';
       sync();
     }
@@ -159,12 +169,15 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   });
   stage.addEventListener('pointerdown',event=>{
     const button = event.target.closest('.probe');
-    if (button) select(button);
-    else if (!event.target.closest('#canvas-tools,#canvas-resize,.language-tools')) showOverlay(false);
+    if (button && event.button===0) {
+      press = {button,started:performance.now()};
+      canvasTools.hidden = resizeHandle.hidden = true;
+    } else if (!event.target.closest('#canvas-tools,#canvas-resize,.language-tools')) showOverlay(false);
   });
-  root.addEventListener('focusin',event=>{
+  root.addEventListener('click',event=>{
     const button = event.target.closest('.probe');
-    if (button) select(button);
+    if (button && (event.detail===0 || (press?.button===button && performance.now()-press.started<400))) select(button);
+    press = undefined;
   });
   canvasDelete.addEventListener('click',()=>{
     removeButton(selected);
@@ -176,6 +189,16 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   });
   textTool.addEventListener('click',()=>setTextEditor(textEditor.hidden));
   text.addEventListener('input',()=>setButtonText(selected,text.value));
+  for (const field of Object.values(typographyFields)) {
+    field.addEventListener('input',()=>{
+      const values = Object.fromEntries(Object.entries(typographyFields).map(([key,input])=>{
+        if (key==='family') return [key,input.value];
+        const value = input.value===''?defaultTypography[key]:Number(input.value);
+        return [key,input.type==='number'?Math.min(Number(input.max),Math.max(Number(input.min),value)):value];
+      }));
+      setButtonTypography(selected,values);
+    });
+  }
   text.addEventListener('keydown',event=>{
     if (event.isComposing || !['Enter','Escape'].includes(event.key)) return;
     setTextEditor(false);

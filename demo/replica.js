@@ -1,6 +1,8 @@
 const files = {
   renderer: '../assets/liquid-glass-renderer.js',
   motion: '../assets/glass-motion.js',
+  button: '../assets/glass-button.js',
+  mount: '../assets/mount-liquid-glass.js',
   runtime: './demo.js',
   css: './demo.css',
   backdrop: '../assets/glass-grid.svg',
@@ -21,7 +23,8 @@ export function portableScene(config, sources) {
   return {
     config: {...config,backdrop},
     css: sources.css.replace('../assets/glass-grid.svg',backdrop),
-    runtime: sources.renderer+'\n'+sources.motion+'\n'+sources.runtime.replace(/^import .*;\r?\n/gm,'')
+    runtime: [sources.renderer,sources.motion,sources.mount,sources.button,sources.runtime]
+      .map(source=>source.replace(/^import .*;\r?\n/gm,'')).join('\n')
   };
 }
 

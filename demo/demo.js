@@ -1,6 +1,7 @@
 import { stepGlassMotion, applyGlassImpulse, sampleGlassMotion } from '../assets/glass-motion.js';
 import { GlassScene, PRESETS, normalizeGlassOutline, glassOutlineClip } from '../assets/liquid-glass-renderer.js';
 import { mountButtonEditor } from './button-editor.js';
+import { applyGlassTypography } from '../assets/glass-button.js';
 
 const exportNode = document.querySelector('#glass-button-config');
 const exported = exportNode ? JSON.parse(exportNode.textContent) : null;
@@ -50,6 +51,7 @@ function createEditableButton(config = {}) {
   button.dataset.buttonId = config.id ?? String(nextButtonId++);
   button.dataset.shape = config.shape ?? 'circle';
   button.glassOutline = normalizeGlassOutline(config.outline);
+  button.glassTypography = config.typography;
   button.toggleAttribute('data-export-selected',exported?.selected===button.dataset.buttonId);
   setButtonText(button,config.text ?? '');
   if (config.width != null) setButtonGeometry(button,button.dataset.shape,config.width,config.height);
@@ -61,6 +63,7 @@ function createEditableButton(config = {}) {
 }
 function setButtonText(button,text) {
   button.textContent = text;
+  applyGlassTypography(button,button.glassTypography);
   button.setAttribute('aria-label',text || stageLabels[language].button);
 }
 function setButtonGeometry(button,shape,width,height) {
@@ -568,6 +571,10 @@ updateStageLabels();
 if (!exported) {
   updateEditorOverlay = mountButtonEditor({
     root, stage, setButtonText,
+    setButtonTypography(button,typography) {
+      button.glassTypography = typography;
+      applyGlassTypography(button,typography);
+    },
     setButtonGeometry(button,shape,width,height,anchorCorner) {
       const state = presses.get(button);
       const before = button.getBoundingClientRect();
@@ -609,7 +616,8 @@ if (!exported) {
       return {
         version:2, language,
         button:{shape,text:button.textContent,width,height,radius:shapeRadius(shape,width,height),
-          ...(shape==='custom'&&button.glassOutline?{outline:button.glassOutline}:{})},
+          ...(shape==='custom'&&button.glassOutline?{outline:button.glassOutline}:{}),
+          ...(button.glassTypography?{typography:button.glassTypography}:{})},
         material:{...material}
       };
     }

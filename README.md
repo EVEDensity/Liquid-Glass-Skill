@@ -34,7 +34,7 @@ Click a glass shape on the canvas to edit it. Use **T** in the panel to edit its
 
 When using the local skill, make the selection in the main demo on port 58423. Click an editable shape to open its toolbar. Choose **Copy for AI** to send the design, **T** to edit the label, or delete to remove the shape. Drag the lower-right handle to set width and height independently. The local server keeps the latest copied configuration in memory.
 
-Choose **Draw shape**, trace a continuous outline on the canvas, and release to close it. The button stores the outline as normalized coordinates so resizing and exporting preserve the shape.
+Choose **Draw shape**, adjust smoothing, and trace a continuous outline. A dashed guide shows where the outline will close on release. The button stores normalized coordinates so resizing and exporting preserve the shape. Click the button to open its toolbar. **T** edits the label, font size, weight, and position.
 
 The copy icon exports a self-contained offline JavaScript module. Paste it into a project as `glass-button.js` and mount it into an existing element:
 

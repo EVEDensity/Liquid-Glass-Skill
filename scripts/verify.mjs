@@ -271,6 +271,7 @@ try {
   await page.mouse.move(...center);
   await page.mouse.down();
   await page.waitForFunction(()=>window.glassDemo.shapes.at(-1).press===1);
+  assert.equal(await page.locator('#canvas-tools').isVisible(),false);
   const referenceHeld = await page.screenshot({clip:expandedClip,style:hideEditor,path:resolve(evidence,'button-webgl-reference-held.png')});
   const dragEnd = [center[0]+32,center[1]+18];
   await page.mouse.move(...dragEnd,{steps:5});
@@ -352,6 +353,7 @@ try {
   assert.deepEqual(replicaRequests,[]);
   await replicaPage.close();
   record('Offline JS exports one native button with exact geometry, keyboard activation, and press/drag motion');
+  await edited.click();
   await page.getByRole('button',{name:'Delete selected button',exact:true}).click();
   await edited.waitFor({state:'detached'});
   await page.getByRole('button',{name:'Delete selected button',exact:true}).click();
@@ -367,17 +369,27 @@ try {
   for (const [x,y] of [[300,115],[300,145],[220,145],[220,204],[155,204],[155,115]]) {
     await page.mouse.move(x,y);
   }
+  assert.equal(await page.locator('#outline-editor line').evaluate(line=>getComputedStyle(line).visibility),'visible');
   await page.mouse.up();
   const custom = page.locator('.probe[data-shape="custom"]');
   await custom.waitFor();
   await page.waitForFunction(()=>window.glassDemo.shapes.some(shape=>shape.outline?.length>=6));
   assert.equal(await page.evaluate(()=>document.elementFromPoint(175,165).dataset.shape),'custom');
   assert.notEqual(await page.evaluate(()=>document.elementFromPoint(260,174).dataset.shape),'custom');
+  await page.locator('#text-tool').click();
+  await page.locator('#button-text').fill('形状');
+  await page.locator('#label-size').fill('21');
+  await page.locator('#label-weight').selectOption('750');
+  await page.locator('#label-family').selectOption('serif');
+  await page.locator('#label-x').fill('28');
+  await page.locator('#label-y').fill('64');
+  await page.locator('#button-text').press('Enter');
   await page.getByRole('button',{name:'Copy selected button for AI',exact:true}).click();
   const customHandoff = await page.evaluate(()=>navigator.clipboard.readText());
   const customConfig = JSON.parse(customHandoff.split(/liquid-glass\.json\r?\n/).at(-1));
   assert.equal(customConfig.button.shape,'custom');
   assert.equal(customConfig.button.outline.length,7);
+  assert.deepEqual(customConfig.button.typography,{size:21,weight:750,family:'serif',x:28,y:64});
   const customStage = await page.locator('#stage').boundingBox();
   const customBox = await custom.boundingBox();
   const customPixels = await page.screenshot({clip:customBox,style:hideEditor,path:resolve(evidence,'custom-glass-shape.png')});
