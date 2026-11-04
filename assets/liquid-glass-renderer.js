@@ -17,6 +17,8 @@ uniform float u_blur,u_frost,u_vibrancy,u_brightness,u_dim,u_appearance;
 uniform float u_pickup,u_tintAmount,u_specular,u_rimWidth,u_lightAngle,u_shadow,u_merge;
 uniform float u_press[12];
 uniform float u_surface[12],u_motion[12];
+uniform sampler2D u_outlines;
+uniform int u_outlineCount[8];
 uniform vec2 u_stretch[12],u_contact[12];
 uniform vec4 u_switchBase,u_segmentBase; // center, width, height
 uniform float u_switchOn;
@@ -96,6 +98,23 @@ vec3 liquidLens(vec2 p,vec2 normal,float field,float press,bool clear,float chro
   float sheen=rim*mix(.73+.27*direction,direction,strength)*u_specular*mix(1.35,1.08,press);
   return mix(lens,vec3(1.),clamp(sheen,0.,1.));
 }
+float outlineDistance(vec2 q,vec2 size,int row,int count){
+  vec2 a=(texelFetch(u_outlines,ivec2(count-1,row),0).xy-.5)*size;
+  float nearest=1e12;
+  bool inside=false;
+  for(int j=0;j<64;j++){
+    if(j>=count)break;
+    vec2 b=(texelFetch(u_outlines,ivec2(j,row),0).xy-.5)*size;
+    vec2 edge=b-a, ray=q-a;
+    vec2 delta=ray-edge*clamp(dot(ray,edge)/max(dot(edge,edge),.00001),0.,1.);
+    nearest=min(nearest,dot(delta,delta));
+    if((a.y>q.y)!=(b.y>q.y)){
+      if(q.x<a.x+(q.y-a.y)*edge.x/edge.y)inside=!inside;
+    }
+    a=b;
+  }
+  return sqrt(nearest)*(inside?-1.:1.);
+}
 float shapeDistance(vec2 p,int i){
   vec4 s=u_shapes[i];
   vec2 q=p-s.xy;
@@ -113,6 +132,11 @@ float shapeDistance(vec2 p,int i){
     q+=across*dot(q,across)*back*min(.42,stretch/max(36.,halfSpan*2.)*.7);
   }
   vec2 halfSize=s.zw*.5;
+  if(u_outlineCount[i]>2){
+    float beyond=max(abs(q.x)-halfSize.x,abs(q.y)-halfSize.y);
+    if(beyond>max(64.,u_merge*3.))return beyond;
+    return outlineDistance(q,s.zw,i,u_outlineCount[i]);
+  }
   if(u_surface[i]==4. && abs(halfSize.x-halfSize.y)>.001){
     // Scale the ellipse's implicit field by its local normal for a stable rim width.
     vec2 unit=q/halfSize;
@@ -219,7 +243,9 @@ void main(){
   vec3 base=sampleAt(p)*(1.-u_dim);
   float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y);
   if(field>aa){
-    bool transparent=u_surfaceOnly&&(!u_exactBackdrop||field>56.);
+    // Exact export also paints the backdrop inside deep notches in the button's box.
+    bool inButtonBox=u_count==1&&all(lessThanEqual(abs(p-u_shapes[0].xy),u_shapes[0].zw*.5));
+    bool transparent=u_surfaceOnly&&(!u_exactBackdrop||(field>56.&&!inButtonBox));
     color=transparent?vec4(0.):vec4(base*(1.-shadow),1.);
     return;
   }
@@ -355,6 +381,16 @@ const ranges = { refraction:[0,80],bezel:[1,80],magnify:[1,1.8],dispersion:[0,1]
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
 const hexToRgb=hex=>{const n=Number.parseInt(String(hex).replace('#',''),16);return[((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255];};
 
+export function normalizeGlassOutline(outline) {
+  if (!Array.isArray(outline) || outline.length<3 || outline.length>64) return undefined;
+  return outline.every(point=>Array.isArray(point)&&point.length===2
+    && point.every(value=>Number.isFinite(value)&&value>=0&&value<=1)) ? outline : undefined;
+}
+
+export function glassOutlineClip(outline) {
+  return `polygon(evenodd, ${outline.map(([x,y])=>`${x*100}% ${y*100}%`).join(', ')})`;
+}
+
 export class GlassScene {
   constructor(canvas, options = {}) {
     this.canvas=canvas; this.shapes=[]; this.sliderTrack=null; this.controlBases={}; this.material={...PRESETS.apple}; this.available=false; this.destroyed=false; this.source=null;
@@ -365,7 +401,14 @@ export class GlassScene {
       this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
       const pos=gl.getAttribLocation(this.program,'a_position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
       this.texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.texture);for(const [key,value] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,key,value);
-      const names=['surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      this.outlines=gl.createTexture();
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D,this.outlines);
+      gl.texStorage2D(gl.TEXTURE_2D,1,gl.RG32F,64,8);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+      gl.activeTexture(gl.TEXTURE0);
+      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
       gl.uniform1i(this.uniforms.exactBackdrop,options.exactBackdrop?1:0);
@@ -374,7 +417,7 @@ export class GlassScene {
       this.contextLost=event=>{event.preventDefault();this.available=false;canvas.dispatchEvent(new Event('glassfallback'));};canvas.addEventListener('webglcontextlost',this.contextLost);
     } catch(error){this.error=error.message;this.destroy();} finally {shaders.forEach(shader=>gl.deleteShader(shader));}
   }
-  setShapes(shapes){this.shapes=shapes.slice(0,8).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1),slider:s.slider===true,motion:clamp(Number(s.motion)||0,0,1),surface:s.surface,contactX:Number.isFinite(s.contactX)?s.contactX:Number(s.x)||0,contactY:Number.isFinite(s.contactY)?s.contactY:Number(s.y)||0,stretchX:clamp(Number(s.stretchX)||0,-48,48),stretchY:clamp(Number(s.stretchY)||0,-48,48)};});}
+  setShapes(shapes){this.shapes=shapes.slice(0,8).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1),slider:s.slider===true,motion:clamp(Number(s.motion)||0,0,1),surface:s.surface,outline:normalizeGlassOutline(s.outline),contactX:Number.isFinite(s.contactX)?s.contactX:Number(s.x)||0,contactY:Number.isFinite(s.contactY)?s.contactY:Number(s.y)||0,stretchX:clamp(Number(s.stretchX)||0,-48,48),stretchY:clamp(Number(s.stretchY)||0,-48,48)};});}
   setSliderTrack(track){
     this.sliderTrack=track && [track.x,track.y,track.width,track.height,track.fillX].every(Number.isFinite)
       && track.width>0 && track.height>0 ? {...track,height:Math.min(track.height,track.width)} : null;
@@ -406,6 +449,17 @@ export class GlassScene {
     const width=Math.round(cssWidth*scale),height=Math.round(cssHeight*scale);if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,cssWidth,cssHeight);gl.uniform2f(this.uniforms.bufferSize,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
     const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24);this.shapes.forEach((s,i)=>{shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
+    const outlineCounts=Int32Array.from({length:8},(_,i)=>this.shapes[i]?.outline?.length??0);
+    gl.uniform1i(this.uniforms.outlines,1);
+    gl.uniform1iv(this.uniforms['outlineCount[0]'],outlineCounts);
+    if(outlineCounts.some(Boolean)){
+      const vertices=new Float32Array(64*8*2);
+      this.shapes.forEach((shape,i)=>shape.outline?.forEach((point,j)=>vertices.set(point,(i*64+j)*2)));
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D,this.outlines);
+      gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,64,8,gl.RG,gl.FLOAT,vertices);
+      gl.activeTexture(gl.TEXTURE0);
+    }
     const {toggle,segment}=this.controlBases;
     const base=(key,b)=>gl.uniform4f(this.uniforms[key],(b?.x??0),(b?.y??0),(b?.width??0),(b?.height??0));
     base('switchBase',toggle);base('segmentBase',segment);gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);
@@ -417,5 +471,5 @@ export class GlassScene {
     const m=this.material;for(const key of numeric)gl.uniform1f(this.uniforms[key],m[key]);
     gl.uniform1f(this.uniforms.edge,m.edge==='lip'?1:0);gl.uniform1f(this.uniforms.sizeScale,m.sizeScale?1:0);gl.uniform1f(this.uniforms.appearance,m.appearance==='light'?0:m.appearance==='dark'?1:2);gl.uniform3fv(this.uniforms.tint,hexToRgb(m.tint));gl.drawArrays(gl.TRIANGLES,0,6);
   }
-  destroy(){this.observer?.disconnect();if(this.contextLost)this.canvas.removeEventListener('webglcontextlost',this.contextLost);if(this.gl){if(this.texture)this.gl.deleteTexture(this.texture);if(this.buffer)this.gl.deleteBuffer(this.buffer);if(this.program)this.gl.deleteProgram(this.program);}this.available=false;this.destroyed=true;}
+  destroy(){this.observer?.disconnect();if(this.contextLost)this.canvas.removeEventListener('webglcontextlost',this.contextLost);if(this.gl){if(this.texture)this.gl.deleteTexture(this.texture);if(this.outlines)this.gl.deleteTexture(this.outlines);if(this.buffer)this.gl.deleteBuffer(this.buffer);if(this.program)this.gl.deleteProgram(this.program);}this.available=false;this.destroyed=true;}
 }

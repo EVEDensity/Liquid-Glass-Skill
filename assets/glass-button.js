@@ -1,5 +1,6 @@
 /* Standalone liquid-glass button. MIT. */
 import { mountLiquidGlass } from './mount-liquid-glass.js';
+import { normalizeGlassOutline, glassOutlineClip } from './liquid-glass-renderer.js';
 import { stepGlassMotion, applyGlassImpulse, sampleGlassMotion } from './glass-motion.js';
 
 const css = `
@@ -79,7 +80,7 @@ function attachButtonOptics(button, config, {stage,source,liveSource=false,requi
       return {shapes:[{
         x,y,width:rect.width*grow,height:rect.height*grow,
         radius:config.button.shape==='rounded'?Math.min(16,rect.width*grow/2,rect.height*grow/2):config.button.radius*grow,
-        surface:circle?'lens':undefined,press,stretchX:state.sx,stretchY:state.sy,
+        surface:circle?'lens':undefined,outline:config.button.outline,press,stretchX:state.sx,stretchY:state.sy,
         motion:sampleGlassMotion(state,x,y,view.performance.now(),reduced.matches),
         contactX:contact?contact.clientX-box.left:x,contactY:contact?contact.clientY-box.top:y
       }]};
@@ -144,6 +145,8 @@ export function createLiquidGlassButton(target, config, options = {}) {
   button.textContent = text;
   if (!text) button.setAttribute('aria-label',config.language==='zh'?'液态玻璃按钮':'Liquid glass button');
   Object.assign(button.style,{width:width+'px',height:height+'px'});
+  const outline = normalizeGlassOutline(config.button.outline);
+  if (outline) button.style.clipPath = glassOutlineClip(outline);
   for (const [name,value] of Object.entries({
     radius:shape==='circle'?'50%':radius+'px',
     blur:material.blur+'px',
