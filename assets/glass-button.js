@@ -123,6 +123,29 @@ function attachButtonOptics(button, config, {stage,source,liveSource=false,requi
   return update;
 }
 
+export function applyGlassTypography(button, typography) {
+  if (!typography) return;
+  const limit = (value,fallback,min,max) => Number.isFinite(value)
+    ? Math.max(min,Math.min(max,value)) : fallback;
+  let label = button.querySelector('[data-glass-label]');
+  if (!label) {
+    label = button.ownerDocument.createElement('span');
+    label.dataset.glassLabel = '';
+    label.textContent = button.textContent;
+    button.replaceChildren(label);
+  }
+  Object.assign(label.style,{
+    position:'absolute',pointerEvents:'none',width:'max-content',maxWidth:'100%',
+    transform:'translate(-50%,-50%)',
+    left:limit(typography.x,50,0,100)+'%',
+    top:limit(typography.y,50,0,100)+'%',
+    fontSize:limit(typography.size,15,8,72)+'px',
+    fontWeight:String(limit(typography.weight,650,400,750)),
+    fontFamily:typography.family==='serif'?'Georgia, "Songti SC", SimSun, serif'
+      : typography.family==='mono'?'Consolas, "Courier New", monospace':'inherit'
+  });
+}
+
 export function createLiquidGlassButton(target, config, options = {}) {
   const doc = target.ownerDocument;
   if (options.requireExact && (!options.stage?.contains(target) || !options.source
@@ -143,6 +166,7 @@ export function createLiquidGlassButton(target, config, options = {}) {
   button.lang = config.language==='zh'?'zh-CN':'en';
   button.className = 'liquid-glass-export';
   button.textContent = text;
+  applyGlassTypography(button,config.button.typography);
   if (!text) button.setAttribute('aria-label',config.language==='zh'?'液态玻璃按钮':'Liquid glass button');
   Object.assign(button.style,{width:width+'px',height:height+'px'});
   const outline = normalizeGlassOutline(config.button.outline);
