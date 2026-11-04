@@ -1,12 +1,13 @@
 /* Standalone liquid-glass button. MIT. */
 import { mountLiquidGlass } from './mount-liquid-glass.js';
+import { stepGlassMotion, applyGlassImpulse, sampleGlassMotion } from './glass-motion.js';
 
 const css = `
 .liquid-glass-export {
   position: relative; isolation: isolate; box-sizing: border-box;
-  display: inline-grid; place-items: center; margin: 0; padding: 0 10px;
+  display: inline-flex; align-items: center; justify-content: center; margin: 0; padding: 0 10px;
   border: 0; border-radius: var(--lg-radius); background: transparent;
-  color: #17242b; text-shadow: 0 0 4px #fff;
+  color: #17242b; text-align: center; text-shadow: 0 0 5px #edf5ef, 0 0 3px #edf5ef;
   font: 650 15px/1.35 "Segoe UI", sans-serif;
   overflow-wrap: anywhere; cursor: grab; touch-action: none;
 }
@@ -29,8 +30,10 @@ const css = `
     inset 0 -2px var(--lg-rim) rgb(192 233 244 / .55), var(--lg-prism);
 }
 .liquid-glass-export::before { transition-property: transform, scale, box-shadow; }
-.liquid-glass-export[data-refractive] { z-index: 1; }
+.liquid-glass-export[data-refractive] { z-index: 1; overflow: hidden; }
 .liquid-glass-export[data-refractive]::before { display: none; }
+.liquid-glass-export[data-glass-unavailable] { background: #e9f2f4; }
+.liquid-glass-export[data-glass-unavailable]::before { display: none; }
 .liquid-glass-export:focus-visible { outline: 2px solid #15648a; outline-offset: 5px; }
 @supports not (backdrop-filter: blur(1px)) {
   .liquid-glass-export::before { background: #e9f2f4; }
@@ -47,7 +50,7 @@ const css = `
 }
 `;
 
-function attachButtonOptics(button, config, {stage,source,liveSource=false}) {
+function attachButtonOptics(button, config, {stage,source,liveSource=false,requireExact=false}) {
   if (!stage?.contains(button) || !source) return;
   const doc = button.ownerDocument;
   const view = doc.defaultView;
@@ -58,48 +61,52 @@ function attachButtonOptics(button, config, {stage,source,liveSource=false}) {
   stage.append(canvas);
   const reduced = view.matchMedia('(prefers-reduced-motion: reduce)');
   const circle = config.button.shape==='circle';
-  let press=0, sx=0, sy=0, tx=0, ty=0, lastMove=0, lastFrame=0, tapUntil=0, frame=0, contact;
+  const state = {scale:0,sx:0,sy:0,tx:0,ty:0};
+  let lastMove=0, tapUntil=0, frame=0, contact;
   const optics = mountLiquidGlass({
-    canvas,source,liveSource,material:{...config.material,surfaceOnly:true},
-    onAvailabilityChange(available) { button.toggleAttribute('data-refractive',available); },
+    canvas,source,liveSource,material:{...config.material,surfaceOnly:true,exactBackdrop:requireExact},
+    onAvailabilityChange(available) {
+      button.toggleAttribute('data-refractive',available);
+      button.toggleAttribute('data-glass-unavailable',requireExact&&!available);
+    },
     getFrame() {
       const box = canvas.getBoundingClientRect();
       const rect = button.getBoundingClientRect();
       const x = rect.left-box.left+rect.width/2;
       const y = rect.top-box.top+rect.height/2;
+      const press = state.scale;
       const grow = 1+press*(circle?.30:.15);
       return {shapes:[{
-        x,y,width:rect.width*grow,height:rect.height*grow,radius:config.button.radius*grow,
-        surface:circle?'lens':undefined,press,stretchX:sx,stretchY:sy,
-        motion:Math.min(1,Math.hypot(sx,sy)/32),
+        x,y,width:rect.width*grow,height:rect.height*grow,
+        radius:config.button.shape==='rounded'?Math.min(16,rect.width*grow/2,rect.height*grow/2):config.button.radius*grow,
+        surface:circle?'lens':undefined,press,stretchX:state.sx,stretchY:state.sy,
+        motion:sampleGlassMotion(state,x,y,view.performance.now(),reduced.matches),
         contactX:contact?contact.clientX-box.left:x,contactY:contact?contact.clientY-box.top:y
       }]};
     }
   });
   function animate(now) {
     frame = 0;
-    const elapsed = lastFrame ? now-lastFrame : 16;
-    lastFrame = now;
-    const held = button.hasAttribute('data-held') || now<tapUntil ? 1 : 0;
-    if (!held || now-lastMove>105) tx=ty=0;
-    const settle = (current,target,time) => reduced.matches || Math.abs(current-target)<.02
-      ? target : current+(target-current)*(1-Math.exp(-elapsed/time));
-    press = settle(press,held,56);
-    sx = settle(sx,tx,70);
-    sy = settle(sy,ty,70);
+    const held = button.hasAttribute('data-held');
+    const moving = stepGlassMotion(state,held||now<tapUntil?1:0,now,held&&now-lastMove<=105,reduced.matches);
     optics.invalidate();
-    if (press!==held || sx || sy || now<tapUntil) frame=view.requestAnimationFrame(animate);
-    else lastFrame=0;
+    if (moving || state.motion || now<tapUntil) frame=view.requestAnimationFrame(animate);
   }
-  function update(event,dx=0,dy=0) {
-    if (event?.type==='click' && event.detail===0) tapUntil=view.performance.now()+145;
-    if (event?.type==='pointerdown' || event?.type==='pointermove') contact=event;
-    if (dx || dy) {
-      lastMove=view.performance.now();
-      const gain=Math.min(1.8,42/Math.hypot(dx,dy));
-      tx=dx*gain;
-      ty=dy*gain;
+  function update(event,dx=0,dy=0,gesture) {
+    const now = view.performance.now();
+    if (event.type==='click' && event.detail===0 && !reduced.matches) tapUntil=now+145;
+    if (event.type==='pointerdown') {
+      tapUntil=0;
+      lastMove=now;
+      contact=event;
     }
+    if (event.type==='pointermove') {
+      const elapsed = Math.max(8,gesture.firstMove?Math.min(34,now-lastMove):now-lastMove);
+      applyGlassImpulse(state,dx,dy,elapsed,reduced.matches);
+      lastMove=now;
+      contact=event;
+    }
+    if (event.type==='pointerup' && !gesture.moved && !reduced.matches) tapUntil=lastMove+145;
     if (!frame) frame=view.requestAnimationFrame(animate);
   }
   const resize = new view.ResizeObserver(optics.invalidate);
@@ -117,6 +124,10 @@ function attachButtonOptics(button, config, {stage,source,liveSource=false}) {
 
 export function createLiquidGlassButton(target, config, options = {}) {
   const doc = target.ownerDocument;
+  if (options.requireExact && (!options.stage?.contains(target) || !options.source
+      || doc.defaultView.getComputedStyle(options.stage).position==='static')) {
+    throw new Error('Exact liquid glass requires a positioned stage and its readable pixel source.');
+  }
   const root = target.getRootNode();
   if (!root.querySelector('[data-liquid-glass-export-style]')) {
     const style = doc.createElement('style');
@@ -128,6 +139,7 @@ export function createLiquidGlassButton(target, config, options = {}) {
   const material = config.material;
   const button = doc.createElement('button');
   button.type = 'button';
+  button.lang = config.language==='zh'?'zh-CN':'en';
   button.className = 'liquid-glass-export';
   button.textContent = text;
   if (!text) button.setAttribute('aria-label',config.language==='zh'?'液态玻璃按钮':'Liquid glass button');
@@ -149,6 +161,7 @@ export function createLiquidGlassButton(target, config, options = {}) {
     if (event.button!==0 || !event.isPrimary) return;
     suppressClick = false;
     gesture = {id:event.pointerId,x:event.clientX,y:event.clientY,originX:x,originY:y,moved:false};
+    button.setPointerCapture(event.pointerId);
     button.setAttribute('data-held','');
     update?.(event);
   });
@@ -156,10 +169,10 @@ export function createLiquidGlassButton(target, config, options = {}) {
     if (gesture?.id!==event.pointerId) return;
     const dx = event.clientX-gesture.x;
     const dy = event.clientY-gesture.y;
-    if (!gesture.moved) {
+    const firstMove = !gesture.moved;
+    if (firstMove) {
       if (Math.hypot(dx,dy)<4) return;
       gesture.moved = true;
-      button.setPointerCapture(event.pointerId);
     }
     const nextX = gesture.originX+dx;
     const nextY = gesture.originY+dy;
@@ -171,18 +184,19 @@ export function createLiquidGlassButton(target, config, options = {}) {
     x = nextX;
     y = nextY;
     button.style.translate = x+'px '+y+'px';
-    update?.(event,deltaX,deltaY);
+    update?.(event,deltaX,deltaY,{firstMove});
   });
   function release(event) {
     if (gesture?.id!==event.pointerId) return;
     suppressClick = gesture.moved;
+    const finished = gesture;
     gesture = undefined;
     button.removeAttribute('data-held');
     button.style.removeProperty('--lg-stretch-x');
     button.style.removeProperty('--lg-stretch-y');
-    update?.(event);
+    update?.(event,0,0,finished);
   }
-  for (const event of ['pointerup','pointercancel','pointerleave','lostpointercapture']) button.addEventListener(event,release);
+  for (const event of ['pointerup','pointercancel','lostpointercapture']) button.addEventListener(event,release);
   button.addEventListener('click',event=>{
     update?.(event);
     if (!suppressClick || !event.detail) return;

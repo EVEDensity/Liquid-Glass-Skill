@@ -25,9 +25,10 @@ uniform float u_clearControls,u_presetOptics;
 uniform float u_sliderFill; // filled track end X
 uniform vec3 u_tint;
 uniform bool u_surfaceOnly;
+uniform bool u_exactBackdrop;
 
 vec4 compositeGlass(vec3 base,vec3 glass,float mask){
-  return u_surfaceOnly?vec4(glass,mask):vec4(mix(base,glass,mask),1.);
+  return u_surfaceOnly&&!u_exactBackdrop?vec4(glass,mask):vec4(mix(base,glass,mask),1.);
 }
 
 float roundedBox(vec2 p, vec2 halfSize, float radius){
@@ -139,6 +140,13 @@ vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out
     }
     float h=clamp(.5+.5*(field.x-candidate)/k,0.,1.);
     float blend=clamp(.5+.5*(field.x-candidate)/(k*1.65),0.,1.);
+    // Outside the merge band, use the exact same field as an isolated shape.
+    if(blend>=1.){
+      field=vec4(candidate,material);dynamics=motion;contact=u_contact[i];
+      movement=u_motion[i];dome=droplet;junction=0.;
+      continue;
+    }
+    if(blend<=0.)continue;
     field.yzw=mix(field.yzw,material,blend);
     // The smooth union also describes how much liquid was drawn into the neck.
     float thickness=k*h*(1.-h);
@@ -202,7 +210,11 @@ void main(){
   float aa=max(.08,length(gradient)*.58);
   vec3 base=sampleAt(p)*(1.-u_dim);
   float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y);
-  if(field>aa){color=u_surfaceOnly?vec4(0.):vec4(base*(1.-shadow),1.);return;}
+  if(field>aa){
+    bool transparent=u_surfaceOnly&&(!u_exactBackdrop||field>56.);
+    color=transparent?vec4(0.):vec4(base*(1.-shadow),1.);
+    return;
+  }
   vec2 n=length(gradient)>.001?normalize(gradient):normalize(p-centre+vec2(.0001));
   float mask=1.-smoothstep(-aa,aa,field);
   float depth=max(-field,0.);
@@ -345,9 +357,10 @@ export class GlassScene {
       this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
       const pos=gl.getAttribLocation(this.program,'a_position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
       this.texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.texture);for(const [key,value] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,key,value);
-      const names=['surfaceOnly','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      const names=['surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
+      gl.uniform1i(this.uniforms.exactBackdrop,options.exactBackdrop?1:0);
       this.available=true;this.setMaterial(options);
       this.observer=new ResizeObserver(()=>this.render());this.observer.observe(canvas);
       this.contextLost=event=>{event.preventDefault();this.available=false;canvas.dispatchEvent(new Event('glassfallback'));};canvas.addEventListener('webglcontextlost',this.contextLost);
