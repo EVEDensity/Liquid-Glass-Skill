@@ -6,7 +6,13 @@ license: MIT
 
 # Liquid Glass UI
 
-Work on the target interface and keep its layout, controls, design tokens, and input semantics. Use the demo as a visual reference or regression fixture. Apply glass only to the requested surfaces.
+Apply glass only to the named buttons or controls. Preserve the host background, layout, labels, and behavior. Before editing, state the target controls and confirm any unspecified visual choice. A change to another part of the interface requires a separate agreement.
+
+## Confirm the button design
+
+When the user has not chosen a shape or material, run `node scripts/serve.mjs --pick "Button label" 88 44 "#1a1a2e"` from the skill directory. Pass the target button's label, width and height in CSS pixels, and its existing solid backdrop or a representative swatch for preview. Open the `GLASS_PICKER` URL in a visible browser and wait on the same process for the user's `GLASS_SELECTION` JSON. The OS assigns a free loopback port. The page sends one choice and the server closes. Keep the target files intact until the choice arrives. If the browser cannot be opened, share the URL. A swatch confirms appearance only on that color.
+
+Use the returned geometry and material directly. The picker, Copy for AI, and direct skill integration use `assets/glass-button.js` with the same renderer and motion modules. Reuse the original host pixels for WebGL. If the host pixels cannot be read, explain the CSS fallback and confirm it before changing the target. Do not add a background to make the optics work.
 
 ## Choose the rendering path
 

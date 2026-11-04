@@ -11,7 +11,7 @@ export const en = {
   add:'Add shape',manualCopy:'Copy this text',close:'Close',
   copyReplica:'Copy for AI',copiedReplica:'Offline JavaScript copied.',
   copiedSpec:'Copied. Paste this into your coding AI.',copyError:'Could not prepare the button. Try again.',
-  handoffTask:'Integrate this single liquid-glass button with pixel-exact WebGL optics. Use these pinned modules without rewriting their renderer, motion or styles:',
+  handoffTask:'Integrate this single liquid-glass button. Confirm its target if unclear. Keep the host background, layout and actions. Use these pinned modules:',
   handoffMount:'Copy assets/glass-button.js, glass-motion.js, mount-liquid-glass.js, liquid-glass-renderer.js and LICENSE from the pinned revision. Call createLiquidGlassButton(container, config, {stage, source, requireExact:true}). Use a positioned stage with the target page’s decoded, readable pixels, displayed at center/cover. Match source, stage size, placement, browser and DPR in pixel comparisons. Verify zero pixel differences at rest, held and after drag release. If data-glass-unavailable appears, report the blocker. Wire the returned button to the project action.',
   limit:'The scene supports up to five editable buttons.'
 };
@@ -28,7 +28,7 @@ export const zh = {
   add:'添加形状',manualCopy:'复制下方文本',close:'关闭',
   copyReplica:'复制给 AI',copiedReplica:'已复制离线 JavaScript。',
   copiedSpec:'已复制，可直接粘贴给编程 AI。',copyError:'无法准备按钮，请重试。',
-  handoffTask:'请把这个单按钮按像素级 WebGL 规格接入当前项目。直接使用固定版本的渲染、动效和样式：',
+  handoffTask:'只接入这个液态玻璃按钮，目标不清楚时先确认。保留宿主背景、布局和原动作。使用固定版本的渲染、动效和样式：',
   handoffMount:'从该版本复制 assets/glass-button.js、glass-motion.js、mount-liquid-glass.js、liquid-glass-renderer.js 和 LICENSE。调用 createLiquidGlassButton(container, config, {stage, source, requireExact:true})。stage 使用已定位的目标容器，source 使用目标页面自己的可读取像素，并以 center/cover 显示。逐像素比对时统一背景、容器尺寸、按钮位置、浏览器和 DPR。验收静置、按住和拖动松开后的画面，要求零像素差异。若出现 data-glass-unavailable，请指出缺项。将返回的按钮接到项目动作。',
   limit:'场景最多支持五个可编辑按钮。'
 };

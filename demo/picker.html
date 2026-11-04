@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>选择液态玻璃按钮</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px; background: #f8f4ec; color: #332c24; font: 16px/1.5 system-ui,sans-serif; }
+  main { max-width: 620px; margin: 6vh auto 0; }
+  h1 { margin: 0; font-size: 28px; letter-spacing: -.025em; }
+  p { margin: 6px 0 20px; color: #685a4a; }
+  #preview { position: relative; display: grid; place-items: center; min-height: 160px; overflow: hidden; border-radius: 12px; }
+  #sample { position: relative; z-index: 1; }
+  #sample .liquid-glass-export { cursor: pointer; touch-action: manipulation; }
+  #sample .liquid-glass-export[data-refractive] { color: var(--sample-ink); text-shadow: none; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
+  label { display: grid; gap: 5px; font-weight: 600; }
+  select, #submit { min-height: 44px; border: 1px solid #a8947e; border-radius: 8px; padding: 8px 10px; font: inherit; }
+  select { width: 100%; background: #fffcf6; color: inherit; }
+  #submit { grid-column: 1 / -1; background: #72543a; color: #fffaf0; font-weight: 700; cursor: pointer; }
+  #submit:disabled { opacity: .65; cursor: default; }
+  :focus-visible { outline: 2px solid #72543a; outline-offset: 3px; }
+</style>
+<main>
+  <h1>选择按钮样式</h1>
+  <p>在原页面的底色上试按按钮。提交后，Codex 会把这套样式应用到指定按钮。</p>
+  <div id="preview"><div id="sample"></div></div>
+  <form>
+    <label>形状
+      <select name="shape">
+        <option value="capsule">胶囊</option><option value="rounded">圆角矩形</option>
+        <option value="square">正方形</option><option value="circle">圆形</option>
+      </select>
+    </label>
+    <label>玻璃材质
+      <select name="preset">
+        <option value="apple">苹果液态玻璃</option><option value="clear">苹果透明玻璃</option>
+        <option value="thick">厚透镜</option><option value="frosted">磨砂玻璃</option>
+        <option value="plain">纯透镜</option><option value="prism">棱镜</option>
+      </select>
+    </label>
+    <button id="submit" type="submit" disabled>提交给 Codex</button>
+  </form>
+  <p id="status" role="status"></p>
+</main>
+<script type="module" src="./picker.js"></script>
+</html>
