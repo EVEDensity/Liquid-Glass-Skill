@@ -35,21 +35,67 @@
           <span data-i18n="copyReplica">Copy for AI</span>
           <span id="selection-count" aria-hidden="true" hidden></span>
         </button>
-        <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" aria-expanded="false" data-aria="editText" data-title="editText">T</button>
+        <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" data-aria="editText" data-title="editText"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M12 6v13M9 19h6"/></svg></button>
         <button id="merge-shapes" type="button" data-i18n="mergeShapes" hidden>Merge shapes</button>
         <button id="canvas-delete" type="button" aria-label="Delete selected button" data-aria="deleteButton" data-title="deleteButton">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v6m4-6v6"/></svg>
         </button>
       </div>
-      <div id="text-editor" hidden>
+    </div>
+    <button id="canvas-resize" type="button" hidden aria-label="Resize selected button" data-aria="resizeButton" data-title="resizeButton"></button>
+    <div class="language-tools" role="group" aria-label="Language" data-aria="language">
+      <button type="button" data-language="zh" lang="zh-CN" aria-pressed="false">中文</button>
+      <button type="button" data-language="en" lang="en" aria-pressed="true">EN</button>
+    </div>
+  </main>
+  <aside id="presets-panel" aria-labelledby="presets-title">
+    <header class="studio-header">
+      <h1 id="presets-title" data-i18n="title">Liquid glass</h1>
+        <div class="shape-actions">
+          <button id="draw-shape" type="button" data-i18n="drawShape">Draw shape</button>
+          <button id="add-button" type="button" data-i18n="add">Add shape</button>
+          <button id="add-menu" type="button" data-i18n="addMenu">Add menu</button>
+        </div>
+      <div class="studio-tabs" role="tablist" aria-label="Editor panels" data-aria="editorPanels">
+        <button type="button" role="tab" id="object-tab" aria-selected="true" aria-controls="object-panel" data-i18n="objectTab">Object</button>
+        <button type="button" role="tab" id="scene-tab" aria-selected="false" aria-controls="scene-panel" tabindex="-1" data-i18n="sceneTab">Scene</button>
+      </div>
+    </header>
+    <section id="object-panel" role="tabpanel" aria-labelledby="object-tab">
+      <p id="object-empty" class="selection-hint" data-i18n="selectionHint">Select an object on the canvas to edit its properties.</p>
+      <section id="object-geometry" class="inspector-section" aria-labelledby="geometry-title">
+        <h2 id="geometry-title" data-i18n="geometryTitle">Shape and size</h2>
+        <label for="button-shape" data-i18n="shape">Shape</label>
+        <select id="button-shape">
+          <option value="circle" data-i18n="circle">Circle / ellipse</option>
+          <option value="capsule" data-i18n="capsule">Capsule</option>
+          <option value="rounded" data-i18n="rounded">Rounded rectangle</option>
+          <option value="square" data-i18n="square">Square / rectangle</option>
+          <option value="custom" data-i18n="custom" disabled>Custom outline</option>
+        </select>
+        <div class="size-fields">
+          <div class="size-field">
+            <label for="button-width" data-i18n="width">Width</label>
+            <input id="width-range" type="range" min="44" max="400" step="1" aria-label="Width slider" data-aria="widthSlider">
+            <input id="button-width" type="number" min="44" max="400" step="any">
+            <span aria-hidden="true">px</span>
+          </div>
+          <div class="size-field">
+            <label for="button-height" data-i18n="height">Height</label>
+            <input id="height-range" type="range" min="44" max="400" step="1" aria-label="Height slider" data-aria="heightSlider">
+            <input id="button-height" type="number" min="44" max="400" step="any">
+            <span aria-hidden="true">px</span>
+          </div>
+        </div>
+      </section>
+      <section id="text-editor" class="inspector-section" aria-labelledby="label-title">
+        <h2 id="label-title" data-i18n="labelTitle">Label and icon</h2>
         <label for="button-text" data-i18n="buttonText">Button text</label>
-        <input id="button-text" maxlength="100">
+        <input id="button-text" maxlength="100" data-placeholder="labelPlaceholder" placeholder="Optional label">
         <div id="segment-text" hidden></div>
         <div id="label-style">
-          <div class="icon-picker" role="group" data-aria="icon" aria-label="Icon">
-            <div id="label-icons"></div>
-            <input id="label-icon" type="hidden">
-          </div>
+          <button id="open-icons" type="button" aria-haspopup="dialog" aria-controls="icon-dialog"><span class="icon-chip-preview" aria-hidden="true"></span><span data-i18n="chooseIcon">Choose icon</span><svg class="icon-chip-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+          <details id="typography-settings"><summary data-i18n="typography">Typography</summary>
           <div class="typography-fields">
           <label><span data-i18n="fontSize">Size (px)</span><input id="label-size" type="number" min="8" max="72" value="15"></label>
           <label><span data-i18n="fontWeight">Weight</span><select id="label-weight">
@@ -70,64 +116,48 @@
             </div>
           </details>
           </div>
+          </details>
         </div>
-      </div>
-    </div>
-    <button id="canvas-resize" type="button" hidden aria-label="Resize selected button" data-aria="resizeButton" data-title="resizeButton"></button>
-    <div class="language-tools" role="group" aria-label="Language" data-aria="language">
-      <button type="button" data-language="zh" lang="zh-CN" aria-pressed="false">中文</button>
-      <button type="button" data-language="en" lang="en" aria-pressed="true">EN</button>
-    </div>
-  </main>
-  <aside id="presets-panel" aria-labelledby="presets-title">
-    <h1 id="presets-title" data-i18n="title">Liquid glass</h1>
-    <p class="panel-intro" data-i18n="intro">Shape a button, tune its optics, and take it into your project.</p>
-    <h2 id="wallpaper-title" class="material-title" data-i18n="wallpaper">Background</h2>
-    <div class="wallpaper-options" role="group" aria-labelledby="wallpaper-title">
-      <button type="button" data-wallpaper="daisy" aria-pressed="false"><img src="../assets/wallpapers/daisy.jpg" alt=""><span data-i18n="daisy">Daisy</span></button>
-      <button type="button" data-wallpaper="prism" aria-pressed="false"><img src="../assets/wallpapers/prism.jpg" alt=""><span data-i18n="prismWallpaper">Crystal</span></button>
-      <button type="button" data-wallpaper="lake" aria-pressed="false"><img src="../assets/wallpapers/lake.jpg" alt=""><span data-i18n="lake">Lake</span></button>
-      <button type="button" data-wallpaper="grid" aria-pressed="false"><img src="../assets/glass-grid.svg" alt=""><span data-i18n="grid">Grid</span></button>
-    </div>
-    <h2 class="material-title" data-i18n="presets">Material preset</h2>
-    <div id="preset-options" role="group" aria-label="Material preset" data-aria="presets"></div>
-    <p id="preset-description" aria-live="polite"></p>
-    <section class="button-inspector" aria-labelledby="button-title">
-      <header>
-        <h2 id="button-title" data-i18n="button">Button</h2>
-        <div class="shape-actions">
-          <button id="draw-shape" type="button" data-i18n="drawShape">Draw shape</button>
-          <button id="add-button" type="button" data-i18n="add">Add shape</button>
-          <button id="add-menu" type="button" data-i18n="addMenu">Add menu</button>
-        </div>
-      </header>
-      <p class="selection-hint" data-i18n="selectionHint">Click a glass shape on the canvas to edit it.</p>
-      <label for="button-shape" data-i18n="shape">Shape</label>
-      <select id="button-shape">
-        <option value="circle" data-i18n="circle">Circle / ellipse</option>
-        <option value="capsule" data-i18n="capsule">Capsule</option>
-        <option value="rounded" data-i18n="rounded">Rounded rectangle</option>
-        <option value="square" data-i18n="square">Square / rectangle</option>
-        <option value="custom" data-i18n="custom" disabled>Custom outline</option>
-      </select>
-      <div class="size-fields">
-        <div class="size-field">
-          <label for="button-width" data-i18n="width">Width</label>
-          <input id="width-range" type="range" min="44" max="400" step="1" aria-label="Width slider" data-aria="widthSlider">
-          <input id="button-width" type="number" min="44" max="400" step="any">
-          <span aria-hidden="true">px</span>
-        </div>
-        <div class="size-field">
-          <label for="button-height" data-i18n="height">Height</label>
-          <input id="height-range" type="range" min="44" max="400" step="1" aria-label="Height slider" data-aria="heightSlider">
-          <input id="button-height" type="number" min="44" max="400" step="any">
-          <span aria-hidden="true">px</span>
-        </div>
-      </div>
-      <button id="copy-button" type="button" data-i18n="copyJS">Copy offline JS</button>
-      <p id="editor-message" role="status"></p>
+      </section>
+      <div id="object-export" class="inspector-section"><button id="copy-button" type="button" data-i18n="copyJS">Copy offline JS</button></div>
     </section>
+    <section id="scene-panel" role="tabpanel" aria-labelledby="scene-tab" hidden>
+      <h2 id="wallpaper-title" class="material-title" data-i18n="wallpaper">Background</h2>
+      <div class="wallpaper-options" role="group" aria-labelledby="wallpaper-title">
+        <button type="button" data-wallpaper="daisy" aria-pressed="false"><img src="../assets/wallpapers/daisy.jpg" alt=""><span data-i18n="daisy">Daisy</span></button>
+        <button type="button" data-wallpaper="prism" aria-pressed="false"><img src="../assets/wallpapers/prism.jpg" alt=""><span data-i18n="prismWallpaper">Crystal</span></button>
+        <button type="button" data-wallpaper="lake" aria-pressed="false"><img src="../assets/wallpapers/lake.jpg" alt=""><span data-i18n="lake">Lake</span></button>
+        <button type="button" data-wallpaper="grid" aria-pressed="false"><img src="../assets/glass-grid.svg" alt=""><span data-i18n="grid">Grid</span></button>
+      </div>
+      <h2 class="material-title" data-i18n="presets">Material preset</h2>
+      <div id="preset-options" role="group" aria-label="Material preset" data-aria="presets"></div>
+      <p id="preset-description" aria-live="polite"></p>
+    </section>
+    <p id="editor-message" role="status"></p>
   </aside>
+  <dialog id="icon-dialog" aria-labelledby="icon-dialog-title">
+    <div class="icon-dialog-shell">
+      <header class="icon-dialog-heading">
+        <h2 id="icon-dialog-title" data-i18n="chooseIcon">Choose icon</h2>
+        <button id="close-icons" type="button" data-aria="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      </header>
+      <div class="icon-search-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6"/><path d="m16 16 4 4"/></svg>
+        <input id="icon-search" type="search" data-aria="iconSearchLabel" data-placeholder="iconPlaceholder" aria-label="Search icons" placeholder="Search by name or keyword">
+      </div>
+      <div class="icon-filters" role="group" aria-label="Icon filters" data-aria="iconFilters">
+        <button type="button" data-icon-filter="popular" data-i18n="iconsPopular" aria-pressed="true">Popular</button>
+        <button type="button" data-icon-filter="all" data-i18n="iconsAll" aria-pressed="false">All icons</button>
+        <button type="button" data-icon-filter="brands" data-i18n="iconsBrands" aria-pressed="false">Brands</button>
+      </div>
+      <div class="icon-results" id="icon-results">
+        <p id="icon-result-count" role="status"></p>
+        <div id="label-icons" role="group" aria-label="Icons" data-aria="icon"></div>
+        <button id="more-icons" type="button" data-i18n="iconsMore" hidden>Show more</button>
+      </div>
+      <footer class="icon-dialog-footer"><button id="remove-icon" type="button" data-i18n="removeIcon">Remove icon</button><span>Lucide · Lobe Icons</span></footer>
+    </div>
+  </dialog>
   <dialog id="copy-dialog">
     <form method="dialog">
       <label for="copy-source" data-i18n="manualCopy">Copy this text</label>

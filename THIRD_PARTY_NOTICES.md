@@ -6,6 +6,8 @@ The preset values are starting points selected for this project after inspecting
 
 The icon picker includes [Lucide](https://lucide.dev/icons/) interface icons and [Lobe Icons](https://github.com/lobehub/lobe-icons) monochrome AI brand marks. Their license notices accompany the SVG geometry in `assets/glass-button.js` and in offline exports. The marks identify their respective brands.
 
+The searchable catalog in `demo/lucide-catalog.json` contains SVG geometry and search tags from `lucide-static@1.68.0`. The accompanying upstream license is in `assets/LICENSE-lucide`.
+
 `assets/glass-backdrop.svg` and `assets/preview.png` are original works created for this repository.
 
 Development-only packages:

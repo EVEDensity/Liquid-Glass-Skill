@@ -218,8 +218,27 @@ const glassIcons = {
   gemini:["0 0 24 24",1,[["path",{"d":"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z"}]]],
 };
 
-export function createGlassIcon(doc, name) {
-  const entry = Object.hasOwn(glassIcons,name) && glassIcons[name];
+const glassSvgTags = new Set(['path','circle','ellipse','line','polygon','polyline','rect']);
+const glassSvgNumbers = new Set(['cx','cy','r','width','height','x','y','rx','ry','x1','x2','y1','y2','points']);
+
+function safeGlassGlyph(nodes) {
+  if (!Array.isArray(nodes) || !nodes.length || nodes.length>32) return false;
+  return nodes.every(item=>{
+    if (!Array.isArray(item) || !glassSvgTags.has(item[0])) return false;
+    const attrs = item[1];
+    if (!attrs || typeof attrs!=='object' || Array.isArray(attrs)) return false;
+    return Object.entries(attrs).every(([key,value])=>{
+      if (typeof value!=='string' || value.length>4096) return false;
+      if (key==='d') return /^[MmZzLlHhVvCcSsQqTtAaEe\d+.,\s-]+$/.test(value);
+      if (key==='fill') return value==='none' || value==='currentColor';
+      return glassSvgNumbers.has(key) && /^[\dEe+.,\s-]+$/.test(value);
+    });
+  });
+}
+
+export function createGlassIcon(doc, name, glyph) {
+  const entry = Object.hasOwn(glassIcons,name) ? glassIcons[name]
+    : safeGlassGlyph(glyph) ? ['0 0 24 24',false,glyph] : null;
   if (!entry) return null;
   const [viewBox,solid,nodes] = entry;
   const ns = "http://www.w3.org/2000/svg";
@@ -247,7 +266,7 @@ export function applyGlassTypography(button, typography) {
     button.replaceChildren(label);
   }
   label.querySelector('[data-glass-icon]')?.remove();
-  const icon = createGlassIcon(button.ownerDocument,typography.icon);
+  const icon = createGlassIcon(button.ownerDocument,typography.icon,typography.iconGlyph);
   const hasIcon = Boolean(icon);
   if (icon) {
     icon.setAttribute("data-glass-icon","");

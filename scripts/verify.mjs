@@ -26,14 +26,18 @@ const errors = [];
 function record(name) { checks.push(name); console.log(`PASS ${name}`); }
 async function selectWallpaper(page,name) {
   const button = page.locator(`[data-wallpaper="${name}"]`);
-  if (await button.getAttribute('aria-pressed') !== 'true') await button.click();
-  await page.locator(`[data-wallpaper="${name}"][aria-pressed="true"]`).waitFor();
+  if (await button.getAttribute('aria-pressed') !== 'true') {
+    await page.locator('#scene-tab').click();
+    await button.click();
+  }
+  await page.locator(`[data-wallpaper="${name}"][aria-pressed="true"]`).waitFor({state:'attached'});
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 }
 async function ready(page, wallpaper = 'grid') {
   await page.goto(url, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => window.glassDemo?.source);
   await selectWallpaper(page,wallpaper);
+  await page.locator('#object-tab').click();
 }
 async function verifySelection(context) {
   const selectionPage = await context.newPage();
@@ -60,13 +64,36 @@ async function verifySelection(context) {
   await selectionPage.getByLabel('Second segment').press('Enter');
   await selectionPage.locator('.probe').click();
   await selectionPage.locator('#text-tool').click();
+  assert.equal(await selectionPage.locator('#text-editor').evaluate(el=>el.closest('#object-panel')?.id),'object-panel');
+  assert.equal(await selectionPage.locator('#icon-dialog').isVisible(),false);
+  await selectionPage.locator('#open-icons').click();
+  await selectionPage.getByRole('button',{name:'All icons',exact:true}).click();
+  await selectionPage.waitForFunction(()=>Number(document.querySelector('#icon-result-count').textContent.replace(/[^0-9]/g,''))>2300);
   const iconOptions = selectionPage.locator('#label-icons button');
-  assert.equal(await iconOptions.count(),24);
-  assert.equal(await iconOptions.locator('svg[aria-hidden="true"]').count(),24);
-  assert.ok((await iconOptions.allTextContents()).every(text=>!text.trim()));
+  assert.equal(await iconOptions.count(),72);
+  assert.equal(await iconOptions.locator('svg[aria-hidden="true"]').count(),72);
+  await selectionPage.locator('#icon-dialog').screenshot({path:resolve(evidence,'visual-icon-picker.png')});
+  await selectionPage.getByRole('button',{name:'Brands',exact:true}).click();
   await selectionPage.getByRole('button',{name:'Claude',exact:true}).click();
   await selectionPage.locator('.probe [data-glass-icon][fill="currentColor"]').waitFor();
-  await selectionPage.locator('#label-icons').screenshot({path:resolve(evidence,'visual-icon-picker.png')});
+  await selectionPage.locator('#open-icons').click();
+  const iconSearch = selectionPage.getByRole('searchbox',{name:'Search icons'});
+  await iconSearch.fill('飞机');
+  await selectionPage.locator('#label-icons [data-icon="plane"]').click();
+  await selectionPage.locator('.probe [data-glass-icon][stroke="currentColor"]').waitFor();
+  await selectionPage.locator('#canvas-copy').click();
+  await selectionPage.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
+  const iconSpec = await selectionPage.evaluate(()=>navigator.clipboard.readText());
+  const iconConfig = JSON.parse(iconSpec.split(/liquid-glass\.json\r?\n/).at(-1));
+  assert.equal(iconConfig.button.typography.icon,'plane');
+  assert.ok(iconConfig.button.typography.iconGlyph.length>0);
+  const runtimeGlyph = await selectionPage.evaluate(async typography=>{
+    const {applyGlassTypography}=await import('/assets/glass-button.js');
+    const button=document.createElement('button');
+    applyGlassTypography(button,typography);
+    return button.querySelector('svg')?.innerHTML;
+  },iconConfig.button.typography);
+  assert.equal(runtimeGlyph,await selectionPage.locator('.probe [data-glass-icon]').evaluate(svg=>svg.innerHTML));
   const start = {x:segmentBox.x-18,y:toggleBox.y-40};
   const end = {x:segmentBox.x+segmentBox.width+18,y:segmentBox.y+segmentBox.height+14};
   await selectionPage.mouse.move(start.x,start.y);
@@ -329,6 +356,7 @@ try {
   const materials=[];
   const sceneFrames=[];
   const initialShapes=await page.evaluate(()=>window.glassDemo.shapes);
+  await page.locator('#scene-tab').click();
   for(const name of presetLabels){
     const button=page.getByRole('button',{name,exact:true});
     await button.click();
@@ -340,6 +368,7 @@ try {
   assert.deepEqual(materials.map(m=>m.name),presetLabels);
   assert.equal(new Set(sceneFrames).size,6);
   assert.deepEqual(await page.evaluate(()=>window.glassDemo.shapes),initialShapes);
+  await page.locator('#object-tab').click();
   const optics = await page.evaluate(async materials=>{
     const {GlassScene}=await import('/assets/liquid-glass-renderer.js');
     const canvas=document.createElement('canvas');
@@ -641,11 +670,13 @@ try {
   assert.equal(await page.evaluate(()=>document.elementFromPoint(175,165).dataset.shape),'custom');
   assert.notEqual(await page.evaluate(()=>document.elementFromPoint(260,174).dataset.shape),'custom');
   await page.locator('#text-tool').click();
-  await page.locator('#canvas-tools').screenshot({path:resolve(evidence,'compact-text-editor.png')});
+  await page.locator('#text-editor').screenshot({path:resolve(evidence,'compact-text-editor.png')});
+  await page.locator('#open-icons').click();
   await page.locator('#label-icons [data-icon="star"]').click();
   assert.equal(await custom.locator('svg[data-glass-icon]').count(),1);
   assert.equal(await custom.textContent(),'');
   await page.locator('#button-text').fill('形状');
+  await page.locator('#typography-settings > summary').click();
   await page.locator('#label-size').fill('21');
   await page.locator('#label-weight').selectOption('750');
   await page.locator('#label-family').selectOption('serif');

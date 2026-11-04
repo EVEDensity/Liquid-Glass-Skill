@@ -1,7 +1,7 @@
 import { en, zh } from './language.js';
 import { mountOutlineEditor } from './outline-editor.js';
 import { mergeGlassOutlines } from './merge-outline.js';
-import { createGlassIcon } from '../assets/glass-button.js';
+import { mountIconPicker } from './icon-picker.js';
 import { loadReplicaSources, mountReplica, portableScene } from './replica.js';
 
 async function loadButtonSources() {
@@ -55,17 +55,21 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   const resizeHandle = document.querySelector('#canvas-resize');
   const textTool = document.querySelector('#text-tool');
   const textEditor = document.querySelector('#text-editor');
+  const labelTitle = document.querySelector('#label-title');
+  const geometry = document.querySelector('#object-geometry');
+  const empty = document.querySelector('#object-empty');
+  const exportSection = document.querySelector('#object-export');
+  const inspector = document.querySelector('#presets-panel');
+  const tabs = [...inspector.querySelectorAll('[role="tab"]')];
   const text = document.querySelector('#button-text');
   const textLabel = text.previousElementSibling;
   const segmentText = document.querySelector('#segment-text');
   const labelStyle = document.querySelector('#label-style');
-  const iconGrid = document.querySelector('#label-icons');
   const selectionBox = document.querySelector('#selection-box');
   const count = document.querySelector('#selection-count');
   const typographyFields = {
     size:document.querySelector('#label-size'),weight:document.querySelector('#label-weight'),
     family:document.querySelector('#label-family'),
-    icon:document.querySelector('#label-icon'),
     x:document.querySelector('#label-x'),y:document.querySelector('#label-y')
   };
   const defaultTypography = {size:15,weight:650,family:'system',icon:'',x:50,y:50};
@@ -91,38 +95,30 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   let strings = en;
   const selection = () => group.length ? group : selected ? [selected] : [];
   const editable = () => selected?.matches('.probe') && !group.length;
-  const iconNames = ['', 'plus','check','arrow','search','play','heart','star','download','settings','close','sparkles',
-    'mail','home','lock','camera','bell','calendar','bookmark','link','eye','claude','openai','gemini'];
-  const iconButtons = iconNames.map(name=>{
-    const option = document.createElement('button');
-    option.type = 'button';
-    option.dataset.icon = name;
-    option.dataset.aria = option.dataset.title = 'icon'+(name ? name[0].toUpperCase()+name.slice(1) : 'None');
-    option.append(createGlassIcon(document,name || 'none'));
-    option.addEventListener('click',()=>{
-      typographyFields.icon.value=name;
-      typographyFields.icon.dispatchEvent(new Event('input'));
-      syncIcons();
-    });
-    return option;
+  const syncIcon = mountIconPicker({
+    getStrings:()=>strings,
+    onPick(icon,iconGlyph) { updateTypography({icon,iconGlyph}); }
   });
-  iconGrid.append(...iconButtons);
-  iconGrid.addEventListener('keydown',event=>{
-    const index = iconButtons.indexOf(event.target);
-    if (index<0) return;
-    const step = {ArrowLeft:-1,ArrowRight:1,ArrowUp:-6,ArrowDown:6}[event.key];
-    const next = event.key==='Home' ? 0 : event.key==='End' ? iconButtons.length-1
-      : step ? (index+step+iconButtons.length)%iconButtons.length : -1;
-    if (next<0) return;
-    event.preventDefault();
-    iconButtons[next].focus();
-  });
-  function syncIcons() {
-    for (const option of iconButtons) {
-      const active = option.dataset.icon===typographyFields.icon.value;
-      option.setAttribute('aria-pressed',String(active));
-      option.tabIndex = active ? 0 : -1;
+
+  function showInspector(id) {
+    const previous = tabs.find(tab=>tab.getAttribute('aria-selected')==='true');
+    for (const tab of tabs) {
+      const active = tab.id===id;
+      tab.setAttribute('aria-selected',String(active));
+      tab.tabIndex = active ? 0 : -1;
+      document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
     }
+    if (previous?.id!==id) inspector.scrollTop = 0;
+  }
+  for (const [index,tab] of tabs.entries()) {
+    tab.addEventListener('click',()=>showInspector(tab.id));
+    tab.addEventListener('keydown',event=>{
+      const next = {ArrowLeft:1-index,ArrowRight:1-index,Home:0,End:tabs.length-1}[event.key];
+      if (next===undefined) return;
+      event.preventDefault();
+      showInspector(tabs[next].id);
+      tabs[next].focus();
+    });
   }
   const segmentInputs = Array.from({length:3},(_,i)=>{
     const input = document.createElement('input');
@@ -169,7 +165,6 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     count.textContent = group.length || '';
     updateCopyLabel();
     if (visible) positionOverlay();
-    else setTextEditor(false);
   }
   function updateCopyLabel() {
     const label = group.length>1 ? strings.canvasCopyMany : strings.canvasCopy;
@@ -179,6 +174,14 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   function sync() {
     for (const control of [shape,width,height,widthRange,heightRange]) control.disabled = !editable();
     copyJS.disabled = !selection().length;
+    geometry.hidden = !editable();
+    textEditor.hidden = !selected || Boolean(group.length) || selected.matches('.more-glass');
+    exportSection.hidden = !selection().length;
+    empty.hidden = !textEditor.hidden;
+    empty.textContent = group.length ? strings.selectionGroup.replace('{n}',group.length)
+      : selected?.matches('.more-glass') ? strings.menuInspector : strings.selectionHint;
+    labelTitle.textContent = editable() ? strings.labelTitle
+      : selected?.matches('.segment') ? strings.segmentLabels : strings.controlLabel;
     customShape.disabled = !selected?.glassOutline;
     if (editable()) {
       shape.value = selected.dataset.shape;
@@ -214,19 +217,12 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
       for (const [key,field] of Object.entries(typographyFields)) {
         field.value = selected?.glassTypography?.[key] ?? defaultTypography[key];
       }
-      syncIcons();
+      syncIcon(selected?.glassTypography);
       message.textContent = '';
       sync();
     }
+    if (show && selected) showInspector('object-tab');
     showOverlay(Boolean(selected && show));
-  }
-  function setTextEditor(open) {
-    textEditor.hidden = !open;
-    textTool.setAttribute('aria-expanded',String(open));
-    if (open) {
-      (segmentText.hidden ? text : segmentInputs[0]).select();
-    }
-    positionOverlay();
   }
   function applyDimensions() {
     if (!editable()) return;
@@ -313,7 +309,11 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     marquee=undefined;
     selectionBox.hidden=true;
     if (group.length===1) select(group[0]);
-    else { sync(); showOverlay(group.length>1); }
+    else {
+      if (group.length>1) showInspector('object-tab');
+      sync();
+      showOverlay(group.length>1);
+    }
   }
   for (const type of ['pointerup','pointercancel','lostpointercapture']) stage.addEventListener(type,finishMarquee);
   document.addEventListener('keydown',event=>{
@@ -359,26 +359,31 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     mergedButton?.focus({preventScroll:true});
     message.textContent = strings.merged;
   });
-  textTool.addEventListener('click',()=>setTextEditor(textEditor.hidden));
-  textEditor.querySelector('details').addEventListener('toggle',positionOverlay);
+  textTool.addEventListener('click',()=>{
+    showInspector('object-tab');
+    const field = segmentText.hidden ? text : segmentInputs[0];
+    field.focus();
+    field.select();
+  });
   text.addEventListener('input',()=>{
     if (editable()) setButtonText(selected,text.value);
     else if (selected) setControlLabels(selected,[text.value]);
   });
-  for (const field of Object.values(typographyFields)) {
-    field.addEventListener('input',()=>{
-      const values = Object.fromEntries(Object.entries(typographyFields).map(([key,input])=>{
-        if (key==='family' || key==='icon') return [key,input.value];
-        const value = input.value===''?defaultTypography[key]:Number(input.value);
-        return [key,input.type==='number'?Math.min(Number(input.max),Math.max(Number(input.min),value)):value];
-      }));
-      setButtonTypography(selected,values);
-    });
+  function updateTypography(patch = {}) {
+    if (!editable()) return;
+    const values = Object.fromEntries(Object.entries(typographyFields).map(([key,input])=>{
+      if (key==='family') return [key,input.value];
+      const value = input.value===''?defaultTypography[key]:Number(input.value);
+      return [key,input.type==='number'?Math.min(Number(input.max),Math.max(Number(input.min),value)):value];
+    }));
+    const typography = {...defaultTypography,...selected.glassTypography,...values,...patch};
+    setButtonTypography(selected,typography);
+    syncIcon(typography);
   }
+  for (const field of Object.values(typographyFields)) field.addEventListener('input',()=>updateTypography());
   function closeTextOnKey(event) {
     if (event.isComposing || !['Enter','Escape'].includes(event.key)) return;
-    setTextEditor(false);
-    textTool.focus();
+    (canvasTools.hidden ? selected : textTool)?.focus({preventScroll:true});
   }
   text.addEventListener('keydown',closeTextOnKey);
   shape.addEventListener('change',()=>{applyDimensions();sync();});
@@ -480,10 +485,12 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     for (const element of document.querySelectorAll('[data-i18n]')) element.textContent = strings[element.dataset.i18n];
     for (const element of document.querySelectorAll('[data-aria]')) element.setAttribute('aria-label',strings[element.dataset.aria]);
     for (const element of document.querySelectorAll('[data-title]')) element.title = strings[element.dataset.title];
+    for (const element of document.querySelectorAll('[data-placeholder]')) element.placeholder = strings[element.dataset.placeholder];
     updateCopyLabel();
+    syncIcon(selected?.glassTypography);
     message.textContent = '';
     onLanguageChange(language);
-    if (selected) sync();
+    sync();
   }
   for (const button of document.querySelectorAll('[data-language]')) {
     button.addEventListener('click',()=>{
