@@ -145,7 +145,7 @@ export function createLiquidGlassButton(target, config, options = {}) {
   if (!text) button.setAttribute('aria-label',config.language==='zh'?'液态玻璃按钮':'Liquid glass button');
   Object.assign(button.style,{width:width+'px',height:height+'px'});
   for (const [name,value] of Object.entries({
-    radius:radius+'px',
+    radius:shape==='circle'?'50%':radius+'px',
     blur:material.blur+'px',
     haze:Math.min(.72,.045+material.frost*.76),
     saturation:material.vibrancy,

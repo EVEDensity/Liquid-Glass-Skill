@@ -112,7 +112,15 @@ float shapeDistance(vec2 p,int i){
     vec2 across=vec2(-direction.y,direction.x);
     q+=across*dot(q,across)*back*min(.42,stretch/max(36.,halfSpan*2.)*.7);
   }
-  return roundedBox(q,s.zw*.5,u_radii[i]);
+  vec2 halfSize=s.zw*.5;
+  if(u_surface[i]==4. && abs(halfSize.x-halfSize.y)>.001){
+    // Scale the ellipse's implicit field by its local normal for a stable rim width.
+    vec2 unit=q/halfSize;
+    float distance=length(unit);
+    if(distance<.0001)return -min(halfSize.x,halfSize.y);
+    return (distance-1.)/length(unit/(distance*halfSize));
+  }
+  return roundedBox(q,halfSize,u_radii[i]);
 }
 vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out float movement,out float junction,out vec2 dome){
   vec4 field=vec4(1e5,0.,0.,0.);
