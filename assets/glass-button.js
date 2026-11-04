@@ -14,8 +14,8 @@ const css = `
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   border-radius: inherit;
   background: rgb(246 253 255 / var(--lg-haze));
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .43),
-    inset 0 2px var(--lg-rim) rgb(255 255 255 / .8),
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .72),
+    inset 0 1px var(--lg-rim) rgb(255 255 255 / .52),
     inset 0 -2px var(--lg-rim) rgb(192 233 244 / .38), var(--lg-prism);
   backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-saturation));
   transform: scale(var(--lg-stretch-x, 1), var(--lg-stretch-y, 1));
@@ -24,8 +24,8 @@ const css = `
 .liquid-glass-export:active, .liquid-glass-export[data-held] { cursor: grabbing; }
 .liquid-glass-export:is(:active,[data-held])::before {
   scale: var(--lg-press);
-  box-shadow: inset 0 0 1px 1px rgb(255 255 255 / .75),
-    inset 0 2px var(--lg-rim) rgb(255 255 255 / .94),
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / .88),
+    inset 0 1px var(--lg-rim) rgb(255 255 255 / .68),
     inset 0 -2px var(--lg-rim) rgb(192 233 244 / .55), var(--lg-prism);
 }
 .liquid-glass-export::before { transition-property: transform, scale, box-shadow; }
@@ -137,7 +137,7 @@ export function createLiquidGlassButton(target, config, options = {}) {
     blur:material.blur+'px',
     haze:Math.min(.72,.045+material.frost*.76),
     saturation:material.vibrancy,
-    rim:Math.max(1,material.rimWidth*3)+'px',
+    rim:Math.max(1,material.rimWidth*2)+'px',
     press:shape==='circle'?1.3:1.15,
     prism:material.dispersion>.25
       ? 'inset 2px 0 4px rgb(134 229 255 / .6), inset -2px 0 4px rgb(255 207 148 / .6)'

@@ -6,6 +6,7 @@ const fragment = `#version 300 es
 precision highp float;
 out vec4 color;
 uniform vec2 u_size;
+uniform vec2 u_bufferSize;
 uniform vec2 u_sourceSize;
 uniform sampler2D u_source;
 uniform int u_count;
@@ -188,7 +189,7 @@ vec3 presetLens(vec2 p,vec2 centre,vec2 n,float field,float scale,float press,ve
   return lens;
 }
 void main(){
-  vec2 p=vec2(gl_FragCoord.x,u_size.y-gl_FragCoord.y);
+  vec2 p=vec2(gl_FragCoord.x,u_bufferSize.y-gl_FragCoord.y)*u_size/u_bufferSize;
   vec4 dynamics;
   vec2 contact;
   float sliderPress,movement,junction;
@@ -198,13 +199,17 @@ void main(){
   vec2 centre=dynamics.xy;
   float contactRadius=max(30.,scale*62.);
   vec2 gradient=vec2(dFdx(field),-dFdy(field));
+  float aa=max(.08,length(gradient)*.58);
   vec3 base=sampleAt(p)*(1.-u_dim);
   float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y);
-  if(field>1.){color=u_surfaceOnly?vec4(0.):vec4(base*(1.-shadow),1.);return;}
+  if(field>aa){color=u_surfaceOnly?vec4(0.):vec4(base*(1.-shadow),1.);return;}
   vec2 n=length(gradient)>.001?normalize(gradient):normalize(p-centre+vec2(.0001));
-  float mask=1.-smoothstep(-.8,.8,field);
+  float mask=1.-smoothstep(-aa,aa,field);
+  float depth=max(-field,0.);
+  float facingRim=abs(dot(n,vec2(-.7071,-.7071)));
+  float outline=(1.-smoothstep(.35,1.55,depth))*min(.85,u_specular)
+      *(.54+.46*facingRim);
   if(u_clearControls>.5){
-    float depth=max(-field,0.);
     float curve=sin(clamp(depth/18.,0.,1.)*3.141593);
     vec2 pull=(p-centre)*press*.09;
     float knob=clamp(merged.y+merged.z+merged.w,0.,1.);
@@ -236,7 +241,8 @@ void main(){
       water.r=sampleSoft(ray-n*spread,.55).r;
       water.b=sampleSoft(ray+n*spread,.55).b;
       float facing=.38+.62*abs(dot(n,normalize(vec2(-.7,-.72))));
-      float caustic=edge*edge*facing;
+      float shoulder=1.-smoothstep(0.,min(7.,radius*.15),depth);
+      float caustic=shoulder*shoulder*facing;
       vec3 gathered=mix(sampleSoft(p+n*(3.+radius*.12),2.2),vec3(1.),.70);
       water=mix(water,gathered,caustic*(.65+.19*press));
       clear=mix(clear,water,dome.x);
@@ -267,10 +273,10 @@ void main(){
     clear=mix(clear,caustic,join*innerFocus*facing*.80);
     // Only the thumb and selection carry a resting pale fill. The same union
     // blends that fill into the clear glass and removes the internal rim.
-    float restingFill=.92*merged.y+merged.z+.76*merged.w;
+    float restingFill=.97*merged.y+merged.z+.82*merged.w;
     float milk=restingFill*(1.-smoothstep(0.,1.,engagement))*(1.-join*.88);
-    vec3 ivory=mix(vec3(.98,.987,.98),sampleSoft(p,2.),.13+.29*merged.w);
-    float innerRim=1.-smoothstep(.35,3.6,depth);
+    vec3 ivory=mix(vec3(.98,.987,.98),sampleSoft(p,2.),.10+.23*merged.w);
+    float innerRim=1.-smoothstep(.45,2.5,depth);
     float selectionShoulder=merged.w*.15*exp(-depth/5.0);
     ivory=mix(ivory,vec3(1.),max(innerRim*.85,selectionShoulder));
     // The switch rests on a clean porcelain surface, then reveals the lens on hold.
@@ -292,6 +298,7 @@ void main(){
       vec3 tint=mix(vec3(.29,.77,1.),vec3(.86,1.,.68),angle);
       clear=mix(clear,tint,movement*(rim*.48+curve*.13));
     }
+    clear=mix(clear,vec3(1.),outline*(1.-join*.55));
     color=compositeGlass(base,clamp(clear,0.,1.),mask);
     return;
   }
@@ -338,7 +345,7 @@ export class GlassScene {
       this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,this.buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
       const pos=gl.getAttribLocation(this.program,'a_position');gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
       this.texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.texture);for(const [key,value] of [[gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR],[gl.TEXTURE_MAG_FILTER,gl.LINEAR],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,key,value);
-      const names=['surfaceOnly','size','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      const names=['surfaceOnly','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
       this.available=true;this.setMaterial(options);
@@ -372,18 +379,21 @@ export class GlassScene {
   }
   render(){
     if(!this.available||this.destroyed||!this.source)return;const gl=this.gl,box=this.canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
-    const scale=Math.min(dpr,1);const width=Math.max(1,Math.round(box.width*scale)),height=Math.max(1,Math.round(box.height*scale));if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
-    gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
-    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24);const pixelScale=width/Math.max(1,box.width);this.shapes.forEach((s,i)=>{shapes.set([s.x*pixelScale,s.y*pixelScale,s.width*pixelScale,s.height*pixelScale],i*4);radii[i]=s.radius*pixelScale;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:0;stretch.set([s.stretchX*pixelScale,s.stretchY*pixelScale],i*2);contacts.set([s.contactX*pixelScale,s.contactY*pixelScale],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
+    const cssWidth=Math.max(1,box.width),cssHeight=Math.max(1,box.height);
+    // Keep optics in CSS pixels while sampling the silhouette at device resolution.
+    const scale=Math.max(1,Math.min(dpr,Math.sqrt(2500000/(cssWidth*cssHeight))));
+    const width=Math.round(cssWidth*scale),height=Math.round(cssHeight*scale);if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
+    gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,cssWidth,cssHeight);gl.uniform2f(this.uniforms.bufferSize,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
+    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24);this.shapes.forEach((s,i)=>{shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
     const {toggle,segment}=this.controlBases;
-    const base=(key,b)=>gl.uniform4f(this.uniforms[key],(b?.x??0)*pixelScale,(b?.y??0)*pixelScale,(b?.width??0)*pixelScale,(b?.height??0)*pixelScale);
+    const base=(key,b)=>gl.uniform4f(this.uniforms[key],(b?.x??0),(b?.y??0),(b?.width??0),(b?.height??0));
     base('switchBase',toggle);base('segmentBase',segment);gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);
     const track=this.sliderTrack;
-    gl.uniform4f(this.uniforms.sliderTrack,(track?.x??0)*pixelScale,(track?.y??0)*pixelScale,(track?.width??0)*pixelScale,(track?.height??0)*pixelScale);
+    gl.uniform4f(this.uniforms.sliderTrack,(track?.x??0),(track?.y??0),(track?.width??0),(track?.height??0));
     gl.uniform1f(this.uniforms.presetOptics,this.material.presetOptics?1:0);
     gl.uniform1f(this.uniforms.clearControls,this.material.clearControls?1:0);
-    gl.uniform1f(this.uniforms.sliderFill,(track?.fillX??0)*pixelScale);
-    const m=this.material;for(const key of ['refraction','bezel','blur','rimWidth','merge'])gl.uniform1f(this.uniforms[key],m[key]*pixelScale);for(const key of numeric.filter(key=>!['refraction','bezel','blur','rimWidth','merge'].includes(key)))gl.uniform1f(this.uniforms[key],m[key]);
+    gl.uniform1f(this.uniforms.sliderFill,(track?.fillX??0));
+    const m=this.material;for(const key of numeric)gl.uniform1f(this.uniforms[key],m[key]);
     gl.uniform1f(this.uniforms.edge,m.edge==='lip'?1:0);gl.uniform1f(this.uniforms.sizeScale,m.sizeScale?1:0);gl.uniform1f(this.uniforms.appearance,m.appearance==='light'?0:m.appearance==='dark'?1:2);gl.uniform3fv(this.uniforms.tint,hexToRgb(m.tint));gl.drawArrays(gl.TRIANGLES,0,6);
   }
   destroy(){this.observer?.disconnect();if(this.contextLost)this.canvas.removeEventListener('webglcontextlost',this.contextLost);if(this.gl){if(this.texture)this.gl.deleteTexture(this.texture);if(this.buffer)this.gl.deleteBuffer(this.buffer);if(this.program)this.gl.deleteProgram(this.program);}this.available=false;this.destroyed=true;}
