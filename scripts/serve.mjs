@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, dirname, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MAX_GLASS_SHAPES } from '../assets/liquid-glass-renderer.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.md': 'text/plain; charset=utf-8' };
@@ -32,7 +33,7 @@ const server = http.createServer(async (req, res) => {
       catch { res.writeHead(400).end(); return; }
       const single = config?.version===2 && config.button;
       const selection = config?.version===3 && config.stage?.width>0 && config.stage?.height>0
-        && Array.isArray(config.items) && config.items.length>=1 && config.items.length<=8
+        && Array.isArray(config.items) && config.items.length>=1 && config.items.length<=MAX_GLASS_SHAPES
         && config.items.every(item=>item && ['button','switch','slider','segment','menu'].includes(item.kind)
           && [item.x,item.y,item.width,item.height].every(Number.isFinite));
       if ((!single && !selection) || !config.material) { res.writeHead(400).end(); return; }

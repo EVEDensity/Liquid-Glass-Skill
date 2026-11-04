@@ -1,3 +1,6 @@
+import { getGlassShapeOutline } from '../assets/liquid-glass-renderer.js';
+import { mountShapePicker } from './shape-picker.js';
+
 const distance = ([ax,ay],[bx,by]) => Math.hypot(ax-bx,ay-by);
 
 function distanceToEdge([x,y],[ax,ay],[bx,by]) {
@@ -5,7 +8,6 @@ function distanceToEdge([x,y],[ax,ay],[bx,by]) {
   const t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/(dx*dx+dy*dy||1)));
   return Math.hypot(x-ax-t*dx,y-ay-t*dy);
 }
-
 function simplifyLoop(points,tolerance) {
   const loop=[...points,points[0]];
   const keep=new Set([0,points.length]);
@@ -122,7 +124,10 @@ function outlineBounds(points) {
 }
 
 function guideOutline(kind,[x,y,width,height]) {
-  if (kind==='ellipse') {
+  const outline = getGlassShapeOutline(kind);
+  if (outline) return outline.map(([u,v])=>[x+u*width,y+v*height]);
+  if (kind==='square') return [[x,y],[x+width,y],[x+width,y+height],[x,y+height]];
+  if (kind==='circle') {
     return Array.from({length:48},(_,i)=>{
       const angle = i*Math.PI/24;
       return [x+width*(1+Math.cos(angle))/2,y+height*(1+Math.sin(angle))/2];
@@ -148,7 +153,7 @@ function smartOutline(raw, fitted) {
   }
   let best = fitted;
   let lowest = Math.max(2,scale*.065);
-  for (const kind of ['ellipse','capsule','rounded']) {
+  for (const kind of ['circle','capsule','rounded']) {
     const guide = guideOutline(kind,bounds);
     const errors = [...deviations(samples,guide),...deviations(guide,samples)];
     const rms = Math.sqrt(errors.reduce((sum,error)=>sum+error*error,0)/errors.length);
@@ -168,6 +173,7 @@ export function mountOutlineEditor(stage,{onDraw,onPreview,onCancel,getStrings})
   const startPoint = overlay.querySelector('circle');
   const smoothing = overlay.querySelector('#outline-smoothing');
   const mode = overlay.querySelector('#outline-mode');
+  mountShapePicker(mode,{drawing:true});
   const hint = overlay.querySelector('#outline-hint');
   const keep = overlay.querySelector('#keep-outline');
   const redraw = overlay.querySelector('#redraw-outline');
@@ -286,7 +292,8 @@ export function mountOutlineEditor(stage,{onDraw,onPreview,onCancel,getStrings})
     overlay.addEventListener(type,event=>{ if (event.pointerId===stroke?.id) dismiss(); });
   }
   cancel.addEventListener('click',dismiss);
-  for (const control of [smoothing,mode]) control.addEventListener('input',refresh);
+  smoothing.addEventListener('input',refresh);
+  mode.addEventListener('change',refresh);
   redraw.addEventListener('click',()=>{
     pending = undefined;
     paint();

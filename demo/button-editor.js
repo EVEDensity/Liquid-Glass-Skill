@@ -2,6 +2,8 @@ import { en, zh } from './language.js';
 import { mountOutlineEditor } from './outline-editor.js';
 import { mergeGlassOutlines } from './merge-outline.js';
 import { mountIconPicker } from './icon-picker.js';
+import { mountShapePicker } from './shape-picker.js';
+import { MAX_GLASS_SHAPES, measureGlassButton, normalizeGlassRotation } from '../assets/liquid-glass-renderer.js';
 import { loadReplicaSources, mountReplica, portableScene } from './replica.js';
 
 async function loadButtonSources() {
@@ -46,7 +48,7 @@ function aiSpec(config, strings) {
   ].join('\n');
 }
 
-export function mountButtonEditor({root,stage,setButtonText,setControlLabels,setButtonTypography,setButtonGeometry,previewOutline,addButton,addMenu,removeButton,snapshot,snapshotSelection,onLanguageChange}) {
+export function mountButtonEditor({root,stage,setButtonText,setControlLabels,setButtonTypography,setButtonGeometry,setButtonRotation,previewOutline,addButton,addMenu,removeButton,snapshot,snapshotSelection,onLanguageChange}) {
   const canvasTools = document.querySelector('#canvas-tools');
   const canvasCopy = document.querySelector('#canvas-copy');
   const canvasDelete = document.querySelector('#canvas-delete');
@@ -76,12 +78,14 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   const shape = document.querySelector('#button-shape');
   const width = document.querySelector('#button-width');
   const height = document.querySelector('#button-height');
+  const rotation = document.querySelector('#button-rotation');
+  const rotationRange = document.querySelector('#rotation-range');
   const copyJS = document.querySelector('#copy-button');
   const widthRange = document.querySelector('#width-range');
   const heightRange = document.querySelector('#height-range');
   const add = document.querySelector('#add-button');
   const draw = document.querySelector('#draw-shape');
-  const customShape = shape.querySelector('option[value="custom"]');
+  const syncShape = mountShapePicker(shape);
   const message = document.querySelector('#editor-message');
   const dialog = document.querySelector('#copy-dialog');
   const copySource = document.querySelector('#copy-source');
@@ -153,7 +157,13 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     const above = top-bounds.top-toolHeight-12;
     const y = above >= 6 ? above : Math.max(6,Math.min(bounds.height-toolHeight-6,bottom-bounds.top+12));
     canvasTools.style.translate = `${x}px ${y}px`;
-    if (!resizeHandle.hidden) resizeHandle.style.translate = `${Math.max(14,Math.min(bounds.width-14,right-bounds.left))}px ${Math.max(14,Math.min(bounds.height-14,bottom-bounds.top))}px`;
+    if (!resizeHandle.hidden) {
+      const size = measureGlassButton(selected);
+      const angle = selected.glassRotation*Math.PI/180;
+      const x = size.x+(size.width*Math.cos(angle)-size.height*Math.sin(angle))/2-bounds.left;
+      const y = size.y+(size.width*Math.sin(angle)+size.height*Math.cos(angle))/2-bounds.top;
+      resizeHandle.style.translate = `${Math.max(14,Math.min(bounds.width-14,x))}px ${Math.max(14,Math.min(bounds.height-14,y))}px`;
+    }
   }
   function showOverlay(visible) {
     canvasTools.hidden = !visible;
@@ -172,7 +182,7 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     canvasCopy.setAttribute('aria-label',label);
   }
   function sync() {
-    for (const control of [shape,width,height,widthRange,heightRange]) control.disabled = !editable();
+    for (const control of [width,height,widthRange,heightRange,rotation,rotationRange]) control.disabled = !editable();
     copyJS.disabled = !selection().length;
     geometry.hidden = !editable();
     textEditor.hidden = !selected || Boolean(group.length) || selected.matches('.more-glass');
@@ -182,14 +192,15 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
       : selected?.matches('.more-glass') ? strings.menuInspector : strings.selectionHint;
     labelTitle.textContent = editable() ? strings.labelTitle
       : selected?.matches('.segment') ? strings.segmentLabels : strings.controlLabel;
-    customShape.disabled = !selected?.glassOutline;
     if (editable()) {
       shape.value = selected.dataset.shape;
-      syncSize(selected.getBoundingClientRect());
+      syncSize(measureGlassButton(selected));
+      rotation.value = rotationRange.value = selected.glassRotation;
     } else {
       width.value = height.value = '';
     }
-    add.disabled = root.children.length >= 8;
+    syncShape({custom:Boolean(selected?.glassOutline),disabled:!editable()});
+    add.disabled = root.children.length >= MAX_GLASS_SHAPES;
     draw.disabled = add.disabled;
     menuTool.disabled = add.disabled || Boolean(root.querySelector('.more-glass'));
     add.title = add.disabled ? strings.limit : '';
@@ -226,27 +237,30 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   }
   function applyDimensions() {
     if (!editable()) return;
-    const rect = selected.getBoundingClientRect();
+    const rect = measureGlassButton(selected);
     const w = limit(width.valueAsNumber,rect.width);
     const h = limit(height.valueAsNumber,rect.height);
     setButtonGeometry(selected,shape.value,w,h);
-    syncSize(selected.getBoundingClientRect());
+    syncSize(measureGlassButton(selected));
   }
   const limit = (value,fallback) => Math.min(400,Math.max(44,Number.isFinite(value)?value:fallback));
   function resizeCorner(rect,dx,dy) {
     const w = limit(rect.width+dx,rect.width);
     const h = limit(rect.height+dy,rect.height);
     setButtonGeometry(selected,shape.value,w,h,true);
-    syncSize(selected.getBoundingClientRect());
+    syncSize(measureGlassButton(selected));
     positionOverlay();
   }
   resizeHandle.addEventListener('pointerdown',event=>{
     if (event.button!==0 || !selected || resize) return;
-    resize = {id:event.pointerId,x:event.clientX,y:event.clientY,rect:selected.getBoundingClientRect()};
+    resize = {id:event.pointerId,x:event.clientX,y:event.clientY,rect:measureGlassButton(selected),angle:selected.glassRotation*Math.PI/180};
     resizeHandle.setPointerCapture(event.pointerId);
   });
   resizeHandle.addEventListener('pointermove',event=>{
-    if (event.pointerId===resize?.id) resizeCorner(resize.rect,event.clientX-resize.x,event.clientY-resize.y);
+    if (event.pointerId!==resize?.id) return;
+    const dx = event.clientX-resize.x, dy = event.clientY-resize.y;
+    const cos = Math.cos(resize.angle), sin = Math.sin(resize.angle);
+    resizeCorner(resize.rect,dx*cos+dy*sin,dy*cos-dx*sin);
   });
   for (const event of ['pointerup','pointercancel','lostpointercapture']) {
     resizeHandle.addEventListener(event,e=>{ if (e.pointerId===resize?.id) resize=undefined; });
@@ -256,7 +270,7 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     const direction = {ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowDown:[0,step],ArrowUp:[0,-step]}[event.key];
     if (!direction) return;
     event.preventDefault();
-    resizeCorner(selected.getBoundingClientRect(),...direction);
+    resizeCorner(measureGlassButton(selected),...direction);
   });
   function markGroup(next) {
     for (const piece of group) piece.removeAttribute('data-marquee-selected');
@@ -391,6 +405,15 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   heightRange.addEventListener('input',()=>{height.value=heightRange.value;applyDimensions();});
   width.addEventListener('change',()=>applyDimensions());
   height.addEventListener('change',applyDimensions);
+  function applyRotation(value) {
+    if (!editable()) return;
+    const angle = Number.isFinite(value) ? normalizeGlassRotation(value) : selected.glassRotation;
+    setButtonRotation(selected,angle);
+    rotation.value = rotationRange.value = angle;
+    positionOverlay();
+  }
+  rotationRange.addEventListener('input',()=>applyRotation(rotationRange.valueAsNumber));
+  rotation.addEventListener('change',()=>applyRotation(rotation.valueAsNumber));
   add.addEventListener('click',()=>{
     outlineEditor.stop();
     const button = addButton();

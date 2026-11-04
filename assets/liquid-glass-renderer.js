@@ -1,3 +1,5 @@
+export const MAX_GLASS_SHAPES = 12;
+
 /* Independent WebGL2 liquid glass: edge refraction, color pickup, and shape merging. MIT. */
 const vertex = `#version 300 es
 in vec2 a_position;
@@ -12,13 +14,14 @@ uniform sampler2D u_source;
 uniform int u_count;
 uniform vec4 u_shapes[12];
 uniform float u_radii[12];
+uniform vec2 u_rotation[12]; // cosine and sine in screen coordinates
 uniform float u_refraction,u_bezel,u_magnify,u_dispersion,u_edge,u_sizeScale;
 uniform float u_blur,u_frost,u_vibrancy,u_brightness,u_dim,u_appearance;
 uniform float u_pickup,u_tintAmount,u_specular,u_rimWidth,u_lightAngle,u_shadow,u_merge;
 uniform float u_press[12];
 uniform float u_surface[12],u_motion[12];
 uniform sampler2D u_outlines;
-uniform int u_outlineCount[8];
+uniform int u_outlineCount[${MAX_GLASS_SHAPES}];
 uniform vec2 u_stretch[12],u_contact[12];
 uniform vec4 u_switchBase,u_segmentBase; // center, width, height
 uniform float u_switchOn;
@@ -116,13 +119,17 @@ float outlineDistance(vec2 q,vec2 size,int row,int count){
   }
   return sqrt(nearest)*(inside?-1.:1.);
 }
+vec2 localGlassVector(vec2 q,int i){
+  vec2 angle=u_rotation[i];
+  return vec2(angle.x*q.x+angle.y*q.y,angle.x*q.y-angle.y*q.x);
+}
 float shapeDistance(vec2 p,int i){
   vec4 s=u_shapes[i];
   vec2 q=p-s.xy;
   float stretch=length(u_stretch[i]);
   if(stretch>.001){
     vec2 direction=u_stretch[i]/stretch;
-    float halfSpan=dot(abs(direction),s.zw*.5);
+    float halfSpan=dot(abs(localGlassVector(direction,i)),s.zw*.5);
     float axis=dot(q,direction);
     // Deform the trailing half more than the leading face.
     float back=1.-smoothstep(-halfSpan*.6,halfSpan*.55,axis);
@@ -132,6 +139,7 @@ float shapeDistance(vec2 p,int i){
     vec2 across=vec2(-direction.y,direction.x);
     q+=across*dot(q,across)*back*min(.42,stretch/max(36.,halfSpan*2.)*.7);
   }
+  q=localGlassVector(q,i);
   vec2 halfSize=s.zw*.5;
   if(u_outlineCount[i]>2){
     float beyond=max(abs(q.x)-halfSize.x,abs(q.y)-halfSize.y);
@@ -156,7 +164,7 @@ vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out
   junction=0.;
   dome=vec2(0.);
   menuWeight=0.;
-  for(int i=0;i<8;i++){
+  for(int i=0;i<${MAX_GLASS_SHAPES};i++){
     if(i>=u_count)break;
     vec4 shape=u_shapes[i];
     float candidate=shapeDistance(p,i);
@@ -262,7 +270,7 @@ void main(){
       if(baseCoverage<=0.){color=vec4(0.,0.,0.,shadow);return;}
     }
     // Exact export also paints the backdrop inside deep notches in the button's box.
-    bool inButtonBox=u_count==1&&all(lessThanEqual(abs(p-u_shapes[0].xy),u_shapes[0].zw*.5));
+    bool inButtonBox=u_count==1&&all(lessThanEqual(abs(localGlassVector(p-u_shapes[0].xy,0)),u_shapes[0].zw*.5));
     bool transparent=u_surfaceOnly&&!u_controlLayer&&(!u_exactBackdrop||(field>56.&&!inButtonBox));
     color=transparent?vec4(0.):vec4(base*(1.-shadow),1.);
     return;
@@ -413,6 +421,51 @@ export function normalizeGlassOutline(outline) {
     && point.every(value=>Number.isFinite(value)&&value>=0&&value<=1)) ? outline : undefined;
 }
 
+function radialOutline(count, inner = 1, offset = 0) {
+  const points = Array.from({length:count},(_,i)=>{
+    const angle = (i+offset)*2*Math.PI/count-Math.PI/2;
+    const radius = i%2 ? inner : 1;
+    return [Math.cos(angle)*radius,Math.sin(angle)*radius];
+  });
+  return normalizeOutlineBounds(points);
+}
+
+function normalizeOutlineBounds(points) {
+  const minimum = [0,1].map(axis=>Math.min(...points.map(point=>point[axis])));
+  const maximum = [0,1].map(axis=>Math.max(...points.map(point=>point[axis])));
+  return points.map(point=>point.map((value,axis)=>(value-minimum[axis])/(maximum[axis]-minimum[axis])));
+}
+
+const glassShapeOutlines = {
+  triangle: [[.5,0],[1,1],[0,1]],
+  diamond: [[.5,0],[1,.5],[.5,1],[0,.5]],
+  hexagon: radialOutline(6,1,.5),
+  octagon: radialOutline(8,1,.5),
+  star: radialOutline(10,.45),
+  heart: normalizeOutlineBounds(Array.from({length:48},(_,i)=>{
+    const angle = i*2*Math.PI/48;
+    return [16*Math.sin(angle)**3,-(13*Math.cos(angle)-5*Math.cos(2*angle)-2*Math.cos(3*angle)-Math.cos(4*angle))];
+  }))
+};
+
+export function getGlassShapeOutline(shape, outline) {
+  return normalizeGlassOutline(outline) ?? (Object.hasOwn(glassShapeOutlines,shape) ? glassShapeOutlines[shape] : undefined);
+}
+
+export function normalizeGlassRotation(value) {
+  if (!Number.isFinite(value)) return 0;
+  const rounded = Math.round((value%360)*10)/10;
+  const angle = ((rounded+540)%360)-180;
+  return angle===-180 && rounded>0 ? 180 : Math.round(angle*10)/10;
+}
+
+export function measureGlassButton(button, rect = button.getBoundingClientRect()) {
+  const x = rect.left+rect.width/2, y = rect.top+rect.height/2;
+  if (!button.glassRotation) return {x,y,width:rect.width,height:rect.height};
+  const style = button.ownerDocument.defaultView.getComputedStyle(button);
+  return {x,y,width:parseFloat(style.width),height:parseFloat(style.height)};
+}
+
 export function glassOutlineClip(outline) {
   return `polygon(evenodd, ${outline.map(([x,y])=>`${x*100}% ${y*100}%`).join(', ')})`;
 }
@@ -430,11 +483,11 @@ export class GlassScene {
       this.outlines=gl.createTexture();
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D,this.outlines);
-      gl.texStorage2D(gl.TEXTURE_2D,1,gl.RG32F,64,8);
+      gl.texStorage2D(gl.TEXTURE_2D,1,gl.RG32F,64,MAX_GLASS_SHAPES);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
       gl.activeTexture(gl.TEXTURE0);
-      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
       names.push('controlLayer');
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
@@ -445,7 +498,7 @@ export class GlassScene {
       this.contextLost=event=>{event.preventDefault();this.available=false;canvas.dispatchEvent(new Event('glassfallback'));};canvas.addEventListener('webglcontextlost',this.contextLost);
     } catch(error){this.error=error.message;this.destroy();} finally {shaders.forEach(shader=>gl.deleteShader(shader));}
   }
-  setShapes(shapes){this.shapes=shapes.slice(0,8).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1),slider:s.slider===true,motion:clamp(Number(s.motion)||0,0,1),surface:s.surface,outline:normalizeGlassOutline(s.outline),contactX:Number.isFinite(s.contactX)?s.contactX:Number(s.x)||0,contactY:Number.isFinite(s.contactY)?s.contactY:Number(s.y)||0,stretchX:clamp(Number(s.stretchX)||0,-48,48),stretchY:clamp(Number(s.stretchY)||0,-48,48)};});}
+  setShapes(shapes){this.shapes=shapes.slice(0,MAX_GLASS_SHAPES).map(s=>{const width=Math.max(1,Number(s.width)||1),height=Math.max(1,Number(s.height)||1);return{x:Number(s.x)||0,y:Number(s.y)||0,width,height,radius:clamp(Number(s.radius)||0,0,Math.min(width,height)/2),press:clamp(Number(s.press)||0,0,1),slider:s.slider===true,motion:clamp(Number(s.motion)||0,0,1),surface:s.surface,rotation:normalizeGlassRotation(s.rotation),outline:normalizeGlassOutline(s.outline),contactX:Number.isFinite(s.contactX)?s.contactX:Number(s.x)||0,contactY:Number.isFinite(s.contactY)?s.contactY:Number(s.y)||0,stretchX:clamp(Number(s.stretchX)||0,-48,48),stretchY:clamp(Number(s.stretchY)||0,-48,48)};});}
   setSliderTrack(track){
     this.sliderTrack=track && [track.x,track.y,track.width,track.height,track.fillX].every(Number.isFinite)
       && track.width>0 && track.height>0 ? {...track,height:Math.min(track.height,track.width)} : null;
@@ -476,16 +529,16 @@ export class GlassScene {
     const scale=Math.max(1,Math.min(dpr,Math.sqrt(2500000/(cssWidth*cssHeight))));
     const width=Math.round(cssWidth*scale),height=Math.round(cssHeight*scale);if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,cssWidth,cssHeight);gl.uniform2f(this.uniforms.bufferSize,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
-    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24);this.shapes.forEach((s,i)=>{shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:s.surface==='menu'?5:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
-    const outlineCounts=Int32Array.from({length:8},(_,i)=>this.shapes[i]?.outline?.length??0);
+    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24),rotation=new Float32Array(24);this.shapes.forEach((s,i)=>{const angle=s.rotation*Math.PI/180;rotation.set([Math.cos(angle),Math.sin(angle)],i*2);shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:s.surface==='menu'?5:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform2fv(this.uniforms['rotation[0]'],rotation);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
+    const outlineCounts=Int32Array.from({length:MAX_GLASS_SHAPES},(_,i)=>this.shapes[i]?.outline?.length??0);
     gl.uniform1i(this.uniforms.outlines,1);
     gl.uniform1iv(this.uniforms['outlineCount[0]'],outlineCounts);
     if(outlineCounts.some(Boolean)){
-      const vertices=new Float32Array(64*8*2);
+      const vertices=new Float32Array(64*MAX_GLASS_SHAPES*2);
       this.shapes.forEach((shape,i)=>shape.outline?.forEach((point,j)=>vertices.set(point,(i*64+j)*2)));
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D,this.outlines);
-      gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,64,8,gl.RG,gl.FLOAT,vertices);
+      gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,64,MAX_GLASS_SHAPES,gl.RG,gl.FLOAT,vertices);
       gl.activeTexture(gl.TEXTURE0);
     }
     const {toggle,segment}=this.controlBases;

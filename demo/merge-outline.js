@@ -1,4 +1,5 @@
 import { fitClosedStroke, geometryFromStroke } from './outline-editor.js';
+import { getGlassShapeOutline, measureGlassButton } from '../assets/liquid-glass-renderer.js';
 
 export function mergeGlassOutlines(buttons, stage) {
   const stageBounds = stage.getBoundingClientRect();
@@ -15,12 +16,16 @@ export function mergeGlassOutlines(buttons, stage) {
   const ctx = mask.getContext('2d',{willReadFrequently:true});
   for (const [i,button] of buttons.entries()) {
     const rect = bounds[i];
-    const x = rect.left-left+1, y = rect.top-top+1;
-    const w = rect.width, h = rect.height;
+    const {width:w,height:h} = measureGlassButton(button);
+    const x = -w/2, y = -h/2;
+    ctx.save();
+    ctx.translate(rect.left+rect.width/2-left+1,rect.top+rect.height/2-top+1);
+    ctx.rotate(button.glassRotation*Math.PI/180);
     ctx.beginPath();
     const kind = button.dataset.shape;
-    if (kind==='custom' && button.glassOutline) {
-      for (const [index,[u,v]] of button.glassOutline.entries()) {
+    const outline = getGlassShapeOutline(kind,kind==='custom'?button.glassOutline:undefined);
+    if (outline) {
+      for (const [index,[u,v]] of outline.entries()) {
         if (index===0) ctx.moveTo(x+w*u,y+h*v);
         else ctx.lineTo(x+w*u,y+h*v);
       }
@@ -32,6 +37,7 @@ export function mergeGlassOutlines(buttons, stage) {
       ctx.roundRect(x,y,w,h,radius);
     }
     ctx.fill('evenodd');
+    ctx.restore();
   }
   const stride = mask.width;
   const pixels = ctx.getImageData(0,0,stride,mask.height).data;

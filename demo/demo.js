@@ -1,5 +1,5 @@
 import { stepGlassMotion, applyGlassImpulse, sampleGlassMotion } from '../assets/glass-motion.js';
-import { GlassScene, PRESETS, normalizeGlassOutline, glassOutlineClip } from '../assets/liquid-glass-renderer.js';
+import { GlassScene, PRESETS, MAX_GLASS_SHAPES, normalizeGlassOutline, glassOutlineClip, getGlassShapeOutline, normalizeGlassRotation, measureGlassButton } from '../assets/liquid-glass-renderer.js';
 import { mountButtonEditor } from './button-editor.js';
 import { applyGlassTypography } from '../assets/glass-button.js';
 import { createGlassMenu } from './glass-menu.js';
@@ -41,7 +41,7 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 let nextButtonId = 1;
 function shapeRadius(shape, width, height) {
   const half = Math.min(width,height)/2;
-  if (shape === 'square' || shape === 'custom') return 0;
+  if (shape === 'square' || shape === 'custom' || getGlassShapeOutline(shape)) return 0;
   if (shape === 'rounded') return Math.min(16,half);
   return half;
 }
@@ -51,7 +51,9 @@ function createEditableButton(config = {}) {
   button.type = 'button';
   button.dataset.buttonId = config.id ?? String(nextButtonId++);
   button.dataset.shape = config.shape ?? 'circle';
-  button.glassOutline = normalizeGlassOutline(config.outline);
+  button.glassOutline = config.shape==='custom' ? normalizeGlassOutline(config.outline) : undefined;
+  button.glassRotation = normalizeGlassRotation(config.rotation);
+  if (button.glassRotation) button.style.rotate = button.glassRotation+'deg';
   button.glassTypography = config.typography;
   button.toggleAttribute('data-export-selected',exported?.selected===button.dataset.buttonId);
   setButtonText(button,config.text ?? '');
@@ -72,7 +74,8 @@ function setButtonGeometry(button,shape,width,height) {
   button.style.width = width + 'px';
   button.style.height = height + 'px';
   button.style.setProperty('--button-radius',shape==='circle'?'50%':shapeRadius(shape,width,height)+'px');
-  button.style.clipPath = shape==='custom' && button.glassOutline ? glassOutlineClip(button.glassOutline) : '';
+  const outline = getGlassShapeOutline(shape,shape==='custom'?button.glassOutline:undefined);
+  button.style.clipPath = outline ? glassOutlineClip(outline) : '';
 }
 function makeScene() {
   if (exported?.version === 3) return exported.items.map(item => {
@@ -261,7 +264,7 @@ function showScene() {
   schedule();
 }
 function initPiece(piece) {
-  presses.set(piece,{x:0,y:0,scale:0,sx:0,sy:0,tx:0,ty:0,base:piece.style.transform});
+  presses.set(piece,{x:0,y:0,scale:0,sx:0,sy:0,tx:0,ty:0});
 }
 function activePress(piece, now) {
   if (presses.get(piece).tapUntil > now) return 1;
@@ -369,13 +372,13 @@ function draw() {
     }
     const isCircle = piece.dataset.shape === 'circle';
     const grow = 1 + press * (isCircle ? .30 : .15);
-    const geometry = boxFor(rect);
-    geometry.width *= grow;
-    geometry.height *= grow;
+    const size = measureGlassButton(piece,rect);
+    const geometry = {x:size.x-box.left,y:size.y-box.top,width:size.width*grow,height:size.height*grow};
     const radius = shapeRadius(piece.dataset.shape,geometry.width,geometry.height);
     return liquidSurface({...geometry,radius},{
       surface:isCircle?'lens':undefined,
-      outline:piece.dataset.shape==='custom'?piece.glassOutline:undefined
+      outline:getGlassShapeOutline(piece.dataset.shape,piece.dataset.shape==='custom'?piece.glassOutline:undefined),
+      rotation:piece.glassRotation
     });
   });
   if (opaque) return;
@@ -412,7 +415,7 @@ function startPress() { if (!pressFrame) pressFrame = requestAnimationFrame(anim
 function movePiece(piece, x, y) {
   const state = presses.get(piece);
   state.x = x; state.y = y;
-  piece.style.transform = `translate(${x}px, ${y}px) ${state.base}`;
+  piece.style.translate = `${x}px ${y}px`;
   schedule();
 }
 function bind(targets = pieces) {
@@ -638,13 +641,19 @@ if (!exported) {
     },
     setButtonGeometry(button,shape,width,height,anchorCorner) {
       const state = presses.get(button);
-      const before = button.getBoundingClientRect();
+      const before = measureGlassButton(button);
       setButtonGeometry(button,shape,width,height);
-      if (anchorCorner) { schedule(); return; }
-      const after = button.getBoundingClientRect();
-      const dx = before.width-after.width;
-      const dy = before.height-after.height;
-      movePiece(button,state.x+dx/2,state.y+dy/2);
+      const after = measureGlassButton(button);
+      const angle = button.glassRotation*Math.PI/180;
+      const dx = anchorCorner ? (after.width-before.width)/2 : 0;
+      const dy = anchorCorner ? (after.height-before.height)/2 : 0;
+      movePiece(button,state.x+before.x-after.x+dx*Math.cos(angle)-dy*Math.sin(angle),
+        state.y+before.y-after.y+dx*Math.sin(angle)+dy*Math.cos(angle));
+    },
+    setButtonRotation(button,rotation) {
+      button.glassRotation = normalizeGlassRotation(rotation);
+      button.style.rotate = button.glassRotation ? button.glassRotation+'deg' : '';
+      schedule();
     },
     removeButton(button) {
       pieces.splice(pieces.indexOf(button),1);
@@ -658,11 +667,11 @@ if (!exported) {
       updatePresetLabels();
     },
     addButton(config) {
-      if (pieces.length >= 8) return null;
+      if (pieces.length >= MAX_GLASS_SHAPES) return null;
       const offset = (pieces.length-4)*18;
       const button = createEditableButton(config ?? {
         shape:'capsule',width:132,height:56,
-        x:Math.max(12,stage.clientWidth/2-66+offset),y:64+offset
+        x:Math.max(12,Math.min(stage.clientWidth-144,stage.clientWidth/2-66+offset)),y:64+offset
       });
       root.append(button);
       pieces.push(button);
@@ -672,7 +681,7 @@ if (!exported) {
       return button;
     },
     addMenu() {
-      if (pieces.length >= 8 || root.querySelector('.more-glass')) return;
+      if (pieces.length >= MAX_GLASS_SHAPES || root.querySelector('.more-glass')) return;
       const menu = createGlassMenu('',schedule);
       menu.style.right = '18px';
       menu.style.top = '76px';
@@ -684,12 +693,14 @@ if (!exported) {
       return menu;
     },
     snapshot(button) {
-      const {width,height} = button.getBoundingClientRect();
+      const {width,height} = measureGlassButton(button);
       const shape = button.dataset.shape;
+      const outline = getGlassShapeOutline(shape,shape==='custom'?button.glassOutline:undefined);
       return {
         version:2, language,
         button:{shape,text:button.textContent,width,height,radius:shapeRadius(shape,width,height),
-          ...(shape==='custom'&&button.glassOutline?{outline:button.glassOutline}:{}),
+          ...(outline?{outline}:{}),
+          ...(button.glassRotation?{rotation:button.glassRotation}:{}),
           ...(button.glassTypography?{typography:button.glassTypography}:{})},
         material:{...material}
       };
@@ -700,11 +711,15 @@ if (!exported) {
         const rect = piece.getBoundingClientRect();
         const geometry = {x:rect.x-stageBounds.x,y:rect.y-stageBounds.y,width:rect.width,height:rect.height};
         if (piece.matches('.more-glass')) return {kind:'menu',...geometry,title:piece.glassMenuTitle};
-        if (piece.matches('.probe')) return {
-          kind:'button',...geometry,shape:piece.dataset.shape,text:piece.textContent,
-          ...(piece.glassOutline?{outline:piece.glassOutline}:{}),
-          ...(piece.glassTypography?{typography:piece.glassTypography}:{})
-        };
+        if (piece.matches('.probe')) {
+          const {x,y,width,height} = measureGlassButton(piece,rect);
+          return {kind:'button',x:x-stageBounds.left-width/2,y:y-stageBounds.top-height/2,
+            width,height,shape:piece.dataset.shape,text:piece.textContent,
+            ...(piece.dataset.shape==='custom'&&piece.glassOutline?{outline:piece.glassOutline}:{}),
+            ...(piece.glassRotation?{rotation:piece.glassRotation}:{}),
+            ...(piece.glassTypography?{typography:piece.glassTypography}:{})
+          };
+        }
         if (piece.matches('.switch')) return {kind:'switch',...geometry,on:piece.getAttribute('aria-checked')==='true',labels:piece.glassLabels??[]};
         if (piece.matches('.slider')) return {kind:'slider',...geometry,value:piece.querySelector('input').valueAsNumber,labels:piece.glassLabels??[]};
         const tabs = [...piece.querySelectorAll('button')];

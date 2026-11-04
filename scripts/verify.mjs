@@ -244,6 +244,46 @@ async function verifyNewShapes(context) {
   const page = await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));
   await ready(page,'lake');
+  const shape = page.locator('.probe');
+  await shape.click();
+  await page.locator('#object-geometry [data-shape-choice="triangle"]').click();
+  for (const [field,value] of [['width','148'],['height','80'],['rotation','90']]) {
+    const input = page.locator('#button-'+field);
+    await input.fill(value);
+    await input.press('Tab');
+  }
+  const rotated = await shape.boundingBox();
+  assert.deepEqual([rotated.width,rotated.height],[80,148]);
+  assert.equal(await page.locator('#button-width').inputValue(),'148');
+  await page.waitForFunction(()=>window.glassDemo.shapes.some(shape=>shape.rotation===90 && shape.width===148 && shape.height===80));
+  const hit = await shape.evaluate(button=>{
+    const rect=button.getBoundingClientRect();
+    const x=rect.left+rect.width/2, y=rect.top+rect.height/2;
+    return [document.elementFromPoint(x-25,y+55)===button,document.elementFromPoint(x+25,y+55)===button];
+  });
+  assert.deepEqual(hit,[true,false]);
+  await shape.click();
+  assert.equal(await page.locator('#canvas-resize').isVisible(),true);
+  await page.locator('#open-icons').click();
+  assert.equal(await page.locator('#canvas-resize').isVisible(),false);
+  await page.keyboard.press('Escape');
+  await page.locator('#canvas-copy').click();
+  await page.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
+  const rotationPayload = await page.evaluate(()=>navigator.clipboard.readText());
+  const rotationConfig = JSON.parse(rotationPayload.split(/liquid-glass\.json\r?\n/).at(-1));
+  assert.deepEqual([rotationConfig.button.shape,rotationConfig.button.rotation,rotationConfig.button.width,rotationConfig.button.height],
+    ['triangle',90,148,80]);
+  assert.deepEqual(await page.evaluate(async config=>{
+    const {createLiquidGlassButton}=await import('/assets/glass-button.js');
+    const host=document.createElement('div');
+    document.body.append(host);
+    const button=createLiquidGlassButton(host,config);
+    const rect=button.getBoundingClientRect();
+    const values=[rect.width,rect.height,button.style.rotate,Boolean(button.style.clipPath)];
+    host.remove();
+    return values;
+  },rotationConfig),[80,148,'90deg',true]);
+  await page.locator('#object-geometry').screenshot({path:resolve(evidence,'shape-gallery.png')});
   await page.getByRole('button',{name:'Add menu',exact:true}).click();
   const trigger = page.getByRole('button',{name:'More actions',exact:true});
   const menu = page.locator('.more-glass');
@@ -251,6 +291,7 @@ async function verifyNewShapes(context) {
   const closed = await surface.boundingBox();
   await menu.screenshot({path:resolve(evidence,'menu-closed.png')});
   await trigger.click();
+  assert.equal(await page.locator('#canvas-resize').isVisible(),false);
   await page.waitForFunction(()=>{
     const shape=window.glassDemo.shapes.find(shape=>shape.surface==='menu');
     return shape?.width>66 && shape.width<218;
@@ -289,7 +330,7 @@ async function verifyNewShapes(context) {
   const drawShape = page.getByRole('button',{name:'Draw shape',exact:true});
   async function drawCapsule(x1,x2) {
     await drawShape.click();
-    await page.locator('#outline-mode').selectOption('capsule');
+    await page.locator('.outline-choices [data-shape-choice="capsule"]').click();
     await page.mouse.move(x1,180);
     await page.mouse.down();
     await page.mouse.move(x2,244,{steps:8});
@@ -317,8 +358,20 @@ async function verifyNewShapes(context) {
   const merged = await combined.boundingBox();
   assert.ok(merged.width>220 && merged.height>=60);
   assert.equal(await page.evaluate(()=>document.elementFromPoint(225,212)?.dataset.shape),'custom');
+  await drawShape.click();
+  await page.locator('.outline-choices [data-shape-choice="heart"]').click();
+  await page.mouse.move(390,170);
+  await page.mouse.down();
+  await page.mouse.move(493,255,{steps:8});
+  await page.mouse.up();
+  await page.locator('#keep-outline').click();
+  const heart = page.locator('.probe[data-shape="custom"]').last();
+  assert.equal(await heart.evaluate(button=>button.glassOutline.length),48);
+  for (let i=0;i<5;i++) await page.locator('#add-button').click();
+  await page.waitForFunction(()=>window.glassDemo.shapes.length===12);
+  assert.ok(await page.locator('#draw-shape').isDisabled());
   await page.close();
-  record('Glass menu morphs and exports live actions, guided drawing reviews a template, and overlapping shapes merge twice');
+  record('Rotated visual shapes keep their hit area and export geometry; menus hide resizing; guided drawing and merging work');
 }
 try {
   // Use the caller's browser when supplied, otherwise Edge then Playwright Chromium.
@@ -416,7 +469,7 @@ try {
   const circle = await page.locator('#controls .probe').boundingBox();
   assert.deepEqual([circle.width,circle.height],[120,121]);
   await page.getByRole('button',{name:'Add shape',exact:true}).click();
-  await page.locator('#button-shape').selectOption('rounded');
+  await page.locator('#object-geometry [data-shape-choice="rounded"]').click();
   const newButton = page.locator('#controls .probe').last();
   const initial = await newButton.boundingBox();
   const widthSlider = await page.locator('#width-range').boundingBox();

@@ -1,6 +1,6 @@
 /* Standalone liquid-glass button. MIT. */
 import { mountLiquidGlass } from './mount-liquid-glass.js';
-import { normalizeGlassOutline, glassOutlineClip } from './liquid-glass-renderer.js';
+import { getGlassShapeOutline, glassOutlineClip, normalizeGlassRotation, measureGlassButton } from './liquid-glass-renderer.js';
 import { stepGlassMotion, applyGlassImpulse, sampleGlassMotion } from './glass-motion.js';
 
 const css = `
@@ -72,15 +72,15 @@ function attachButtonOptics(button, config, {stage,source,liveSource=false,requi
     },
     getFrame() {
       const box = canvas.getBoundingClientRect();
-      const rect = button.getBoundingClientRect();
-      const x = rect.left-box.left+rect.width/2;
-      const y = rect.top-box.top+rect.height/2;
+      const size = measureGlassButton(button);
+      const x = size.x-box.left;
+      const y = size.y-box.top;
       const press = state.scale;
       const grow = 1+press*(circle?.30:.15);
       return {shapes:[{
-        x,y,width:rect.width*grow,height:rect.height*grow,
-        radius:config.button.shape==='rounded'?Math.min(16,rect.width*grow/2,rect.height*grow/2):config.button.radius*grow,
-        surface:circle?'lens':undefined,outline:config.button.outline,press,stretchX:state.sx,stretchY:state.sy,
+        x,y,width:size.width*grow,height:size.height*grow,rotation:button.glassRotation,
+        radius:config.button.shape==='rounded'?Math.min(16,size.width*grow/2,size.height*grow/2):config.button.radius*grow,
+        surface:circle?'lens':undefined,outline:getGlassShapeOutline(config.button.shape,config.button.outline),press,stretchX:state.sx,stretchY:state.sy,
         motion:sampleGlassMotion(state,x,y,view.performance.now(),reduced.matches),
         contactX:contact?contact.clientX-box.left:x,contactY:contact?contact.clientY-box.top:y
       }]};
@@ -309,7 +309,9 @@ export function createLiquidGlassButton(target, config, options = {}) {
   applyGlassTypography(button,config.button.typography);
   if (!text) button.setAttribute('aria-label',config.language==='zh'?'液态玻璃按钮':'Liquid glass button');
   Object.assign(button.style,{width:width+'px',height:height+'px'});
-  const outline = normalizeGlassOutline(config.button.outline);
+  button.glassRotation = normalizeGlassRotation(config.button.rotation);
+  if (button.glassRotation) button.style.rotate = button.glassRotation+'deg';
+  const outline = getGlassShapeOutline(shape,config.button.outline);
   if (outline) button.style.clipPath = glassOutlineClip(outline);
   for (const [name,value] of Object.entries({
     radius:shape==='circle'?'50%':radius+'px',

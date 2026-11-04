@@ -208,13 +208,13 @@ body {
 #presets-panel .shape-actions button { min-width: 0; padding-inline: 4px; font-size: 12px; font-weight: 550; }
 #presets-panel .shape-actions #add-button { background: var(--panel-accent); color: #fff; border-color: var(--panel-accent); }
 #outline-editor { position: absolute; inset: 0; z-index: 6; cursor: crosshair; touch-action: none; background: rgb(20 27 23 / .14); }
-#outline-editor svg { width: 100%; height: 100%; pointer-events: none; }
-#outline-editor :is(polyline,polygon) { stroke: #fffaee; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-#outline-editor polyline { fill: none; }
-#outline-editor polygon { fill: rgb(255 250 238 / .18); fill-rule: evenodd; }
-#outline-editor line { stroke: #fffaee; stroke-width: 1.5; stroke-dasharray: 4 5; visibility: hidden; }
-#outline-editor circle { fill: #fffaee; visibility: hidden; }
-#outline-editor[data-snapped] circle { fill: #cbe6bc; stroke: #38503a; stroke-width: 2; }
+#outline-editor > svg { width: 100%; height: 100%; pointer-events: none; }
+#outline-editor > svg :is(polyline,polygon) { stroke: #fffaee; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#outline-editor > svg polyline { fill: none; }
+#outline-editor > svg polygon { fill: rgb(255 250 238 / .18); fill-rule: evenodd; }
+#outline-editor > svg line { stroke: #fffaee; stroke-width: 1.5; stroke-dasharray: 4 5; visibility: hidden; }
+#outline-editor > svg circle { fill: #fffaee; visibility: hidden; }
+#outline-editor[data-snapped] > svg circle { fill: #cbe6bc; stroke: #38503a; stroke-width: 2; }
 .outline-instructions {
   position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: max-content; max-width: calc(100% - 24px);
@@ -268,6 +268,7 @@ body {
   width: 30px; height: 30px; padding: 0; transform: translate(-50%,-50%);
   border: 0; border-radius: 50%; background: transparent; cursor: nwse-resize; touch-action: none;
 }
+body:has(#icon-dialog[open], .more-glass[data-menu-open], #text-editor:focus-within) #canvas-resize { visibility: hidden; }
 #canvas-resize::before {
   content: ""; position: absolute; inset: 6px; border-radius: 50%;
   border: 2px solid #252823; background: #f8f4ec; box-shadow: 0 1px 5px rgb(0 0 0 / .28);
@@ -283,9 +284,30 @@ body {
   padding: 6px 8px; font: inherit; color: inherit; background: #fff;
   border: 1px solid var(--panel-line); border-radius: 8px;
 }
+.shape-value { display: none !important; }
+.shape-choices {
+  display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 5px;
+}
+.shape-choices button {
+  min-width: 0; min-height: 44px; display: grid; place-items: center; padding: 0;
+  color: var(--panel-muted); background: var(--panel-raised);
+  border: 1px solid var(--panel-line); border-radius: 7px; cursor: pointer;
+}
+.shape-choices button[hidden] { display: none; }
+.shape-choices button[aria-pressed="true"] {
+  color: var(--panel-accent); background: var(--panel-selected); border-color: var(--panel-accent);
+}
+.shape-choices button svg { width: 22px; height: 22px; fill: currentColor; pointer-events: none; }
+.outline-choices { flex-basis: 100%; grid-template-columns: repeat(12,minmax(0,1fr)); }
+.outline-instructions:has(.outline-choices) { width: min(560px,calc(100% - 24px)); }
+.outline-instructions .outline-choices button { min-height: 36px; padding: 0; }
+.outline-choices button:focus-visible { outline-offset: 0; outline-color: #f9dc9a; }
+@media (max-width: 560px) {
+  .outline-choices { grid-template-columns: repeat(6,minmax(0,1fr)); }
+}
 .size-fields { display: grid; gap: 2px; margin-top: 8px; }
 .size-field {
-  display: grid; grid-template-columns: 3.1em minmax(0,1fr) 6em auto;
+  display: grid; grid-template-columns: 3.7em minmax(0,1fr) 6em 1.1em;
   gap: 8px; align-items: center;
 }
 .size-field input[type="range"] {

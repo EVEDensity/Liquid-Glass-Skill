@@ -15,13 +15,8 @@
       <svg aria-hidden="true"><polygon/><polyline/><line/><circle r="4"/></svg>
       <div class="outline-instructions">
         <span id="outline-hint" data-i18n="drawHint">Trace a rough outline, then review the shape.</span>
-        <label><span data-i18n="drawMode">Guide</span><select id="outline-mode">
-          <option value="assist" data-i18n="drawAssist">Smart outline</option>
-          <option value="free" data-i18n="drawFree">Freehand</option>
-          <option value="ellipse" data-i18n="drawEllipse">Ellipse</option>
-          <option value="capsule" data-i18n="capsule">Capsule</option>
-          <option value="rounded" data-i18n="rounded">Rounded rectangle</option>
-        </select></label>
+        <input id="outline-mode" class="shape-value" type="hidden" value="assist">
+        <div class="shape-choices outline-choices" role="group" aria-label="Drawing guides" data-aria="drawMode"></div>
         <label><span data-i18n="smoothing">Smoothing</span><input id="outline-smoothing" type="range" min="0" max="100" value="55"></label>
         <button id="redraw-outline" type="button" data-i18n="redraw" hidden>Redraw</button>
         <button id="keep-outline" type="button" data-i18n="keepOutline" hidden>Use shape</button>
@@ -65,14 +60,8 @@
       <p id="object-empty" class="selection-hint" data-i18n="selectionHint">Select an object on the canvas to edit its properties.</p>
       <section id="object-geometry" class="inspector-section" aria-labelledby="geometry-title">
         <h2 id="geometry-title" data-i18n="geometryTitle">Shape and size</h2>
-        <label for="button-shape" data-i18n="shape">Shape</label>
-        <select id="button-shape">
-          <option value="circle" data-i18n="circle">Circle / ellipse</option>
-          <option value="capsule" data-i18n="capsule">Capsule</option>
-          <option value="rounded" data-i18n="rounded">Rounded rectangle</option>
-          <option value="square" data-i18n="square">Square / rectangle</option>
-          <option value="custom" data-i18n="custom" disabled>Custom outline</option>
-        </select>
+        <input id="button-shape" class="shape-value" type="hidden" value="circle">
+        <div class="shape-choices" role="group" aria-label="Shape" data-aria="shape"></div>
         <div class="size-fields">
           <div class="size-field">
             <label for="button-width" data-i18n="width">Width</label>
@@ -85,6 +74,12 @@
             <input id="height-range" type="range" min="44" max="400" step="1" aria-label="Height slider" data-aria="heightSlider">
             <input id="button-height" type="number" min="44" max="400" step="any">
             <span aria-hidden="true">px</span>
+          </div>
+          <div class="size-field">
+            <label for="button-rotation" data-i18n="rotation">Rotation</label>
+            <input id="rotation-range" type="range" min="-180" max="180" step="1" value="0" aria-label="Rotation slider" data-aria="rotationSlider">
+            <input id="button-rotation" type="number" min="-180" max="180" step="any" value="0">
+            <span aria-hidden="true">°</span>
           </div>
         </div>
       </section>
