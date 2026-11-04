@@ -24,9 +24,16 @@ let browser;
 const checks = [];
 const errors = [];
 function record(name) { checks.push(name); console.log(`PASS ${name}`); }
-async function ready(page) {
+async function selectWallpaper(page,name) {
+  const button = page.locator(`[data-wallpaper="${name}"]`);
+  if (await button.getAttribute('aria-pressed') !== 'true') await button.click();
+  await page.locator(`[data-wallpaper="${name}"][aria-pressed="true"]`).waitFor();
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+}
+async function ready(page, wallpaper = 'grid') {
   await page.goto(url, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => window.glassDemo?.source);
+  await selectWallpaper(page,wallpaper);
 }
 try {
   // Use the caller's browser when supplied, otherwise Edge then Playwright Chromium.
@@ -37,11 +44,19 @@ try {
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', msg => { if (msg.type() === 'error' && !msg.text().includes('favicon')) errors.push(msg.text()); });
-  await ready(page);
+  await ready(page,'daisy');
   assert.equal(await page.evaluate(() => window.glassDemo.available), true, 'WebGL2 unavailable in verification browser');
   record('WebGL2 source loaded and shader linked');
   const screenshot = resolve(evidence, 'demo-desktop.png');
   await page.screenshot({ path: screenshot, fullPage: true });
+  const wallpaperFrames = [];
+  for (const name of ['daisy','prism','lake','grid']) {
+    await selectWallpaper(page,name);
+    assert.equal(await page.locator('[data-wallpaper][aria-pressed="true"]').count(),1);
+    wallpaperFrames.push((await page.locator('#scene').screenshot()).toString('base64'));
+  }
+  assert.equal(new Set(wallpaperFrames).size,4);
+  record('Three photo backgrounds and the grid switch both the stage and WebGL source');
   assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 18);
   assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 10);
   assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .35);

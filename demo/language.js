@@ -1,7 +1,8 @@
 export const en = {
   language:'Language',title:'Liquid glass',presets:'Material preset',button:'Button',
   intro:'Shape a button, tune its optics, and take it into your project.',
-  preview:'Live preview',previewHint:'Press to expand. Drag to bend the grid.',
+  wallpaper:'Background',daisy:'Daisy',prismWallpaper:'Crystal',lake:'Lake',grid:'Grid',
+  preview:'Live preview',previewHint:'Press to expand. Drag to see refraction.',
   exportTitle:'Export button',exportHint:"Only the selected button. Refraction samples your project's backdrop.",
   editText:'Edit button text',copyJS:'Copy offline JS',buttonText:'Button text',
   selectionHint:'Click a glass shape on the canvas to edit it.',
@@ -18,7 +19,8 @@ export const en = {
 export const zh = {
   language:'语言',title:'液态玻璃',presets:'玻璃材质',button:'按钮',
   intro:'调整按钮的形状与光学效果，然后接入你的项目。',
-  preview:'实时预览',previewHint:'按住观察放大，拖动观察网格折射。',
+  wallpaper:'预览背景',daisy:'雏菊',prismWallpaper:'晶体',lake:'山湖',grid:'网格',
+  preview:'实时预览',previewHint:'按住观察放大，拖动观察折射。',
   exportTitle:'导出按钮',exportHint:'仅导出所选按钮。折射取样自目标页面自己的背景。',
   editText:'编辑按钮文字',copyJS:'复制离线 JS',buttonText:'按钮文字',
   selectionHint:'点击画布上的玻璃形状即可编辑。',

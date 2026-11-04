@@ -12,7 +12,7 @@
     <section id="controls"></section>
     <div class="canvas-caption">
       <strong data-i18n="preview">Live preview</strong>
-      <span data-i18n="previewHint">Press to expand. Drag to bend the grid.</span>
+      <span data-i18n="previewHint">Press to expand. Drag to see refraction.</span>
     </div>
     <div class="language-tools" role="group" aria-label="Language" data-aria="language">
       <button type="button" data-language="zh" lang="zh-CN" aria-pressed="false">中文</button>
@@ -22,6 +22,13 @@
   <aside id="presets-panel" aria-labelledby="presets-title">
     <h1 id="presets-title" data-i18n="title">Liquid glass</h1>
     <p class="panel-intro" data-i18n="intro">Shape a button, tune its optics, and take it into your project.</p>
+    <h2 id="wallpaper-title" class="material-title" data-i18n="wallpaper">Background</h2>
+    <div class="wallpaper-options" role="group" aria-labelledby="wallpaper-title">
+      <button type="button" data-wallpaper="daisy" aria-pressed="false"><img src="../assets/wallpapers/daisy.jpg" alt=""><span data-i18n="daisy">Daisy</span></button>
+      <button type="button" data-wallpaper="prism" aria-pressed="false"><img src="../assets/wallpapers/prism.jpg" alt=""><span data-i18n="prismWallpaper">Crystal</span></button>
+      <button type="button" data-wallpaper="lake" aria-pressed="false"><img src="../assets/wallpapers/lake.jpg" alt=""><span data-i18n="lake">Lake</span></button>
+      <button type="button" data-wallpaper="grid" aria-pressed="false"><img src="../assets/glass-grid.svg" alt=""><span data-i18n="grid">Grid</span></button>
+    </div>
     <h2 class="material-title" data-i18n="presets">Material preset</h2>
     <div id="preset-options" role="group" aria-label="Material preset" data-aria="presets"></div>
     <p id="preset-description" aria-live="polite"></p>

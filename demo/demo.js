@@ -522,16 +522,42 @@ for (const query of ['(prefers-reduced-transparency: reduce)', '(forced-colors: 
 document.querySelector('#scene').addEventListener('glassfallback', schedule);
 window.addEventListener('resize', schedule);
 let sourceReady = false;
-const backdrop = new Image();
-backdrop.src = exported?.backdrop ?? new URL('../assets/glass-grid.svg',import.meta.url).href;
-backdrop.decode().then(()=>{
-  scene.setSource(backdrop);
-  sourceReady = true;
-  schedule();
-}).catch(()=>{
-  scene.available=false;
-  schedule();
-});
+const wallpapers = [...document.querySelectorAll('[data-wallpaper]')];
+let backdropRequest = 0;
+async function setBackdrop(image, selected) {
+  const request = ++backdropRequest;
+  try {
+    await image.decode();
+    if (request !== backdropRequest) return;
+    if (scene.available) scene.setSource(image);
+    stage.style.setProperty('--stage-wallpaper', `url("${image.src}")`);
+    for (const button of wallpapers) button.setAttribute('aria-pressed',String(button === selected));
+    sourceReady = true;
+    schedule();
+  } catch {
+    if (request !== backdropRequest || sourceReady) return;
+    if (selected && selected.dataset.wallpaper !== 'grid') {
+      const grid = wallpapers.find(button=>button.dataset.wallpaper==='grid');
+      selectWallpaper(grid);
+    } else {
+      scene.available=false;
+      schedule();
+    }
+  }
+}
+function selectWallpaper(button) {
+  const image = new Image();
+  image.src = button.querySelector('img').src;
+  return setBackdrop(image,button);
+}
+for (const button of wallpapers) button.addEventListener('click',()=>selectWallpaper(button));
+if (exported) {
+  const image = new Image();
+  image.src = exported.backdrop;
+  setBackdrop(image);
+} else {
+  selectWallpaper(wallpapers[0]);
+}
 const options = document.querySelector('#preset-options');
 const presetDescription = document.querySelector('#preset-description');
 function updatePresetLabels() {
