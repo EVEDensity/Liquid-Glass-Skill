@@ -147,7 +147,7 @@ float shapeDistance(vec2 p,int i){
   }
   return roundedBox(q,halfSize,u_radii[i]);
 }
-vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out float movement,out float junction,out vec2 dome){
+vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out float movement,out float junction,out vec2 dome,out float menuWeight){
   vec4 field=vec4(1e5,0.,0.,0.);
   dynamics=vec4(0.,0.,1.,0.);
   contact=vec2(0.);
@@ -155,10 +155,21 @@ vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out
   movement=0.;
   junction=0.;
   dome=vec2(0.);
+  menuWeight=0.;
   for(int i=0;i<8;i++){
     if(i>=u_count)break;
     vec4 shape=u_shapes[i];
     float candidate=shapeDistance(p,i);
+    if(u_surface[i]==5.){
+      if(candidate>1.3)continue;
+      dynamics=vec4(shape.xy,1.,0.);
+      contact=vec2(0.);
+      junction=0.;
+      movement=0.;
+      dome=vec2(0.);
+      menuWeight=1.;
+      return vec4(candidate,0.,0.,0.);
+    }
     float press=u_press[i];
     float scale=u_sizeScale>0.?clamp(min(shape.z,shape.w)/140.,.8,1.55):1.;
     vec4 motion=vec4(shape.xy,scale,press);
@@ -233,14 +244,14 @@ void main(){
   vec2 p=vec2(gl_FragCoord.x,u_bufferSize.y-gl_FragCoord.y)*u_size/u_bufferSize;
   vec4 dynamics;
   vec2 contact;
-  float sliderPress,movement,junction;
+  float sliderPress,movement,junction,menuWeight;
   vec2 dome;
-  vec4 merged=fieldAt(p,dynamics,contact,sliderPress,movement,junction,dome);
+  vec4 merged=fieldAt(p,dynamics,contact,sliderPress,movement,junction,dome,menuWeight);
   float field=merged.x,scale=dynamics.z,press=dynamics.w;
   vec2 centre=dynamics.xy;
   float contactRadius=max(30.,scale*62.);
   vec2 gradient=vec2(dFdx(field),-dFdy(field));
-  float aa=max(.08,length(gradient)*.58);
+  float aa=menuWeight>.5?.65:max(.08,length(gradient)*.58);
   vec3 base=sampleAt(p)*(1.-u_dim);
   float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y);
   if(field>aa){
@@ -351,6 +362,14 @@ void main(){
       vec3 tint=mix(vec3(.29,.77,1.),vec3(.86,1.,.68),angle);
       clear=mix(clear,tint,movement*(rim*.48+curve*.13));
     }
+    if(menuWeight>.001){
+      vec2 ray=p+(p-centre)*.06+n*curve*min(7.,u_refraction*.4);
+      vec3 blurred=sampleSoft(ray,9.);
+      float lift=.27+.28*(1.-smoothstep(.12,.50,dot(blurred,vec3(.2126,.7152,.0722))));
+      vec3 softened=mix(blurred,vec3(.92,.98,.86),lift);
+      float edgeLight=exp(-depth/3.8)*(.26+.48*facingRim);
+      clear=mix(clear,mix(softened,vec3(1.),edgeLight),menuWeight*.92);
+    }
     clear=mix(clear,vec3(1.),outline*(1.-join*.55));
     color=compositeGlass(base,clamp(clear,0.,1.),mask);
     return;
@@ -457,7 +476,7 @@ export class GlassScene {
     const scale=Math.max(1,Math.min(dpr,Math.sqrt(2500000/(cssWidth*cssHeight))));
     const width=Math.round(cssWidth*scale),height=Math.round(cssHeight*scale);if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,cssWidth,cssHeight);gl.uniform2f(this.uniforms.bufferSize,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
-    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24);this.shapes.forEach((s,i)=>{shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
+    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24);this.shapes.forEach((s,i)=>{shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:s.surface==='menu'?5:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
     const outlineCounts=Int32Array.from({length:8},(_,i)=>this.shapes[i]?.outline?.length??0);
     gl.uniform1i(this.uniforms.outlines,1);
     gl.uniform1iv(this.uniforms['outlineCount[0]'],outlineCounts);

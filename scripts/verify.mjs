@@ -213,6 +213,86 @@ async function verifySelection(context) {
   await selectionPage.close();
   record('Visual SVG picker and marquee selection export three editable controls with matching rest, hold and release pixels and working drag gestures');
 }
+async function verifyNewShapes(context) {
+  const page = await context.newPage();
+  page.on('pageerror',error=>errors.push(error.message));
+  await ready(page,'lake');
+  await page.getByRole('button',{name:'Add menu',exact:true}).click();
+  const trigger = page.getByRole('button',{name:'More actions',exact:true});
+  const menu = page.locator('.more-glass');
+  const surface = menu.locator('.more-surface');
+  const closed = await surface.boundingBox();
+  await menu.screenshot({path:resolve(evidence,'menu-closed.png')});
+  await trigger.click();
+  await page.waitForFunction(()=>{
+    const shape=window.glassDemo.shapes.find(shape=>shape.surface==='menu');
+    return shape?.width>66 && shape.width<218;
+  });
+  await page.waitForFunction(()=>window.glassDemo.shapes.some(shape=>shape.surface==='menu' && shape.width===220));
+  const opened = await surface.boundingBox();
+  assert.equal(opened.x+opened.width,closed.x+closed.width);
+  assert.equal(opened.y,closed.y);
+  await page.locator('#stage').screenshot({path:resolve(evidence,'menu-open.png')});
+  await menu.getByRole('button',{name:'Rename',exact:true}).click();
+  await menu.getByRole('textbox',{name:'Menu name'}).fill('My glass actions');
+  await menu.getByRole('textbox',{name:'Menu name'}).press('Enter');
+  await menu.getByRole('button',{name:'Copy',exact:true}).click();
+  await page.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
+  const payload = await page.evaluate(()=>navigator.clipboard.readText());
+  const config = JSON.parse(payload.split(/liquid-glass\.json\r?\n/).at(-1));
+  assert.deepEqual(config.items.map(item=>[item.kind,item.title,item.width]),[['menu','My glass actions',64]]);
+  await page.waitForFunction(async()=>{
+    const response = await fetch('/api/glass-handoff');
+    return (await response.json())?.config?.items?.[0]?.kind==='menu';
+  });
+  const copied = await page.evaluate(async config=>{
+    const {mountLiquidGlassReplica}=await import('/demo/replica.js');
+    const frame=await mountLiquidGlassReplica(document.body,config);
+    const doc=await frame.glassReady;
+    const trigger=doc.querySelector('.more-trigger');
+    trigger.click();
+    const action=doc.querySelector('[data-menu-action="close"]');
+    const result=[trigger.getAttribute('aria-label'),trigger.getAttribute('aria-expanded'),action.textContent];
+    action.click();
+    result.push(trigger.getAttribute('aria-expanded'));
+    frame.remove();
+    return result;
+  },config);
+  assert.deepEqual(copied,['My glass actions','true','Close','false']);
+  const drawShape = page.getByRole('button',{name:'Draw shape',exact:true});
+  async function drawCapsule(x1,x2) {
+    await drawShape.click();
+    await page.locator('#outline-mode').selectOption('capsule');
+    await page.mouse.move(x1,180);
+    await page.mouse.down();
+    await page.mouse.move(x2,244,{steps:8});
+    await page.mouse.up();
+    await page.locator('#keep-outline').waitFor();
+    await page.locator('#keep-outline').click();
+  }
+  await drawCapsule(110,210);
+  await drawCapsule(170,280);
+  await drawCapsule(250,340);
+  async function selectBand(right) {
+    await page.mouse.move(98,174);
+    await page.mouse.down();
+    await page.mouse.move(right,253,{steps:6});
+    await page.mouse.up();
+    assert.equal(await page.locator('[data-marquee-selected]').count(),2);
+  }
+  await selectBand(240);
+  await page.locator('#merge-shapes').click();
+  assert.equal(await page.locator('.probe[data-shape="custom"]').count(),2);
+  await selectBand(352);
+  await page.locator('#merge-shapes').click();
+  const combined = page.locator('.probe[data-shape="custom"]');
+  assert.equal(await combined.count(),1);
+  const merged = await combined.boundingBox();
+  assert.ok(merged.width>220 && merged.height>=60);
+  assert.equal(await page.evaluate(()=>document.elementFromPoint(225,212)?.dataset.shape),'custom');
+  await page.close();
+  record('Glass menu morphs and exports live actions, guided drawing reviews a template, and overlapping shapes merge twice');
+}
 try {
   // Use the caller's browser when supplied, otherwise Edge then Playwright Chromium.
   try { browser = await chromium.launch(process.env.GLASS_BROWSER_PATH ? { executablePath: process.env.GLASS_BROWSER_PATH } : { channel: 'msedge', headless: true }); }
@@ -237,6 +317,7 @@ try {
   assert.equal(new Set(wallpaperFrames).size,4);
   record('Three photo backgrounds and the grid switch both the stage and WebGL source');
   await verifySelection(context);
+  await verifyNewShapes(context);
   assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 18);
   assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 10);
   assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .35);
@@ -553,6 +634,7 @@ try {
   await page.locator('#outline-editor[data-snapped]').waitFor();
   await page.mouse.move(132,94);
   await page.mouse.up();
+  await page.locator('#keep-outline').click();
   const custom = page.locator('.probe[data-shape="custom"]');
   await custom.waitFor();
   await page.waitForFunction(()=>window.glassDemo.shapes.some(shape=>shape.outline?.length>=6));

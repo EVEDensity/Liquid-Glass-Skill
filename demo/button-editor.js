@@ -1,5 +1,6 @@
 import { en, zh } from './language.js';
 import { mountOutlineEditor } from './outline-editor.js';
+import { mergeGlassOutlines } from './merge-outline.js';
 import { createGlassIcon } from '../assets/glass-button.js';
 import { loadReplicaSources, mountReplica, portableScene } from './replica.js';
 
@@ -45,10 +46,12 @@ function aiSpec(config, strings) {
   ].join('\n');
 }
 
-export function mountButtonEditor({root,stage,setButtonText,setControlLabels,setButtonTypography,setButtonGeometry,addButton,removeButton,snapshot,snapshotSelection,onLanguageChange}) {
+export function mountButtonEditor({root,stage,setButtonText,setControlLabels,setButtonTypography,setButtonGeometry,previewOutline,addButton,addMenu,removeButton,snapshot,snapshotSelection,onLanguageChange}) {
   const canvasTools = document.querySelector('#canvas-tools');
   const canvasCopy = document.querySelector('#canvas-copy');
   const canvasDelete = document.querySelector('#canvas-delete');
+  const merge = document.querySelector('#merge-shapes');
+  const menuTool = document.querySelector('#add-menu');
   const resizeHandle = document.querySelector('#canvas-resize');
   const textTool = document.querySelector('#text-tool');
   const textEditor = document.querySelector('#text-editor');
@@ -131,6 +134,8 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   });
   segmentText.append(...segmentInputs);
   const outlineEditor = mountOutlineEditor(stage,{
+    getStrings:()=>strings,
+    onPreview:previewOutline,
     onDraw(geometry) {
       const button = addButton(geometry);
       if (button) select(button);
@@ -157,8 +162,9 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   function showOverlay(visible) {
     canvasTools.hidden = !visible;
     resizeHandle.hidden = !visible || !editable();
-    textTool.hidden = group.length>1;
-    canvasDelete.hidden = !editable();
+    textTool.hidden = group.length>1 || Boolean(selected?.matches('.more-glass'));
+    canvasDelete.hidden = !editable() && !selected?.matches('.more-glass');
+    merge.hidden = group.length<2 || !group.every(piece=>piece.matches('.probe'));
     count.hidden = group.length<2;
     count.textContent = group.length || '';
     updateCopyLabel();
@@ -180,8 +186,9 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     } else {
       width.value = height.value = '';
     }
-    add.disabled = root.querySelectorAll('.probe').length >= 5;
+    add.disabled = root.children.length >= 8;
     draw.disabled = add.disabled;
+    menuTool.disabled = add.disabled || Boolean(root.querySelector('.more-glass'));
     add.title = add.disabled ? strings.limit : '';
     draw.title = add.title;
     positionOverlay();
@@ -281,8 +288,10 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     if (button) {
       press = {button,started:performance.now(),x:event.clientX,y:event.clientY,moved:false};
       const hadGroup = group.length>0;
-      markGroup([]);
-      if (hadGroup) sync();
+      if (!event.shiftKey || !button.matches('.probe')) {
+        markGroup([]);
+        if (hadGroup) sync();
+      }
       showOverlay(false);
     } else if (event.target===root || event.target===stage) {
       // Claim the blank-canvas gesture before the browser starts a native selection drag.
@@ -312,7 +321,20 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   });
   root.addEventListener('click',event=>{
     const button = event.target.closest('.glass');
-    if (button && (event.detail===0 || (press?.button===button && !press.moved && performance.now()-press.started<400))) select(button);
+    const isClick = event.detail===0 || (press?.button===button && !press.moved && performance.now()-press.started<400);
+    if (button && !button.matches('.more-glass') && isClick) {
+      if (event.shiftKey && button.matches('.probe')) {
+        const current = selection().filter(piece=>piece.matches('.probe'));
+        const next = current.includes(button) ? current.filter(piece=>piece!==button) : [...current,button];
+        if (next.length<=1) select(next[0]);
+        else {
+          select(null,false);
+          markGroup(next);
+          sync();
+          showOverlay(true);
+        }
+      } else select(button);
+    }
     press = undefined;
   });
   canvasDelete.addEventListener('click',()=>{
@@ -322,6 +344,20 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     if (next) next.focus();
     else add.focus();
     message.textContent = strings.deleted;
+  });
+  merge.addEventListener('click',()=>{
+    const result = mergeGlassOutlines(group,stage);
+    if (!result.geometry) {
+      message.textContent = strings[result.error];
+      return;
+    }
+    const label = group.find(piece=>piece.textContent || piece.glassTypography?.icon);
+    const config = {...result.geometry,text:label?.textContent ?? '',typography:label?.glassTypography};
+    group.forEach(removeButton);
+    const mergedButton = addButton(config);
+    select(mergedButton);
+    mergedButton?.focus({preventScroll:true});
+    message.textContent = strings.merged;
   });
   textTool.addEventListener('click',()=>setTextEditor(textEditor.hidden));
   textEditor.querySelector('details').addEventListener('toggle',positionOverlay);
@@ -355,6 +391,11 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     const button = addButton();
     if (button) select(button);
   });
+  menuTool.addEventListener('click',()=>{
+    outlineEditor.stop();
+    const menu = addMenu();
+    if (menu) select(menu);
+  });
   draw.addEventListener('click',()=>{
     showOverlay(false);
     outlineEditor.start();
@@ -369,9 +410,9 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
       copySource.select();
     }
   }
-  function copySelected() {
-    if (!selection().length) return;
-    const config = editable() ? snapshot(selected) : snapshotSelection(selection());
+  function copySelected(items = selection()) {
+    if (!items.length) return;
+    const config = items.length===1 && items[0].matches('.probe') ? snapshot(items[0]) : snapshotSelection(items);
     copyText(aiSpec(config,strings),'copiedSpec');
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
       // The local skill reads the exact config copied to the clipboard.
@@ -380,7 +421,24 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
       }).catch(()=>{});
     }
   }
-  canvasCopy.addEventListener('click',copySelected);
+  canvasCopy.addEventListener('click',()=>copySelected());
+  root.addEventListener('glassmenuopen',()=>showOverlay(false));
+  root.addEventListener('glassmenuaction',async event=>{
+    if (event.detail.action==='copy') {
+      copySelected([event.target]);
+      return;
+    }
+    const design = aiSpec(snapshotSelection([event.target]),strings);
+    if (navigator.share) {
+      try {
+        await navigator.share({text:design,title:document.title});
+        return;
+      } catch (error) {
+        if (error.name==='AbortError') return;
+      }
+    }
+    await copyText(design,'menuShared');
+  });
   copyJS.addEventListener('click',async()=>{
     if (!selection().length) return;
     const config = editable() ? snapshot(selected) : snapshotSelection(selection());

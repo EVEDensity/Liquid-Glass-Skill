@@ -33,7 +33,7 @@ const server = http.createServer(async (req, res) => {
       const single = config?.version===2 && config.button;
       const selection = config?.version===3 && config.stage?.width>0 && config.stage?.height>0
         && Array.isArray(config.items) && config.items.length>=1 && config.items.length<=8
-        && config.items.every(item=>item && ['button','switch','slider','segment'].includes(item.kind)
+        && config.items.every(item=>item && ['button','switch','slider','segment','menu'].includes(item.kind)
           && [item.x,item.y,item.width,item.height].every(Number.isFinite));
       if ((!single && !selection) || !config.material) { res.writeHead(400).end(); return; }
       latestHandoff = {copiedAt:Date.now(),config};

@@ -29,7 +29,7 @@ function simplifyLoop(points,tolerance) {
   return anchors.length>=3?anchors:points;
 }
 
-function fitClosedStroke(raw,strength) {
+export function fitClosedStroke(raw,strength) {
   if (raw.length<3) return raw;
   const points=[...raw];
   // Collapse the tiny tail left when a stroke returns to its starting point.
@@ -82,7 +82,7 @@ function filterJitter(points,strength) {
   });
 }
 
-function geometryFromStroke(points) {
+export function geometryFromStroke(points) {
   if (points.length<3) return;
   const xs = points.map(([x])=>x);
   const ys = points.map(([,y])=>y);
@@ -114,16 +114,68 @@ function samplePerimeter(points,count=64) {
   });
 }
 
-export function mountOutlineEditor(stage,{onDraw,onCancel}) {
+function outlineBounds(points) {
+  const xs = points.map(([x])=>x);
+  const ys = points.map(([,y])=>y);
+  const x = Math.min(...xs), y = Math.min(...ys);
+  return [x,y,Math.max(...xs)-x,Math.max(...ys)-y];
+}
+
+function guideOutline(kind,[x,y,width,height]) {
+  if (kind==='ellipse') {
+    return Array.from({length:48},(_,i)=>{
+      const angle = i*Math.PI/24;
+      return [x+width*(1+Math.cos(angle))/2,y+height*(1+Math.sin(angle))/2];
+    });
+  }
+  const radius = Math.min(width/2,height/2,kind==='capsule'?Infinity:16);
+  const corners = [[x+width-radius,y+radius],[x+width-radius,y+height-radius],
+    [x+radius,y+height-radius],[x+radius,y+radius]];
+  return corners.flatMap(([cx,cy],corner)=>Array.from({length:9},(_,i)=>{
+    const angle = (corner-1+i/8)*Math.PI/2;
+    return [cx+radius*Math.cos(angle),cy+radius*Math.sin(angle)];
+  }));
+}
+
+function smartOutline(raw, fitted) {
+  if (raw.length<12) return fitted;
+  const bounds = outlineBounds(fitted);
+  const scale = Math.min(bounds[2],bounds[3]);
+  if (scale<24) return fitted;
+  const samples = samplePerimeter(fitted,48);
+  function deviations(from,to) {
+    return from.map(point=>Math.min(...to.map((end,i)=>distanceToEdge(point,to.at(i-1),end))));
+  }
+  let best = fitted;
+  let lowest = Math.max(2,scale*.065);
+  for (const kind of ['ellipse','capsule','rounded']) {
+    const guide = guideOutline(kind,bounds);
+    const errors = [...deviations(samples,guide),...deviations(guide,samples)];
+    const rms = Math.sqrt(errors.reduce((sum,error)=>sum+error*error,0)/errors.length);
+    if (rms<lowest && Math.max(...errors)<Math.max(5,scale*.17)) {
+      best = guide;
+      lowest = rms;
+    }
+  }
+  return best;
+}
+
+export function mountOutlineEditor(stage,{onDraw,onPreview,onCancel,getStrings}) {
   const overlay = stage.querySelector('#outline-editor');
   const ink = overlay.querySelector('polyline');
   const fill = overlay.querySelector('polygon');
   const closing = overlay.querySelector('line');
   const startPoint = overlay.querySelector('circle');
   const smoothing = overlay.querySelector('#outline-smoothing');
+  const mode = overlay.querySelector('#outline-mode');
+  const hint = overlay.querySelector('#outline-hint');
+  const keep = overlay.querySelector('#keep-outline');
+  const redraw = overlay.querySelector('#redraw-outline');
   const cancel = overlay.querySelector('#cancel-outline');
   let stroke;
+  let pending;
   let frame=0;
+  const traced = ()=>mode.value==='assist' || mode.value==='free';
   function paint(points = [],snapped=false) {
     const value = points.map(point=>point.join(',')).join(' ');
     ink.setAttribute('points',points.length<3?value:'');
@@ -141,19 +193,39 @@ export function mountOutlineEditor(stage,{onDraw,onCancel}) {
     closing.setAttribute('x2',last[0]);
     closing.setAttribute('y2',last[1]);
   }
-  const fitted = () => fitClosedStroke(stroke.points,smoothing.valueAsNumber/100);
+  function fitted(points, review = false) {
+    if (!traced()) return guideOutline(mode.value,outlineBounds(points));
+    const smooth = fitClosedStroke(points,smoothing.valueAsNumber/100);
+    return mode.value==='assist' && review ? smartOutline(points,smooth) : smooth;
+  }
+  function refresh() {
+    const key = pending ? 'drawReview' : traced() ? 'drawHint' : 'drawTemplate';
+    hint.dataset.i18n = key;
+    hint.textContent = getStrings()[key];
+    smoothing.disabled = !traced();
+    redraw.hidden = keep.hidden = !pending;
+    if (pending) {
+      const points = fitted(pending,true);
+      const geometry = geometryFromStroke(points);
+      keep.disabled = !geometry;
+      paint(geometry ? geometry.outline.map(([u,v])=>[geometry.x+u*geometry.width,geometry.y+v*geometry.height]) : points);
+      onPreview(geometry);
+    }
+  }
   function schedulePaint() {
     if (frame) return;
     frame=requestAnimationFrame(()=>{
       frame=0;
-      if (stroke) paint(fitted(),stroke.snapped);
+      if (stroke) paint(fitted(stroke.points),stroke.snapped);
     });
   }
   function stop() {
     stroke = undefined;
+    pending = undefined;
     cancelAnimationFrame(frame);
     frame=0;
     paint();
+    onPreview();
     overlay.hidden = true;
   }
   function dismiss() {
@@ -169,6 +241,10 @@ export function mountOutlineEditor(stage,{onDraw,onCancel}) {
   function append(event,box) {
     if (stroke.snapped || stroke.points.length>=2048) return;
     const next=point(event,box);
+    if (!traced()) {
+      stroke.points[1] = next;
+      return;
+    }
     const first=stroke.points[0];
     const last=stroke.points.at(-1);
     if (distance(next,last)<1.25) return;
@@ -180,7 +256,8 @@ export function mountOutlineEditor(stage,{onDraw,onCancel}) {
     stroke.points.push(next);
   }
   overlay.addEventListener('pointerdown',event=>{
-    if (event.button!==0 || stroke || event.target.closest('.outline-instructions')) return;
+    if (event.button!==0 || stroke || pending || event.target.closest('.outline-instructions')) return;
+    event.preventDefault();
     stroke = {id:event.pointerId,points:[point(event,stage.getBoundingClientRect())]};
     paint(stroke.points);
     overlay.setPointerCapture(event.pointerId);
@@ -195,23 +272,40 @@ export function mountOutlineEditor(stage,{onDraw,onCancel}) {
   overlay.addEventListener('pointerup',event=>{
     if (event.pointerId!==stroke?.id) return;
     append(event,stage.getBoundingClientRect());
-    const geometry = geometryFromStroke(fitted());
-    if (!geometry) {
-      stroke = undefined;
+    const points = stroke.points;
+    stroke = undefined;
+    if (!geometryFromStroke(fitted(points,true))) {
       paint();
       return;
     }
-    stop();
-    onDraw(geometry);
+    pending = points;
+    refresh();
+    keep.focus({preventScroll:true});
   });
   for (const type of ['pointercancel','lostpointercapture']) {
     overlay.addEventListener(type,event=>{ if (event.pointerId===stroke?.id) dismiss(); });
   }
   cancel.addEventListener('click',dismiss);
+  for (const control of [smoothing,mode]) control.addEventListener('input',refresh);
+  redraw.addEventListener('click',()=>{
+    pending = undefined;
+    paint();
+    onPreview();
+    refresh();
+    cancel.focus({preventScroll:true});
+  });
+  keep.addEventListener('click',()=>{
+    if (!pending) return;
+    const geometry = geometryFromStroke(fitted(pending,true));
+    if (!geometry) return;
+    stop();
+    onDraw(geometry);
+  });
   overlay.addEventListener('keydown',event=>{ if (event.key==='Escape') dismiss(); });
   return {
     start() {
       overlay.hidden = false;
+      refresh();
       stage.scrollIntoView({block:'nearest'});
       cancel.focus({preventScroll:true});
     },

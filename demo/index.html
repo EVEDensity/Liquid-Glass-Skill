@@ -14,8 +14,17 @@
     <div id="outline-editor" hidden>
       <svg aria-hidden="true"><polygon/><polyline/><line/><circle r="4"/></svg>
       <div class="outline-instructions">
-        <span data-i18n="drawHint">Draw one continuous outline. Release to close it.</span>
+        <span id="outline-hint" data-i18n="drawHint">Trace a rough outline, then review the shape.</span>
+        <label><span data-i18n="drawMode">Guide</span><select id="outline-mode">
+          <option value="assist" data-i18n="drawAssist">Smart outline</option>
+          <option value="free" data-i18n="drawFree">Freehand</option>
+          <option value="ellipse" data-i18n="drawEllipse">Ellipse</option>
+          <option value="capsule" data-i18n="capsule">Capsule</option>
+          <option value="rounded" data-i18n="rounded">Rounded rectangle</option>
+        </select></label>
         <label><span data-i18n="smoothing">Smoothing</span><input id="outline-smoothing" type="range" min="0" max="100" value="55"></label>
+        <button id="redraw-outline" type="button" data-i18n="redraw" hidden>Redraw</button>
+        <button id="keep-outline" type="button" data-i18n="keepOutline" hidden>Use shape</button>
         <button id="cancel-outline" type="button" data-i18n="cancelDraw">Cancel</button>
       </div>
     </div>
@@ -27,6 +36,7 @@
           <span id="selection-count" aria-hidden="true" hidden></span>
         </button>
         <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" aria-expanded="false" data-aria="editText" data-title="editText">T</button>
+        <button id="merge-shapes" type="button" data-i18n="mergeShapes" hidden>Merge shapes</button>
         <button id="canvas-delete" type="button" aria-label="Delete selected button" data-aria="deleteButton" data-title="deleteButton">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v6m4-6v6"/></svg>
         </button>
@@ -88,6 +98,7 @@
         <div class="shape-actions">
           <button id="draw-shape" type="button" data-i18n="drawShape">Draw shape</button>
           <button id="add-button" type="button" data-i18n="add">Add shape</button>
+          <button id="add-menu" type="button" data-i18n="addMenu">Add menu</button>
         </div>
       </header>
       <p class="selection-hint" data-i18n="selectionHint">Click a glass shape on the canvas to edit it.</p>

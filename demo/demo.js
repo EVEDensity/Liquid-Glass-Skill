@@ -2,6 +2,7 @@ import { stepGlassMotion, applyGlassImpulse, sampleGlassMotion } from '../assets
 import { GlassScene, PRESETS, normalizeGlassOutline, glassOutlineClip } from '../assets/liquid-glass-renderer.js';
 import { mountButtonEditor } from './button-editor.js';
 import { applyGlassTypography } from '../assets/glass-button.js';
+import { createGlassMenu } from './glass-menu.js';
 
 const exportNode = document.querySelector('#glass-button-config');
 const exported = exportNode ? JSON.parse(exportNode.textContent) : null;
@@ -76,9 +77,10 @@ function setButtonGeometry(button,shape,width,height) {
 function makeScene() {
   if (exported?.version === 3) return exported.items.map(item => {
     const piece = item.kind === 'switch' ? makeSwitch(item.on) : item.kind === 'slider' ? makeSlider(item.value)
-      : item.kind === 'segment' ? makeSegment(item.index) : createEditableButton(item);
+      : item.kind === 'segment' ? makeSegment(item.index)
+      : item.kind === 'menu' ? createGlassMenu(item.title,schedule) : createEditableButton(item);
     Object.assign(piece.style,{left:item.x+'px',top:item.y+'px',width:item.width+'px',height:item.height+'px',transform:''});
-    if (item.kind !== 'button') piece.glassLabels = item.labels;
+    if (item.labels) piece.glassLabels = item.labels;
     return piece;
   });
   const controls = exported?.controls;
@@ -249,6 +251,7 @@ let drag = null;
 let frame = 0;
 let transitionUntil = 0;
 let updateEditorOverlay;
+let outlinePreview;
 const presses = new WeakMap();
 function showScene() {
   root.replaceChildren(...makeScene());
@@ -278,6 +281,16 @@ function draw() {
   const now = performance.now();
   let colorSettling = false;
   const shapes = pieces.map(piece => {
+    if (piece.matches('.more-glass')) {
+      const surface = piece.querySelector('.more-surface');
+      const rect = surface.getBoundingClientRect();
+      if (surface.getAnimations().some(animation=>animation.playState==='running')) schedule();
+      return {
+        x:rect.left-box.left+rect.width/2, y:rect.top-box.top+rect.height/2,
+        width:rect.width, height:rect.height,
+        radius:parseFloat(getComputedStyle(surface).borderTopLeftRadius), surface:'menu'
+      };
+    }
     const rect = piece.getBoundingClientRect();
     const state = presses.get(piece);
     const press = state?.scale || 0;
@@ -366,6 +379,10 @@ function draw() {
     });
   });
   if (opaque) return;
+  if (outlinePreview) {
+    const {x,y,width,height,outline} = outlinePreview;
+    shapes.push({x:x+width/2,y:y+height/2,width,height,outline});
+  }
   scene.setSliderTrack(track);
   scene.setControlBases(bases);
   scene.setShapes(shapes);
@@ -400,6 +417,7 @@ function movePiece(piece, x, y) {
 }
 function bind(targets = pieces) {
   for (const piece of targets) {
+    if (piece.matches('.more-glass')) continue;
     piece.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
       if (piece.matches('.switch, .slider, .segment') || event.target.closest('input')) return;
@@ -467,7 +485,7 @@ function bind(targets = pieces) {
       movePiece(piece, state.x + move[0], state.y + move[1]);
     });
   }
-  const controls = targets.flatMap(piece => piece.matches('.probe') ? [] : [
+  const controls = targets.flatMap(piece => piece.matches('.probe,.more-glass') ? [] : [
     ...(piece.matches('button,input') ? [piece] : []), ...piece.querySelectorAll('button,input')
   ]);
   controls.forEach(control => {
@@ -550,6 +568,7 @@ function updatePresetLabels() {
   presetDescription.textContent = language === 'zh' ? chinesePresets[presetKey][1] : descriptions[presetKey];
 }
 function updateStageLabels() {
+  for (const menu of root.querySelectorAll('.more-glass')) menu.setGlassMenuLanguage(language);
   const labels = stageLabels[language];
   for (const piece of root.querySelectorAll('.switch,.slider,.segment')) {
     const custom = piece.glassLabels ?? [];
@@ -592,9 +611,23 @@ for (const key of exported ? [] : Object.keys(PRESETS)) {
 if (!exported) showPreset('apple');
 showScene();
 updateStageLabels();
+root.addEventListener('glassmenuopen',event=>{
+  for (const menu of root.querySelectorAll('.more-glass[data-menu-open]')) {
+    if (menu!==event.target) menu.closeGlassMenu();
+  }
+});
+document.addEventListener('pointerdown',event=>{
+  for (const menu of root.querySelectorAll('.more-glass[data-menu-open]')) {
+    if (!menu.contains(event.target)) menu.closeGlassMenu();
+  }
+});
 if (!exported) {
   updateEditorOverlay = mountButtonEditor({
     root, stage, setButtonText,
+    previewOutline(geometry) {
+      outlinePreview = geometry;
+      schedule();
+    },
     setControlLabels(piece,labels) {
       piece.glassLabels = labels;
       updateStageLabels();
@@ -638,6 +671,18 @@ if (!exported) {
       schedule();
       return button;
     },
+    addMenu() {
+      if (pieces.length >= 8 || root.querySelector('.more-glass')) return;
+      const menu = createGlassMenu('',schedule);
+      menu.style.right = '18px';
+      menu.style.top = '76px';
+      root.append(menu);
+      pieces.push(menu);
+      initPiece(menu);
+      menu.setGlassMenuLanguage(language);
+      schedule();
+      return menu;
+    },
     snapshot(button) {
       const {width,height} = button.getBoundingClientRect();
       const shape = button.dataset.shape;
@@ -654,6 +699,7 @@ if (!exported) {
       const items = selection.map(piece => {
         const rect = piece.getBoundingClientRect();
         const geometry = {x:rect.x-stageBounds.x,y:rect.y-stageBounds.y,width:rect.width,height:rect.height};
+        if (piece.matches('.more-glass')) return {kind:'menu',...geometry,title:piece.glassMenuTitle};
         if (piece.matches('.probe')) return {
           kind:'button',...geometry,shape:piece.dataset.shape,text:piece.textContent,
           ...(piece.glassOutline?{outline:piece.glassOutline}:{}),
