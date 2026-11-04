@@ -1,5 +1,5 @@
 import { stepGlassMotion, applyGlassImpulse, sampleGlassMotion } from '../assets/glass-motion.js';
-import { GlassScene, PRESETS } from '../assets/liquid-glass-renderer.js';
+import { GlassScene, PRESETS, normalizeGlassOutline, glassOutlineClip } from '../assets/liquid-glass-renderer.js';
 import { mountButtonEditor } from './button-editor.js';
 
 const exportNode = document.querySelector('#glass-button-config');
@@ -39,7 +39,7 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 let nextButtonId = 1;
 function shapeRadius(shape, width, height) {
   const half = Math.min(width,height)/2;
-  if (shape === 'square') return 0;
+  if (shape === 'square' || shape === 'custom') return 0;
   if (shape === 'rounded') return Math.min(16,half);
   return half;
 }
@@ -49,6 +49,7 @@ function createEditableButton(config = {}) {
   button.type = 'button';
   button.dataset.buttonId = config.id ?? String(nextButtonId++);
   button.dataset.shape = config.shape ?? 'circle';
+  button.glassOutline = normalizeGlassOutline(config.outline);
   button.toggleAttribute('data-export-selected',exported?.selected===button.dataset.buttonId);
   setButtonText(button,config.text ?? '');
   if (config.width != null) setButtonGeometry(button,button.dataset.shape,config.width,config.height);
@@ -67,6 +68,7 @@ function setButtonGeometry(button,shape,width,height) {
   button.style.width = width + 'px';
   button.style.height = height + 'px';
   button.style.setProperty('--button-radius',shape==='circle'?'50%':shapeRadius(shape,width,height)+'px');
+  button.style.clipPath = shape==='custom' && button.glassOutline ? glassOutlineClip(button.glassOutline) : '';
 }
 function makeScene() {
   const controls = exported?.controls;
@@ -347,7 +349,10 @@ function draw() {
     geometry.width *= grow;
     geometry.height *= grow;
     const radius = shapeRadius(piece.dataset.shape,geometry.width,geometry.height);
-    return liquidSurface({...geometry,radius},isCircle ? {surface:'lens'} : {});
+    return liquidSurface({...geometry,radius},{
+      surface:isCircle?'lens':undefined,
+      outline:piece.dataset.shape==='custom'?piece.glassOutline:undefined
+    });
   });
   if (opaque) return;
   scene.setSliderTrack(track);
@@ -584,10 +589,10 @@ if (!exported) {
       updateStageLabels();
       updatePresetLabels();
     },
-    addButton() {
+    addButton(config) {
       if (pieces.length >= 8) return null;
       const offset = (pieces.length-4)*18;
-      const button = createEditableButton({
+      const button = createEditableButton(config ?? {
         shape:'capsule',width:132,height:56,
         x:Math.max(12,stage.clientWidth/2-66+offset),y:64+offset
       });
@@ -603,7 +608,8 @@ if (!exported) {
       const shape = button.dataset.shape;
       return {
         version:2, language,
-        button:{shape,text:button.textContent,width,height,radius:shapeRadius(shape,width,height)},
+        button:{shape,text:button.textContent,width,height,radius:shapeRadius(shape,width,height),
+          ...(shape==='custom'&&button.glassOutline?{outline:button.glassOutline}:{})},
         material:{...material}
       };
     }

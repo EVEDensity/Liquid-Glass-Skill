@@ -141,19 +141,33 @@ body {
 @media (forced-colors: active) {
   .language-tools::before { border: 2px solid Highlight; }
 }
-.language-tools button, #add-button, #copy-button {
+.language-tools button, #add-button, #draw-shape, #copy-button {
   min-height: 44px; min-width: 44px; padding: 6px 12px;
   border: 1px solid #d2ccbc; border-radius: 10px; background: #fff;
   color: #192529; cursor: pointer; font: inherit;
 }
 .language-tools button { border-color: transparent; background: transparent; padding-inline: 0; }
-#presets-panel :is(#add-button,#copy-button,select,input:not([type="range"])) {
+#presets-panel :is(#add-button,#draw-shape,#copy-button,select,input:not([type="range"])) {
   background: var(--panel-raised); border-color: var(--panel-line); color: var(--panel-ink);
 }
 #presets-panel button:hover:not(:disabled) { border-color: var(--panel-accent); }
 #presets-panel :focus-visible { outline: 2px solid var(--panel-accent); outline-offset: 2px; }
 #presets-panel button:disabled { opacity: .6; cursor: default; }
 #canvas-tools, #canvas-resize { position: absolute; left: 0; top: 0; z-index: 5; }
+.shape-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+#outline-editor { position: absolute; inset: 0; z-index: 6; cursor: crosshair; touch-action: none; background: rgb(20 27 23 / .14); }
+#outline-editor svg { width: 100%; height: 100%; pointer-events: none; }
+#outline-editor polyline { fill: none; stroke: #fffaee; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.outline-instructions {
+  position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px);
+  padding: 5px 8px 5px 12px; border-radius: 10px; color: #fffaf0; background: #252823;
+  font-size: 13px;
+}
+.outline-instructions button {
+  min-height: 40px; padding: 0 10px; border: 0; border-radius: 6px;
+  background: #f8f4ec; color: #332c24; font: inherit; cursor: pointer; white-space: nowrap;
+}
 #canvas-tools {
   padding: 4px; border: 1px solid rgb(255 255 255 / .24); border-radius: 14px;
   background: #252823; color: #fffaf0; box-shadow: 0 5px 18px rgb(0 0 0 / .24);

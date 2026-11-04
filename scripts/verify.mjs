@@ -361,6 +361,48 @@ try {
   await page.locator('#add-button').click();
   await page.locator('#canvas-tools').waitFor();
   record('Floating toolbar deletes only the selected shape and recovers when a shape is added');
+  await page.getByRole('button',{name:'Draw shape',exact:true}).click();
+  await page.mouse.move(155,115);
+  await page.mouse.down();
+  for (const [x,y] of [[300,115],[300,145],[220,145],[220,204],[155,204],[155,115]]) {
+    await page.mouse.move(x,y);
+  }
+  await page.mouse.up();
+  const custom = page.locator('.probe[data-shape="custom"]');
+  await custom.waitFor();
+  await page.waitForFunction(()=>window.glassDemo.shapes.some(shape=>shape.outline?.length>=6));
+  assert.equal(await page.evaluate(()=>document.elementFromPoint(175,165).dataset.shape),'custom');
+  assert.notEqual(await page.evaluate(()=>document.elementFromPoint(260,174).dataset.shape),'custom');
+  await page.getByRole('button',{name:'Copy selected button for AI',exact:true}).click();
+  const customHandoff = await page.evaluate(()=>navigator.clipboard.readText());
+  const customConfig = JSON.parse(customHandoff.split(/liquid-glass\.json\r?\n/).at(-1));
+  assert.equal(customConfig.button.shape,'custom');
+  assert.equal(customConfig.button.outline.length,7);
+  const customStage = await page.locator('#stage').boundingBox();
+  const customBox = await custom.boundingBox();
+  const customPixels = await page.screenshot({clip:customBox,style:hideEditor,path:resolve(evidence,'custom-glass-shape.png')});
+  const customPage = await context.newPage();
+  await customPage.route(compactURL,route=>route.fulfill({
+    contentType:'text/html',body:'<!doctype html><body style="margin:0"><main style="position:relative"><div style="position:absolute"></div></main></body>'
+  }));
+  await customPage.goto(compactURL);
+  await customPage.evaluate(async ({config,stageBox,box})=>{
+    const stage = document.querySelector('main');
+    Object.assign(stage.style,{width:stageBox.width+'px',height:stageBox.height+'px',background:'url(/assets/glass-grid.svg) center/cover'});
+    const target = stage.firstElementChild;
+    Object.assign(target.style,{left:box.x-stageBox.x+'px',top:box.y-stageBox.y+'px'});
+    const source = new Image();
+    source.src = '/assets/glass-grid.svg';
+    await source.decode();
+    const {createLiquidGlassButton} = await import('/assets/glass-button.js');
+    createLiquidGlassButton(target,config,{stage,source,requireExact:true});
+  },{config:customConfig,stageBox:customStage,box:customBox});
+  await customPage.locator('[data-refractive]').waitFor();
+  await customPage.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  const copiedCustomPixels = await customPage.screenshot({clip:customBox,path:resolve(evidence,'custom-glass-export.png')});
+  assert.ok(customPixels.equals(copiedCustomPixels),'A copied concave outline must render pixel for pixel');
+  await customPage.close();
+  record('A hand-drawn concave glass button preserves its hit area and exports pixel for pixel');
   await ready(page);
   // Sample the actual rendered selector, rather than the CSS transition or its target.
   await page.waitForFunction(()=>window.glassDemo.shapes.some(s=>s.surface==='selection'));

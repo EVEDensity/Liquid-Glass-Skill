@@ -1,4 +1,5 @@
 import { en, zh } from './language.js';
+import { mountOutlineEditor } from './outline-editor.js';
 
 async function loadButtonSources() {
   const paths = ['liquid-glass-renderer.js','mount-liquid-glass.js','glass-motion.js','glass-button.js'].map(file=>'../assets/'+file);
@@ -23,7 +24,7 @@ function portableJS(config, sources) {
 }
 
 function aiSpec(config, strings) {
-  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/1b2440e86299a734ea9c81394bd06aba1636a498/assets/glass-button.js';
+  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/ce25b57d9290e442f7f6a60ccc57ca4f031be12c/assets/glass-button.js';
   return [
     strings.handoffTask,
     runtime,
@@ -49,6 +50,8 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   const widthRange = document.querySelector('#width-range');
   const heightRange = document.querySelector('#height-range');
   const add = document.querySelector('#add-button');
+  const draw = document.querySelector('#draw-shape');
+  const customShape = shape.querySelector('option[value="custom"]');
   const message = document.querySelector('#editor-message');
   const dialog = document.querySelector('#copy-dialog');
   const copySource = document.querySelector('#copy-source');
@@ -56,6 +59,13 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   let runtime;
   let resize;
   let strings = en;
+  const outlineEditor = mountOutlineEditor(stage,{
+    onDraw(geometry) {
+      const button = addButton(geometry);
+      if (button) select(button);
+    },
+    onCancel() { draw.focus({preventScroll:true}); }
+  });
 
   function positionOverlay() {
     if (!selected || canvasTools.hidden) return;
@@ -76,6 +86,7 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   }
   function sync() {
     for (const control of [shape,width,height,widthRange,heightRange,copyJS]) control.disabled = !selected;
+    customShape.disabled = !selected?.glassOutline;
     if (selected) {
       shape.value = selected.dataset.shape;
       syncSize(selected.getBoundingClientRect());
@@ -83,7 +94,9 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
       width.value = height.value = '';
     }
     add.disabled = root.querySelectorAll('.probe').length >= 5;
+    draw.disabled = add.disabled;
     add.title = add.disabled ? strings.limit : '';
+    draw.title = add.title;
     positionOverlay();
   }
   function syncSize(rect) {
@@ -174,8 +187,13 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,ad
   width.addEventListener('change',()=>applyDimensions());
   height.addEventListener('change',applyDimensions);
   add.addEventListener('click',()=>{
+    outlineEditor.stop();
     const button = addButton();
     if (button) select(button);
+  });
+  draw.addEventListener('click',()=>{
+    showOverlay(false);
+    outlineEditor.start();
   });
   async function copyText(value, status) {
     try {
