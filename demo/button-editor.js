@@ -26,7 +26,7 @@ function portableJS(config, sources) {
   ].join('\n');
 }
 
-const handoffRevision = '6dc584baa4770f155ce45d30e4e7059806b76509';
+const handoffRevision = 'dee5331d0814ddf89771e9ad74aef19b0e834f82';
 const handoffRepository = 'https://github.com/EVEDensity/Liquid-Glass-Skill';
 
 function aiSpec(config, strings) {
