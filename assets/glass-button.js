@@ -1,4 +1,6 @@
 /* Standalone liquid-glass button. MIT. */
+import { mountLiquidGlass } from './mount-liquid-glass.js';
+
 const css = `
 .liquid-glass-export {
   position: relative; isolation: isolate; box-sizing: border-box;
@@ -27,6 +29,8 @@ const css = `
     inset 0 -2px var(--lg-rim) rgb(192 233 244 / .55), var(--lg-prism);
 }
 .liquid-glass-export::before { transition-property: transform, scale, box-shadow; }
+.liquid-glass-export[data-refractive] { z-index: 1; }
+.liquid-glass-export[data-refractive]::before { display: none; }
 .liquid-glass-export:focus-visible { outline: 2px solid #15648a; outline-offset: 5px; }
 @supports not (backdrop-filter: blur(1px)) {
   .liquid-glass-export::before { background: #e9f2f4; }
@@ -43,7 +47,75 @@ const css = `
 }
 `;
 
-export function createLiquidGlassButton(target, config) {
+function attachButtonOptics(button, config, {stage,source,liveSource=false}) {
+  if (!stage?.contains(button) || !source) return;
+  const doc = button.ownerDocument;
+  const view = doc.defaultView;
+  const canvas = doc.createElement('canvas');
+  canvas.setAttribute('aria-hidden','true');
+  canvas.hidden = true;
+  Object.assign(canvas.style,{position:'absolute',inset:'0',width:'100%',height:'100%',pointerEvents:'none',zIndex:'0'});
+  stage.append(canvas);
+  const reduced = view.matchMedia('(prefers-reduced-motion: reduce)');
+  const circle = config.button.shape==='circle';
+  let press=0, sx=0, sy=0, tx=0, ty=0, lastMove=0, lastFrame=0, tapUntil=0, frame=0, contact;
+  const optics = mountLiquidGlass({
+    canvas,source,liveSource,material:{...config.material,surfaceOnly:true},
+    onAvailabilityChange(available) { button.toggleAttribute('data-refractive',available); },
+    getFrame() {
+      const box = canvas.getBoundingClientRect();
+      const rect = button.getBoundingClientRect();
+      const x = rect.left-box.left+rect.width/2;
+      const y = rect.top-box.top+rect.height/2;
+      const grow = 1+press*(circle?.30:.15);
+      return {shapes:[{
+        x,y,width:rect.width*grow,height:rect.height*grow,radius:config.button.radius*grow,
+        surface:circle?'lens':undefined,press,stretchX:sx,stretchY:sy,
+        motion:Math.min(1,Math.hypot(sx,sy)/32),
+        contactX:contact?contact.clientX-box.left:x,contactY:contact?contact.clientY-box.top:y
+      }]};
+    }
+  });
+  function animate(now) {
+    frame = 0;
+    const elapsed = lastFrame ? now-lastFrame : 16;
+    lastFrame = now;
+    const held = button.hasAttribute('data-held') || now<tapUntil ? 1 : 0;
+    if (!held || now-lastMove>105) tx=ty=0;
+    const settle = (current,target,time) => reduced.matches || Math.abs(current-target)<.02
+      ? target : current+(target-current)*(1-Math.exp(-elapsed/time));
+    press = settle(press,held,56);
+    sx = settle(sx,tx,70);
+    sy = settle(sy,ty,70);
+    optics.invalidate();
+    if (press!==held || sx || sy || now<tapUntil) frame=view.requestAnimationFrame(animate);
+    else lastFrame=0;
+  }
+  function update(event,dx=0,dy=0) {
+    if (event?.type==='click' && event.detail===0) tapUntil=view.performance.now()+145;
+    if (event?.type==='pointerdown' || event?.type==='pointermove') contact=event;
+    if (dx || dy) {
+      lastMove=view.performance.now();
+      const gain=Math.min(1.8,42/Math.hypot(dx,dy));
+      tx=dx*gain;
+      ty=dy*gain;
+    }
+    if (!frame) frame=view.requestAnimationFrame(animate);
+  }
+  const resize = new view.ResizeObserver(optics.invalidate);
+  resize.observe(button);
+  button.invalidateLiquidGlass = optics.invalidate;
+  button.disposeLiquidGlass = () => {
+    view.cancelAnimationFrame(frame);
+    resize.disconnect();
+    optics.destroy();
+    canvas.remove();
+    button.removeAttribute('data-refractive');
+  };
+  return update;
+}
+
+export function createLiquidGlassButton(target, config, options = {}) {
   const doc = target.ownerDocument;
   const root = target.getRootNode();
   if (!root.querySelector('[data-liquid-glass-export-style]')) {
@@ -78,6 +150,7 @@ export function createLiquidGlassButton(target, config) {
     suppressClick = false;
     gesture = {id:event.pointerId,x:event.clientX,y:event.clientY,originX:x,originY:y,moved:false};
     button.setAttribute('data-held','');
+    update?.(event);
   });
   button.addEventListener('pointermove',event=>{
     if (gesture?.id!==event.pointerId) return;
@@ -90,6 +163,7 @@ export function createLiquidGlassButton(target, config) {
     }
     const nextX = gesture.originX+dx;
     const nextY = gesture.originY+dy;
+    const deltaX = nextX-x, deltaY = nextY-y;
     const stretch = Math.min(.16,Math.hypot(nextX-x,nextY-y)/140);
     const horizontal = Math.abs(nextX-x)>=Math.abs(nextY-y);
     button.style.setProperty('--lg-stretch-x',horizontal?1+stretch:1-stretch*.45);
@@ -97,6 +171,7 @@ export function createLiquidGlassButton(target, config) {
     x = nextX;
     y = nextY;
     button.style.translate = x+'px '+y+'px';
+    update?.(event,deltaX,deltaY);
   });
   function release(event) {
     if (gesture?.id!==event.pointerId) return;
@@ -105,14 +180,21 @@ export function createLiquidGlassButton(target, config) {
     button.removeAttribute('data-held');
     button.style.removeProperty('--lg-stretch-x');
     button.style.removeProperty('--lg-stretch-y');
+    update?.(event);
   }
   for (const event of ['pointerup','pointercancel','pointerleave','lostpointercapture']) button.addEventListener(event,release);
   button.addEventListener('click',event=>{
+    update?.(event);
     if (!suppressClick || !event.detail) return;
     suppressClick = false;
     event.preventDefault();
     event.stopImmediatePropagation();
   },true);
   target.append(button);
+  let update = attachButtonOptics(button,config,options);
+  if (update) {
+    const dispose = button.disposeLiquidGlass;
+    button.disposeLiquidGlass = () => { update=undefined; dispose(); };
+  }
   return button;
 }

@@ -22,7 +22,14 @@ export function mountLiquidGlass({
     frameId = 0;
     if (!active || destroyed) return;
     if (!uploaded || liveSource) {
-      if (!scene.setSource(source)) return;
+      try {
+        if (!scene.setSource(source)) return;
+      } catch {
+        // Unreadable pixels (for example a cross-origin image) use the CSS fallback.
+        scene.destroy();
+        syncAvailability();
+        return;
+      }
       uploaded = true;
     }
     const { shapes, sliderTrack = null, controlBases = {} } = getFrame();
