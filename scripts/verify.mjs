@@ -35,6 +35,173 @@ async function ready(page, wallpaper = 'grid') {
   await page.waitForFunction(() => window.glassDemo?.source);
   await selectWallpaper(page,wallpaper);
 }
+async function verifySelection(context) {
+  const selectionPage = await context.newPage();
+  selectionPage.on('pageerror',error=>errors.push(error.message));
+  await ready(selectionPage);
+  const controlBoxes = await Promise.all(['switch','slider','segment'].map(kind=>selectionPage.locator('.'+kind).boundingBox()));
+  const [toggleBox,sliderBox,segmentBox] = controlBoxes;
+  const centerX = toggleBox.x+toggleBox.width/2;
+  for (const box of controlBoxes) assert.equal(box.x+box.width/2,centerX);
+  const centersY = controlBoxes.map(box=>box.y+box.height/2);
+  assert.ok(centersY[1]-centersY[0]>=130);
+  assert.equal(centersY[2]-centersY[1],centersY[1]-centersY[0]);
+  await selectionPage.getByRole('switch').click();
+  await selectionPage.locator('#text-tool').click();
+  await selectionPage.locator('#button-text').fill('Night mode');
+  await selectionPage.locator('#button-text').press('Enter');
+  await selectionPage.locator('.slider input').click();
+  await selectionPage.locator('#text-tool').click();
+  await selectionPage.locator('#button-text').fill('Intensity');
+  await selectionPage.locator('#button-text').press('Enter');
+  await selectionPage.locator('.segment button').nth(1).click();
+  await selectionPage.locator('#text-tool').click();
+  await selectionPage.getByLabel('Second segment').fill('Weekly');
+  await selectionPage.getByLabel('Second segment').press('Enter');
+  await selectionPage.locator('.probe').click();
+  await selectionPage.locator('#text-tool').click();
+  const iconOptions = selectionPage.locator('#label-icons button');
+  assert.equal(await iconOptions.count(),24);
+  assert.equal(await iconOptions.locator('svg[aria-hidden="true"]').count(),24);
+  assert.ok((await iconOptions.allTextContents()).every(text=>!text.trim()));
+  await selectionPage.getByRole('button',{name:'Claude',exact:true}).click();
+  await selectionPage.locator('.probe [data-glass-icon][fill="currentColor"]').waitFor();
+  await selectionPage.locator('#label-icons').screenshot({path:resolve(evidence,'visual-icon-picker.png')});
+  const start = {x:segmentBox.x-18,y:toggleBox.y-40};
+  const end = {x:segmentBox.x+segmentBox.width+18,y:segmentBox.y+segmentBox.height+14};
+  await selectionPage.mouse.move(start.x,start.y);
+  await selectionPage.mouse.down();
+  await selectionPage.mouse.move(end.x,end.y,{steps:8});
+  await selectionPage.locator('#selection-box').waitFor();
+  await selectionPage.mouse.up();
+  assert.equal(await selectionPage.locator('[data-marquee-selected]').count(),3);
+  assert.equal(await selectionPage.locator('#selection-count').textContent(),'3');
+  await selectionPage.locator('#canvas-copy').click();
+  await selectionPage.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
+  const selectionSpec = await selectionPage.evaluate(()=>navigator.clipboard.readText());
+  const config = JSON.parse(selectionSpec.split(/liquid-glass\.json\r?\n/).at(-1));
+  assert.equal(config.version,3);
+  assert.deepEqual(config.items.map(item=>item.kind),['switch','slider','segment']);
+  assert.deepEqual(config.items.map(item=>item.labels),[['Night mode'],['Intensity'],['Day','Weekly','Month']]);
+  assert.equal(Object.hasOwn(config,'backdrop'),false);
+  await selectionPage.waitForFunction(async expected=>{
+    const latest = await (await fetch('/api/glass-handoff')).json();
+    return JSON.stringify(latest?.config)===JSON.stringify(expected);
+  },config);
+  await selectionPage.keyboard.press('Escape');
+  const selectionHost = await context.newPage();
+  selectionHost.on('pageerror',error=>errors.push(error.message));
+  await selectionHost.goto(new URL('/replica-controls-test',url).href);
+  await selectionHost.evaluate(async config=>{
+    const {mountLiquidGlassReplica} = await import('/demo/replica.js');
+    document.body.replaceChildren();
+    document.body.style.cssText='margin:0;background:#e5e0d6 url(/assets/glass-grid.svg) center/cover no-repeat;width:'+config.stage.width+'px;height:'+config.stage.height+'px';
+    const frame=await mountLiquidGlassReplica(document.body,config,{backdrop:'/assets/glass-grid.svg'});
+    await frame.glassReady;
+  },config);
+  const mountedControls = selectionHost.frameLocator('iframe');
+  const replica = selectionHost.frames()[1];
+  await replica.waitForFunction(()=>window.glassDemo?.source && window.glassDemo.shapes.length===3);
+  assert.equal(await mountedControls.locator('.glass').count(),3);
+  assert.equal(await mountedControls.getByRole('switch',{name:'Night mode'}).getAttribute('aria-checked'),String(config.items[0].on));
+  assert.equal(await mountedControls.getByRole('slider',{name:'Intensity'}).inputValue(),String(config.items[1].value));
+  assert.equal(await mountedControls.getByRole('button',{name:'Weekly'}).getAttribute('aria-pressed'),'true');
+  const sample = scope=>scope.evaluate(async()=>{
+    const canvas=document.querySelector('#scene');
+    window.dispatchEvent(new Event('resize'));
+    return new Promise(resolve=>requestAnimationFrame(()=>{
+      const gl=canvas.getContext('webgl2');
+      const shapes=window.glassDemo.shapes.slice(0,3);
+      const pixels=shapes.map(({x,y,width})=>{
+        const span=Math.floor(width)-8;
+        const data=new Uint8Array(span*11*4);
+        gl.readPixels(Math.floor(x-span/2),canvas.height-Math.floor(y)-6,span,11,gl.RGBA,gl.UNSIGNED_BYTE,data);
+        return [...data];
+      });
+      const outside=new Uint8Array(4);
+      gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,outside);
+      resolve({pixels,shapes,alpha:outside[3],state:[
+        document.querySelector('.switch').getAttribute('aria-checked'),
+        document.querySelector('.slider input').value,
+        document.querySelector('.segment [aria-pressed="true"]').textContent
+      ]});
+    }));
+  });
+  const compareSelection = (phase,before,copied)=>{
+    assert.equal(copied.alpha,0);
+    assert.deepEqual(copied.state,before.state,phase);
+    assert.deepEqual(copied.shapes,before.shapes,phase);
+    const differences = copied.pixels.map((area,i)=>area.filter((channel,j)=>channel!==before.pixels[i][j]).length);
+    assert.deepEqual(differences,[0,0,0],phase);
+    return copied.pixels;
+  };
+  const settled = scope=>scope.waitForFunction(()=>window.glassDemo.shapes.slice(0,3).every(s=>!s.press&&!s.motion&&!s.stretchX));
+  await settled(selectionPage);
+  await settled(replica);
+  const atRest=compareSelection('at rest',await sample(selectionPage),await sample(replica));
+  const holdX=sliderBox.x+30+(sliderBox.width-60)*config.items[1].value/100;
+  const holdFrames = [];
+  for (const [p,scope] of [[selectionPage,selectionPage],[selectionHost,replica]]) {
+    await p.bringToFront();
+    await p.mouse.move(holdX,centersY[1]);
+    await p.mouse.down();
+    await scope.waitForFunction(()=>window.glassDemo.shapes[1].press===1);
+    holdFrames.push(await sample(scope));
+    if (p===selectionHost) await p.mouse.move(sliderBox.x+sliderBox.width-55,centersY[1]+9,{steps:8});
+    await p.mouse.up();
+  }
+  const heldPixels=compareSelection('held',...holdFrames);
+  assert.notDeepEqual(heldPixels[1],atRest[1]);
+  const copiedValue=Number(await mountedControls.getByRole('slider').inputValue());
+  assert.ok(copiedValue>80);
+  const left=toggleBox.x+24,right=toggleBox.x+toggleBox.width-15;
+  const mouse=selectionHost.mouse;
+  await mouse.move(config.items[0].on?right:left,centersY[0]);
+  await mouse.down();
+  await mouse.move(config.items[0].on?left:right,centersY[0],{steps:8});
+  await mouse.up();
+  await mouse.move(centerX,centersY[2]);
+  await mouse.down();
+  await mouse.move(segmentBox.x+segmentBox.width*.84,centersY[2],{steps:8});
+  await mouse.up();
+  assert.equal(await mountedControls.getByRole('switch').getAttribute('aria-checked'),String(!config.items[0].on));
+  assert.equal(await mountedControls.getByRole('button',{name:'Month'}).getAttribute('aria-pressed'),'true');
+  // Drive the source controls to the same values without relying on timing of two drag trajectories.
+  await selectionPage.evaluate(value=>{
+    document.querySelector('.switch').click();
+    const input=document.querySelector('.slider input');
+    input.value=value;
+    input.dispatchEvent(new Event('input'));
+    document.querySelector('.segment button:last-child').click();
+  },copiedValue);
+  await settled(replica);
+  const released=await sample(replica);
+  await selectionPage.waitForFunction(expected=>JSON.stringify(window.glassDemo.shapes.slice(0,3))===JSON.stringify(expected),released.shapes);
+  compareSelection('released',await sample(selectionPage),released);
+  await selectionPage.bringToFront();
+  await selectionPage.mouse.move(start.x,start.y);
+  await selectionPage.mouse.down();
+  await selectionPage.mouse.move(end.x,end.y,{steps:5});
+  await selectionPage.mouse.up();
+  await selectionPage.locator('#copy-button').click();
+  await selectionPage.getByRole('status').getByText('Offline JavaScript copied.').waitFor();
+  const offline = await selectionPage.evaluate(()=>navigator.clipboard.readText());
+  const offlineResult = await selectionHost.evaluate(async code=>{
+    const url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));
+    try {
+      const {mountLiquidGlassSelection}=await import(url);
+      const frame=mountLiquidGlassSelection(document.body);
+      const doc=await frame.glassReady;
+      const result={count:doc.querySelectorAll('.glass').length,background:doc.getElementById('stage').style.backgroundImage};
+      frame.remove();
+      return result;
+    } finally { URL.revokeObjectURL(url); }
+  },offline);
+  assert.deepEqual(offlineResult,{count:3,background:''});
+  await selectionHost.close();
+  await selectionPage.close();
+  record('Visual SVG picker and marquee selection export three editable controls with matching rest, hold and release pixels and working drag gestures');
+}
 try {
   // Use the caller's browser when supplied, otherwise Edge then Playwright Chromium.
   try { browser = await chromium.launch(process.env.GLASS_BROWSER_PATH ? { executablePath: process.env.GLASS_BROWSER_PATH } : { channel: 'msedge', headless: true }); }
@@ -58,6 +225,7 @@ try {
   }
   assert.equal(new Set(wallpaperFrames).size,4);
   record('Three photo backgrounds and the grid switch both the stage and WebGL source');
+  await verifySelection(context);
   assert.equal(await page.evaluate(() => window.glassDemo.material.refraction), 18);
   assert.equal(await page.evaluate(() => window.glassDemo.material.merge), 10);
   assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .35);
@@ -381,7 +549,7 @@ try {
   assert.notEqual(await page.evaluate(()=>document.elementFromPoint(260,174).dataset.shape),'custom');
   await page.locator('#text-tool').click();
   await page.locator('#canvas-tools').screenshot({path:resolve(evidence,'compact-text-editor.png')});
-  await page.locator('#label-icon').selectOption('star');
+  await page.locator('#label-icons [data-icon="star"]').click();
   assert.equal(await custom.locator('svg[data-glass-icon]').count(),1);
   assert.equal(await custom.textContent(),'');
   await page.locator('#button-text').fill('形状');

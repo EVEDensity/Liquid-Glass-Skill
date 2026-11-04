@@ -4,6 +4,8 @@ Liquid Glass UI is an independent MIT implementation. Its visual direction is in
 
 The preset values are starting points selected for this project after inspecting the lab's controls. They are not Apple's published shader constants, and this project is not affiliated with Apple.
 
+The icon picker includes [Lucide](https://lucide.dev/icons/) interface icons and [Lobe Icons](https://github.com/lobehub/lobe-icons) monochrome AI brand marks. Their license notices accompany the SVG geometry in `assets/glass-button.js` and in offline exports. The marks identify their respective brands.
+
 `assets/glass-backdrop.svg` and `assets/preview.png` are original works created for this repository.
 
 Development-only packages:

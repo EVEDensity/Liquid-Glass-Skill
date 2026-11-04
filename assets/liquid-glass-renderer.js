@@ -28,9 +28,10 @@ uniform float u_sliderFill; // filled track end X
 uniform vec3 u_tint;
 uniform bool u_surfaceOnly;
 uniform bool u_exactBackdrop;
+uniform bool u_controlLayer;
 
 vec4 compositeGlass(vec3 base,vec3 glass,float mask){
-  return u_surfaceOnly&&!u_exactBackdrop?vec4(glass,mask):vec4(mix(base,glass,mask),1.);
+  return u_surfaceOnly&&!u_exactBackdrop&&!u_controlLayer?vec4(glass,mask):vec4(mix(base,glass,mask),1.);
 }
 
 float roundedBox(vec2 p, vec2 halfSize, float radius){
@@ -243,9 +244,15 @@ void main(){
   vec3 base=sampleAt(p)*(1.-u_dim);
   float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y);
   if(field>aa){
+    if(u_controlLayer){
+      float baseCoverage=max(baseMask(p,u_switchBase,.5),baseMask(p,u_segmentBase,.5));
+      float r=u_sliderTrack.w*.5;
+      if(r>0.)baseCoverage=max(baseCoverage,trackMask(p,u_sliderTrack.x+r,u_sliderTrack.x+u_sliderTrack.z-r,r,.5));
+      if(baseCoverage<=0.){color=vec4(0.,0.,0.,shadow);return;}
+    }
     // Exact export also paints the backdrop inside deep notches in the button's box.
     bool inButtonBox=u_count==1&&all(lessThanEqual(abs(p-u_shapes[0].xy),u_shapes[0].zw*.5));
-    bool transparent=u_surfaceOnly&&(!u_exactBackdrop||(field>56.&&!inButtonBox));
+    bool transparent=u_surfaceOnly&&!u_controlLayer&&(!u_exactBackdrop||(field>56.&&!inButtonBox));
     color=transparent?vec4(0.):vec4(base*(1.-shadow),1.);
     return;
   }
@@ -394,7 +401,7 @@ export function glassOutlineClip(outline) {
 export class GlassScene {
   constructor(canvas, options = {}) {
     this.canvas=canvas; this.shapes=[]; this.sliderTrack=null; this.controlBases={}; this.material={...PRESETS.apple}; this.available=false; this.destroyed=false; this.source=null;
-    this.gl=canvas.getContext('webgl2',{alpha:options.surfaceOnly===true,premultipliedAlpha:false,antialias:false}); if(!this.gl)return; const gl=this.gl, shaders=[];
+    this.gl=canvas.getContext('webgl2',{alpha:options.surfaceOnly===true||options.controlLayer===true,premultipliedAlpha:false,antialias:false}); if(!this.gl)return; const gl=this.gl, shaders=[];
     try {
       for(const [type,code] of [[gl.VERTEX_SHADER,vertex],[gl.FRAGMENT_SHADER,fragment]]){const shader=gl.createShader(type);shaders.push(shader);gl.shaderSource(shader,code);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader));}
       this.program=gl.createProgram();shaders.forEach(shader=>gl.attachShader(this.program,shader));gl.linkProgram(this.program);if(!gl.getProgramParameter(this.program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(this.program));gl.useProgram(this.program);
@@ -409,9 +416,11 @@ export class GlassScene {
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
       gl.activeTexture(gl.TEXTURE0);
       const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      names.push('controlLayer');
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
       gl.uniform1i(this.uniforms.exactBackdrop,options.exactBackdrop?1:0);
+      gl.uniform1i(this.uniforms.controlLayer,options.controlLayer?1:0);
       this.available=true;this.setMaterial(options);
       this.observer=new ResizeObserver(()=>this.render());this.observer.observe(canvas);
       this.contextLost=event=>{event.preventDefault();this.available=false;canvas.dispatchEvent(new Event('glassfallback'));};canvas.addEventListener('webglcontextlost',this.contextLost);

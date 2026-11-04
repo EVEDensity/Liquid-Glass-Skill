@@ -12,7 +12,7 @@ Apply glass only to the named buttons or controls. Preserve the host background,
 
 When the user has not chosen a shape or material, use the main demo at `http://localhost:58423/demo/`. Start `node scripts/serve.mjs` from the skill directory if the demo is not running. Ask the user to select a button, try the presets, and click **Copy for AI** when satisfied. The local server keeps the latest copied config in memory at `GET http://localhost:58423/api/glass-handoff`. Record the baseline `copiedAt` first and use only a new selection, or use the clipboard payload the user pastes. Keep target files intact until the choice arrives.
 
-Use the returned geometry and material directly. Copy for AI and direct skill integration use `assets/glass-button.js` with the same renderer and motion modules. Reuse the original host pixels for WebGL. If the host pixels cannot be read, explain the CSS fallback and confirm it before changing the target. Do not add a background to make the optics work.
+Use the returned geometry and material directly. A single custom button (version 2) uses `assets/glass-button.js`. For a moving control or a marquee selection (version 3), use `mountLiquidGlassReplica` from `demo/replica.js`; it replays the same native gestures and draws the selected pieces in a transparent frame. Use the existing page's readable image URL as the `backdrop` sampling source, keep the frame aligned with the host's crop, and bind the project's actions to the native elements in the frame. Copy for AI and direct skill integration use these same runtimes. If the host pixels cannot be read, explain the fallback and confirm it before changing the target. Do not add a background to make the optics work.
 
 ## Choose the rendering path
 

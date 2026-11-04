@@ -9,8 +9,8 @@ const files = {
   license: '../LICENSE'
 };
 
-export async function loadReplicaSources() {
-  const entries = await Promise.all(Object.entries(files).map(async ([key,path]) => {
+export async function loadReplicaSources(config) {
+  const entries = await Promise.all(Object.entries(files).filter(([key])=>key!=='backdrop'||config?.version!==3).map(async ([key,path]) => {
     const response = await fetch(new URL(path,import.meta.url));
     if (!response.ok) throw new Error('Could not load '+path);
     return [key,await response.text()];
@@ -18,11 +18,12 @@ export async function loadReplicaSources() {
   return Object.fromEntries(entries);
 }
 
-export function portableScene(config, sources) {
-  const backdrop = 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(sources.backdrop);
+export function portableScene(config, sources, options = {}) {
+  const grid = sources.backdrop && 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(sources.backdrop);
+  const backdrop = options.backdrop ?? (config.version === 3 ? null : grid);
   return {
-    config: {...config,backdrop},
-    css: sources.css.replace('../assets/glass-grid.svg',backdrop),
+    config: {...config,backdrop:backdrop && new URL(backdrop,options.baseURI ?? document.baseURI).href},
+    css: sources.css.replace("url('../assets/glass-grid.svg')",grid ? `url('${grid}')` : 'none'),
     runtime: [sources.renderer,sources.motion,sources.mount,sources.button,sources.runtime]
       .map(source=>source.replace(/^import .*;\r?\n/gm,'')).join('\n')
   };
@@ -31,8 +32,8 @@ export function portableScene(config, sources) {
 // Use a separate document so host styles cannot change the captured scene.
 export function mountReplica(target, {config,css,runtime}) {
   const frame = target.ownerDocument.createElement('iframe');
-  const button = config.buttons.find(item=>item.id===config.selected);
-  frame.title = button.text || (config.language==='zh'?'液态玻璃按钮':'Liquid glass button');
+  const button = config.buttons?.find(item=>item.id===config.selected);
+  frame.title = button?.text || (config.language==='zh'?'液态玻璃控件':'Liquid glass controls');
   frame.width = config.stage.width;
   frame.height = config.stage.height;
   Object.assign(frame.style,{
@@ -40,6 +41,7 @@ export function mountReplica(target, {config,css,runtime}) {
   });
   target.append(frame);
   const doc = frame.contentDocument;
+  frame.glassReady = new Promise(resolve=>doc.addEventListener('glassready',()=>resolve(doc),{once:true}));
   doc.documentElement.lang = config.language==='zh'?'zh-CN':'en';
   doc.documentElement.setAttribute('data-glass-export','');
   const style = doc.createElement('style');
@@ -64,6 +66,6 @@ export function mountReplica(target, {config,css,runtime}) {
   return frame;
 }
 
-export async function mountLiquidGlassReplica(target, config) {
-  return mountReplica(target, portableScene(config, await loadReplicaSources()));
+export async function mountLiquidGlassReplica(target, config, options) {
+  return mountReplica(target, portableScene(config, await loadReplicaSources(config), {baseURI:target.ownerDocument.baseURI,...options}));
 }

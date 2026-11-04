@@ -28,13 +28,13 @@ const descriptions = {
   plain: 'A sharp lens with no blur, haze, or tint.',
   prism: 'Separates colors strongly along the refractive edge.'
 };
-const scene = new GlassScene(document.querySelector('#scene'));
+const scene = new GlassScene(document.querySelector('#scene'),{controlLayer:exported?.version===3});
 const stage = document.querySelector('#stage');
 const root = document.querySelector('#controls');
 if (exported) {
   stage.style.width = exported.stage.width + 'px';
   stage.style.height = exported.stage.height + 'px';
-  stage.style.backgroundImage = 'url("' + exported.backdrop + '")';
+  if (exported.version === 3) document.documentElement.setAttribute('data-glass-selection','');
 }
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 let nextButtonId = 1;
@@ -74,6 +74,13 @@ function setButtonGeometry(button,shape,width,height) {
   button.style.clipPath = shape==='custom' && button.glassOutline ? glassOutlineClip(button.glassOutline) : '';
 }
 function makeScene() {
+  if (exported?.version === 3) return exported.items.map(item => {
+    const piece = item.kind === 'switch' ? makeSwitch(item.on) : item.kind === 'slider' ? makeSlider(item.value)
+      : item.kind === 'segment' ? makeSegment(item.index) : createEditableButton(item);
+    Object.assign(piece.style,{left:item.x+'px',top:item.y+'px',width:item.width+'px',height:item.height+'px',transform:''});
+    if (item.kind !== 'button') piece.glassLabels = item.labels;
+    return piece;
+  });
   const controls = exported?.controls;
   const buttons = exported?.buttons.map(createEditableButton) ?? [createEditableButton()];
   return [makeSwitch(controls?.switchOn ?? true),makeSlider(controls?.level ?? 35),
@@ -85,7 +92,7 @@ function makeSwitch(on) {
   button.type = 'button';
   button.setAttribute('role', 'switch');
   button.setAttribute('aria-checked', String(on));
-  Object.assign(button.style, {left: '50%', top: '36.8%', transform: 'translate(-50%, -50%)'});
+  Object.assign(button.style, {left: '50%', top: 'calc(50% - var(--control-spacing))', transform: 'translate(-50%, -50%)'});
   button.innerHTML = '<span class="track" aria-hidden="true"></span><span class="knob" aria-hidden="true"></span>';
   const commit = next => {
     on = next;
@@ -131,7 +138,7 @@ function makeSwitch(on) {
   return button;
 }
 function makeSegment(selected) {
-  const segment = glass('segment', '<span class="selection" aria-hidden="true"></span>', '50%', '63.2%');
+  const segment = glass('segment', '<span class="selection" aria-hidden="true"></span>', '50%', 'calc(50% + var(--control-spacing))');
   segment.removeAttribute('tabindex');
   segment.setAttribute('role', 'group');
   // Keep the ends in segment units so a resize also resizes an in-flight lens.
@@ -261,7 +268,8 @@ function activePress(piece, now) {
 function draw() {
   frame = 0;
   updateEditorOverlay?.();
-  const opaque = !scene.available || matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
+  const opaque = !scene.available || (exported?.version === 3 && !sourceReady)
+    || matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
   stage.classList.toggle('fallback', opaque);
   document.querySelector('#scene').hidden = opaque;
   const box = stage.getBoundingClientRect();
@@ -524,11 +532,12 @@ function selectWallpaper(button) {
   return setBackdrop(image,button);
 }
 for (const button of wallpapers) button.addEventListener('click',()=>selectWallpaper(button));
-if (exported) {
+if (exported?.backdrop) {
   const image = new Image();
+  if (exported.version === 3) image.crossOrigin = 'anonymous';
   image.src = exported.backdrop;
   setBackdrop(image);
-} else {
+} else if (!exported) {
   selectWallpaper(wallpapers[0]);
 }
 const options = document.querySelector('#preset-options');
@@ -542,11 +551,26 @@ function updatePresetLabels() {
 }
 function updateStageLabels() {
   const labels = stageLabels[language];
-  root.querySelector('.switch').setAttribute('aria-label',labels.switch);
-  root.querySelector('.slider input').setAttribute('aria-label',labels.slider);
-  const segment = root.querySelector('.segment');
-  segment.setAttribute('aria-label',labels.period);
-  segment.querySelectorAll('button').forEach((button,index)=>button.textContent=labels.periods[index]);
+  for (const piece of root.querySelectorAll('.switch,.slider,.segment')) {
+    const custom = piece.glassLabels ?? [];
+    if (piece.matches('.segment')) {
+      piece.setAttribute('aria-label',labels.period);
+      piece.querySelectorAll('button').forEach((button,index)=>{
+        button.textContent = custom[index] || labels.periods[index];
+      });
+      continue;
+    }
+    const control = piece.matches('.switch') ? piece : piece.querySelector('input');
+    control.setAttribute('aria-label',custom[0] || (control===piece ? labels.switch : labels.slider));
+    let caption = piece.querySelector('.control-caption');
+    if (!caption && custom[0]) {
+      caption = document.createElement('span');
+      caption.className = 'control-caption';
+      caption.setAttribute('aria-hidden','true');
+      piece.append(caption);
+    }
+    if (caption) { caption.textContent=custom[0] ?? ''; caption.hidden=!custom[0]; }
+  }
   for (const button of root.querySelectorAll('.probe')) {
     button.setAttribute('aria-label',button.textContent || labels.button);
   }
@@ -571,6 +595,10 @@ updateStageLabels();
 if (!exported) {
   updateEditorOverlay = mountButtonEditor({
     root, stage, setButtonText,
+    setControlLabels(piece,labels) {
+      piece.glassLabels = labels;
+      updateStageLabels();
+    },
     setButtonTypography(button,typography) {
       button.glassTypography = typography;
       applyGlassTypography(button,typography);
@@ -620,7 +648,25 @@ if (!exported) {
           ...(button.glassTypography?{typography:button.glassTypography}:{})},
         material:{...material}
       };
+    },
+    snapshotSelection(selection) {
+      const stageBounds = stage.getBoundingClientRect();
+      const items = selection.map(piece => {
+        const rect = piece.getBoundingClientRect();
+        const geometry = {x:rect.x-stageBounds.x,y:rect.y-stageBounds.y,width:rect.width,height:rect.height};
+        if (piece.matches('.probe')) return {
+          kind:'button',...geometry,shape:piece.dataset.shape,text:piece.textContent,
+          ...(piece.glassOutline?{outline:piece.glassOutline}:{}),
+          ...(piece.glassTypography?{typography:piece.glassTypography}:{})
+        };
+        if (piece.matches('.switch')) return {kind:'switch',...geometry,on:piece.getAttribute('aria-checked')==='true',labels:piece.glassLabels??[]};
+        if (piece.matches('.slider')) return {kind:'slider',...geometry,value:piece.querySelector('input').valueAsNumber,labels:piece.glassLabels??[]};
+        const tabs = [...piece.querySelectorAll('button')];
+        return {kind:'segment',...geometry,index:tabs.findIndex(tab=>tab.getAttribute('aria-pressed')==='true'),labels:tabs.map(tab=>tab.textContent)};
+      });
+      return {version:3,language,material:{...material},stage:{width:stageBounds.width,height:stageBounds.height},items};
     }
   });
 }
 window.glassDemo = { get available() { return scene.available; }, get material() { return { ...material }; }, get source() { return sourceReady; }, get slider() { const knob = scene.shapes.find(shape => shape.slider); return knob && { knob: { ...knob }, track: { ...scene.sliderTrack } }; }, get shapes() { return scene.shapes.map(shape => ({ ...shape })); }, get bases() { return structuredClone(scene.controlBases); } };
+if (exported) document.dispatchEvent(new Event('glassready'));

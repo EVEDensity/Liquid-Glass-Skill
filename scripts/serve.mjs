@@ -24,13 +24,18 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(403).end(); return;
       }
       const length = Number(req.headers['content-length']);
-      if (!Number.isInteger(length) || length<1 || length>4096) { res.writeHead(413).end(); return; }
+      if (!Number.isInteger(length) || length<1 || length>65536) { res.writeHead(413).end(); return; }
       let body = '';
       for await (const chunk of req) body += chunk;
       let config;
       try { config = JSON.parse(body); }
       catch { res.writeHead(400).end(); return; }
-      if (config?.version !== 2 || !config.button || !config.material) { res.writeHead(400).end(); return; }
+      const single = config?.version===2 && config.button;
+      const selection = config?.version===3 && config.stage?.width>0 && config.stage?.height>0
+        && Array.isArray(config.items) && config.items.length>=1 && config.items.length<=8
+        && config.items.every(item=>item && ['button','switch','slider','segment'].includes(item.kind)
+          && [item.x,item.y,item.width,item.height].every(Number.isFinite));
+      if ((!single && !selection) || !config.material) { res.writeHead(400).end(); return; }
       latestHandoff = {copiedAt:Date.now(),config};
       res.writeHead(204).end();
       return;

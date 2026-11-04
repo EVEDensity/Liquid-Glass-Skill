@@ -10,6 +10,7 @@
   <main id="stage">
     <canvas id="scene" aria-hidden="true"></canvas>
     <section id="controls"></section>
+    <div id="selection-box" hidden aria-hidden="true"></div>
     <div id="outline-editor" hidden>
       <svg aria-hidden="true"><polygon/><polyline/><line/><circle r="4"/></svg>
       <div class="outline-instructions">
@@ -23,6 +24,7 @@
         <button id="canvas-copy" type="button" aria-label="Copy selected button for AI" data-aria="canvasCopy" data-title="canvasCopy">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h1"/></svg>
           <span data-i18n="copyReplica">Copy for AI</span>
+          <span id="selection-count" aria-hidden="true" hidden></span>
         </button>
         <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" aria-expanded="false" data-aria="editText" data-title="editText">T</button>
         <button id="canvas-delete" type="button" aria-label="Delete selected button" data-aria="deleteButton" data-title="deleteButton">
@@ -32,20 +34,13 @@
       <div id="text-editor" hidden>
         <label for="button-text" data-i18n="buttonText">Button text</label>
         <input id="button-text" maxlength="100">
-        <div class="typography-fields">
-          <label><span data-i18n="icon">Icon</span><select id="label-icon">
-            <option value="" data-i18n="iconNone">None</option>
-            <option value="plus" data-i18n="iconPlus">Plus</option>
-            <option value="check" data-i18n="iconCheck">Check</option>
-            <option value="arrow" data-i18n="iconArrow">Arrow</option>
-            <option value="search" data-i18n="iconSearch">Search</option>
-            <option value="play" data-i18n="iconPlay">Play</option>
-            <option value="heart" data-i18n="iconHeart">Heart</option>
-            <option value="star" data-i18n="iconStar">Star</option>
-            <option value="download" data-i18n="iconDownload">Download</option>
-            <option value="settings" data-i18n="iconSettings">Settings</option>
-            <option value="close" data-i18n="iconClose">Close</option>
-          </select></label>
+        <div id="segment-text" hidden></div>
+        <div id="label-style">
+          <div class="icon-picker" role="group" data-aria="icon" aria-label="Icon">
+            <div id="label-icons"></div>
+            <input id="label-icon" type="hidden">
+          </div>
+          <div class="typography-fields">
           <label><span data-i18n="fontSize">Size (px)</span><input id="label-size" type="number" min="8" max="72" value="15"></label>
           <label><span data-i18n="fontWeight">Weight</span><select id="label-weight">
             <option value="400" data-i18n="regular">Regular</option>
@@ -64,6 +59,7 @@
               <label><span data-i18n="textY">Vertical (%)</span><input id="label-y" type="number" min="0" max="100" value="50"></label>
             </div>
           </details>
+          </div>
         </div>
       </div>
     </div>

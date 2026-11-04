@@ -1,5 +1,7 @@
 import { en, zh } from './language.js';
 import { mountOutlineEditor } from './outline-editor.js';
+import { createGlassIcon } from '../assets/glass-button.js';
+import { loadReplicaSources, mountReplica, portableScene } from './replica.js';
 
 async function loadButtonSources() {
   const paths = ['liquid-glass-renderer.js','mount-liquid-glass.js','glass-motion.js','glass-button.js'].map(file=>'../assets/'+file);
@@ -24,6 +26,11 @@ function portableJS(config, sources) {
 }
 
 function aiSpec(config, strings) {
+  if (config.version === 3) return [
+    strings.selectionTask,
+    'https://github.com/EVEDensity/Liquid-Glass-Skill/tree/main',
+    strings.selectionMount,'','liquid-glass.json',JSON.stringify(config)
+  ].join('\n');
   const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/6b1a49621c5d8229387638c9424e12edf61e3373/assets/glass-button.js';
   return [
     strings.handoffTask,
@@ -35,7 +42,7 @@ function aiSpec(config, strings) {
   ].join('\n');
 }
 
-export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,setButtonGeometry,addButton,removeButton,snapshot,onLanguageChange}) {
+export function mountButtonEditor({root,stage,setButtonText,setControlLabels,setButtonTypography,setButtonGeometry,addButton,removeButton,snapshot,snapshotSelection,onLanguageChange}) {
   const canvasTools = document.querySelector('#canvas-tools');
   const canvasCopy = document.querySelector('#canvas-copy');
   const canvasDelete = document.querySelector('#canvas-delete');
@@ -43,6 +50,12 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
   const textTool = document.querySelector('#text-tool');
   const textEditor = document.querySelector('#text-editor');
   const text = document.querySelector('#button-text');
+  const textLabel = text.previousElementSibling;
+  const segmentText = document.querySelector('#segment-text');
+  const labelStyle = document.querySelector('#label-style');
+  const iconGrid = document.querySelector('#label-icons');
+  const selectionBox = document.querySelector('#selection-box');
+  const count = document.querySelector('#selection-count');
   const typographyFields = {
     size:document.querySelector('#label-size'),weight:document.querySelector('#label-weight'),
     family:document.querySelector('#label-family'),
@@ -63,10 +76,57 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
   const dialog = document.querySelector('#copy-dialog');
   const copySource = document.querySelector('#copy-source');
   let selected;
+  let group = [];
+  let marquee;
   let runtime;
+  let replicaSources;
   let resize;
   let press;
   let strings = en;
+  const selection = () => group.length ? group : selected ? [selected] : [];
+  const editable = () => selected?.matches('.probe') && !group.length;
+  const iconNames = ['', 'plus','check','arrow','search','play','heart','star','download','settings','close','sparkles',
+    'mail','home','lock','camera','bell','calendar','bookmark','link','eye','claude','openai','gemini'];
+  const iconButtons = iconNames.map(name=>{
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.dataset.icon = name;
+    option.dataset.aria = option.dataset.title = 'icon'+(name ? name[0].toUpperCase()+name.slice(1) : 'None');
+    option.append(createGlassIcon(document,name || 'none'));
+    option.addEventListener('click',()=>{
+      typographyFields.icon.value=name;
+      typographyFields.icon.dispatchEvent(new Event('input'));
+      syncIcons();
+    });
+    return option;
+  });
+  iconGrid.append(...iconButtons);
+  iconGrid.addEventListener('keydown',event=>{
+    const index = iconButtons.indexOf(event.target);
+    if (index<0) return;
+    const step = {ArrowLeft:-1,ArrowRight:1,ArrowUp:-6,ArrowDown:6}[event.key];
+    const next = event.key==='Home' ? 0 : event.key==='End' ? iconButtons.length-1
+      : step ? (index+step+iconButtons.length)%iconButtons.length : -1;
+    if (next<0) return;
+    event.preventDefault();
+    iconButtons[next].focus();
+  });
+  function syncIcons() {
+    for (const option of iconButtons) {
+      const active = option.dataset.icon===typographyFields.icon.value;
+      option.setAttribute('aria-pressed',String(active));
+      option.tabIndex = active ? 0 : -1;
+    }
+  }
+  const segmentInputs = Array.from({length:3},(_,i)=>{
+    const input = document.createElement('input');
+    input.maxLength = 100;
+    input.dataset.aria = 'segmentLabel'+i;
+    input.addEventListener('input',()=>setControlLabels(selected,segmentInputs.map(field=>field.value)));
+    input.addEventListener('keydown',closeTextOnKey);
+    return input;
+  });
+  segmentText.append(...segmentInputs);
   const outlineEditor = mountOutlineEditor(stage,{
     onDraw(geometry) {
       const button = addButton(geometry);
@@ -76,26 +136,36 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
   });
 
   function positionOverlay() {
-    if (!selected || canvasTools.hidden) return;
+    if (!selection().length || canvasTools.hidden) return;
     const bounds = stage.getBoundingClientRect();
-    const rect = selected.getBoundingClientRect();
+    const rects = selection().map(piece=>piece.getBoundingClientRect());
+    const left = Math.min(...rects.map(rect=>rect.left));
+    const right = Math.max(...rects.map(rect=>rect.right));
+    const top = Math.min(...rects.map(rect=>rect.top));
+    const bottom = Math.max(...rects.map(rect=>rect.bottom));
     const toolWidth = canvasTools.offsetWidth;
     const toolHeight = canvasTools.offsetHeight;
-    const x = Math.max(6,Math.min(bounds.width-toolWidth-6,rect.left-bounds.left+(rect.width-toolWidth)/2));
-    const above = rect.top-bounds.top-toolHeight-12;
-    const y = above >= 6 ? above : Math.max(6,Math.min(bounds.height-toolHeight-6,rect.bottom-bounds.top+12));
+    const x = Math.max(6,Math.min(bounds.width-toolWidth-6,(left+right-toolWidth)/2-bounds.left));
+    const above = top-bounds.top-toolHeight-12;
+    const y = above >= 6 ? above : Math.max(6,Math.min(bounds.height-toolHeight-6,bottom-bounds.top+12));
     canvasTools.style.translate = `${x}px ${y}px`;
-    resizeHandle.style.translate = `${Math.max(14,Math.min(bounds.width-14,rect.right-bounds.left))}px ${Math.max(14,Math.min(bounds.height-14,rect.bottom-bounds.top))}px`;
+    if (!resizeHandle.hidden) resizeHandle.style.translate = `${Math.max(14,Math.min(bounds.width-14,right-bounds.left))}px ${Math.max(14,Math.min(bounds.height-14,bottom-bounds.top))}px`;
   }
   function showOverlay(visible) {
-    canvasTools.hidden = resizeHandle.hidden = !visible;
+    canvasTools.hidden = !visible;
+    resizeHandle.hidden = !visible || !editable();
+    textTool.hidden = group.length>1;
+    canvasDelete.hidden = !editable();
+    count.hidden = group.length<2;
+    count.textContent = group.length || '';
     if (visible) positionOverlay();
     else setTextEditor(false);
   }
   function sync() {
-    for (const control of [shape,width,height,widthRange,heightRange,copyJS]) control.disabled = !selected;
+    for (const control of [shape,width,height,widthRange,heightRange]) control.disabled = !editable();
+    copyJS.disabled = !selection().length;
     customShape.disabled = !selected?.glassOutline;
-    if (selected) {
+    if (editable()) {
       shape.value = selected.dataset.shape;
       syncSize(selected.getBoundingClientRect());
     } else {
@@ -114,14 +184,21 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
     heightRange.value = height.value;
   }
   function select(button,show = true) {
+    markGroup([]);
     if (selected !== button) {
       selected?.removeAttribute('aria-current');
       selected = button;
       selected?.setAttribute('aria-current','true');
-      text.value = selected?.textContent ?? '';
+      const segment = selected?.matches('.segment');
+      text.hidden = textLabel.hidden = Boolean(segment);
+      segmentText.hidden = !segment;
+      labelStyle.hidden = !selected?.matches('.probe');
+      text.value = selected?.matches('.probe') ? selected.textContent : selected?.glassLabels?.[0] ?? '';
+      if (segment) [...selected.querySelectorAll('button')].forEach((tab,i)=>segmentInputs[i].value=tab.textContent);
       for (const [key,field] of Object.entries(typographyFields)) {
         field.value = selected?.glassTypography?.[key] ?? defaultTypography[key];
       }
+      syncIcons();
       message.textContent = '';
       sync();
     }
@@ -131,11 +208,12 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
     textEditor.hidden = !open;
     textTool.setAttribute('aria-expanded',String(open));
     if (open) {
-      text.select();
+      (segmentText.hidden ? text : segmentInputs[0]).select();
     }
     positionOverlay();
   }
   function applyDimensions() {
+    if (!editable()) return;
     const rect = selected.getBoundingClientRect();
     const w = limit(width.valueAsNumber,rect.width);
     const h = limit(height.valueAsNumber,rect.height);
@@ -168,16 +246,60 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
     event.preventDefault();
     resizeCorner(selected.getBoundingClientRect(),...direction);
   });
+  function markGroup(next) {
+    for (const piece of group) piece.removeAttribute('data-marquee-selected');
+    group = next;
+    for (const piece of group) piece.setAttribute('data-marquee-selected','');
+  }
+  function sweep(event) {
+    const box = stage.getBoundingClientRect();
+    const x = Math.max(box.left,Math.min(box.right,event.clientX));
+    const y = Math.max(box.top,Math.min(box.bottom,event.clientY));
+    const left = Math.min(marquee.x,x), right = Math.max(marquee.x,x);
+    const top = Math.min(marquee.y,y), bottom = Math.max(marquee.y,y);
+    marquee.active ||= Math.hypot(right-left,bottom-top)>=5;
+    if (!marquee.active) return;
+    selectionBox.hidden = false;
+    Object.assign(selectionBox.style,{left:left-box.left+'px',top:top-box.top+'px',width:right-left+'px',height:bottom-top+'px'});
+    markGroup([...root.children].filter(piece=>{
+      const rect=piece.getBoundingClientRect();
+      return rect.left<right && rect.right>left && rect.top<bottom && rect.bottom>top;
+    }));
+  }
   stage.addEventListener('pointerdown',event=>{
-    const button = event.target.closest('.probe');
-    if (button && event.button===0) {
-      press = {button,started:performance.now()};
-      canvasTools.hidden = resizeHandle.hidden = true;
+    if (event.button!==0 || !event.isPrimary) return;
+    const button = event.target.closest('.glass');
+    if (button) {
+      press = {button,started:performance.now(),x:event.clientX,y:event.clientY,moved:false};
+      markGroup([]);
+      showOverlay(false);
+    } else if (event.target===root || event.target===stage) {
+      select(null,false);
+      press = undefined;
+      marquee = {id:event.pointerId,x:event.clientX,y:event.clientY,active:false};
+      stage.setPointerCapture(event.pointerId);
     } else if (!event.target.closest('#canvas-tools,#canvas-resize,.language-tools')) showOverlay(false);
   });
+  stage.addEventListener('pointermove',event=>{
+    if (event.pointerId===marquee?.id) sweep(event);
+    if (press && Math.hypot(event.clientX-press.x,event.clientY-press.y)>=5) press.moved=true;
+  });
+  function finishMarquee(event) {
+    if (event.pointerId!==marquee?.id) return;
+    if (event.type==='pointerup') sweep(event);
+    else markGroup([]);
+    marquee=undefined;
+    selectionBox.hidden=true;
+    if (group.length===1) select(group[0]);
+    else { sync(); showOverlay(group.length>1); }
+  }
+  for (const type of ['pointerup','pointercancel','lostpointercapture']) stage.addEventListener(type,finishMarquee);
+  document.addEventListener('keydown',event=>{
+    if (event.key==='Escape' && group.length) { markGroup([]); sync(); showOverlay(false); }
+  });
   root.addEventListener('click',event=>{
-    const button = event.target.closest('.probe');
-    if (button && (event.detail===0 || (press?.button===button && performance.now()-press.started<400))) select(button);
+    const button = event.target.closest('.glass');
+    if (button && (event.detail===0 || (press?.button===button && !press.moved && performance.now()-press.started<400))) select(button);
     press = undefined;
   });
   canvasDelete.addEventListener('click',()=>{
@@ -190,7 +312,10 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
   });
   textTool.addEventListener('click',()=>setTextEditor(textEditor.hidden));
   textEditor.querySelector('details').addEventListener('toggle',positionOverlay);
-  text.addEventListener('input',()=>setButtonText(selected,text.value));
+  text.addEventListener('input',()=>{
+    if (editable()) setButtonText(selected,text.value);
+    else if (selected) setControlLabels(selected,[text.value]);
+  });
   for (const field of Object.values(typographyFields)) {
     field.addEventListener('input',()=>{
       const values = Object.fromEntries(Object.entries(typographyFields).map(([key,input])=>{
@@ -201,11 +326,12 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
       setButtonTypography(selected,values);
     });
   }
-  text.addEventListener('keydown',event=>{
+  function closeTextOnKey(event) {
     if (event.isComposing || !['Enter','Escape'].includes(event.key)) return;
     setTextEditor(false);
     textTool.focus();
-  });
+  }
+  text.addEventListener('keydown',closeTextOnKey);
   shape.addEventListener('change',()=>{applyDimensions();sync();});
   widthRange.addEventListener('input',()=>{width.value=widthRange.value;applyDimensions();});
   heightRange.addEventListener('input',()=>{height.value=heightRange.value;applyDimensions();});
@@ -231,7 +357,8 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
     }
   }
   function copySelected() {
-    const config = snapshot(selected);
+    if (!selection().length) return;
+    const config = editable() ? snapshot(selected) : snapshotSelection(selection());
     copyText(aiSpec(config,strings),'copiedSpec');
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
       // The local skill reads the exact config copied to the clipboard.
@@ -242,16 +369,34 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
   }
   canvasCopy.addEventListener('click',copySelected);
   copyJS.addEventListener('click',async()=>{
-    const config = snapshot(selected);
+    const config = editable() ? snapshot(selected) : snapshotSelection(selection());
     copyJS.disabled = true;
     try {
-      runtime ??= loadButtonSources();
-      await copyText(portableJS(config,await runtime),'copiedReplica');
+      if (config.version === 3) {
+        replicaSources ??= loadReplicaSources(config);
+        const sources = await replicaSources;
+        const payload = portableScene(config,sources);
+        const module = [
+          '// Import and call mountLiquidGlassSelection(target, {backdrop: yourImageURL}).',
+          '/*\n'+sources.license.trim()+'\n*/',
+          mountReplica.toString(),
+          'const payload = '+JSON.stringify(payload)+';',
+          'export function mountLiquidGlassSelection(target, {backdrop} = {}) {',
+          '  const url = backdrop ? new URL(backdrop,target.ownerDocument.baseURI).href : null;',
+          '  return mountReplica(target, {...payload,config:{...payload.config,backdrop:url}});',
+          '}'
+        ].join('\n');
+        await copyText(module,'copiedReplica');
+      } else {
+        runtime ??= loadButtonSources();
+        await copyText(portableJS(config,await runtime),'copiedReplica');
+      }
     } catch {
       runtime = undefined;
+      replicaSources = undefined;
       message.textContent = strings.copyError;
     } finally {
-      copyJS.disabled = !selected;
+      copyJS.disabled = !selection().length;
     }
   });
   function setLanguage(language) {

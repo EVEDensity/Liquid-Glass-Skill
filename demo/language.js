@@ -8,10 +8,14 @@ export const en = {
   icon:'Icon',iconNone:'None',iconPlus:'Plus',iconCheck:'Check',iconArrow:'Arrow',
   iconSearch:'Search',iconPlay:'Play',iconHeart:'Heart',iconStar:'Star',iconDownload:'Download',
   iconSettings:'Settings',iconClose:'Close',
+  iconSparkles:'Sparkles',iconMail:'Mail',iconHome:'Home',iconLock:'Lock',iconCamera:'Camera',
+  iconBell:'Bell',iconCalendar:'Calendar',iconBookmark:'Bookmark',iconLink:'Link',iconEye:'Eye',
+  iconClaude:'Claude',iconOpenai:'OpenAI',iconGemini:'Gemini',
+  segmentLabel0:'First segment',segmentLabel1:'Second segment',segmentLabel2:'Third segment',
   textX:'Horizontal (%)',textY:'Vertical (%)',textPosition:'Position',smoothing:'Smoothing',
   canvasTools:'Selected button tools',canvasCopy:'Copy selected button for AI',deleteButton:'Delete selected button',
   resizeButton:'Resize selected button',deleted:'Button deleted.',
-  selectionHint:'Click a glass shape on the canvas to edit it.',
+  selectionHint:'Click a control to edit it. Drag from empty canvas to select several.',
   shape:'Shape',circle:'Circle / ellipse',capsule:'Capsule',rounded:'Rounded rectangle',square:'Square / rectangle',
   width:'Width',height:'Height',widthSlider:'Width slider',heightSlider:'Height slider',
   add:'Add shape',manualCopy:'Copy this text',close:'Close',
@@ -20,6 +24,8 @@ export const en = {
   copiedSpec:'Copied. Paste this into your coding AI.',copyError:'Could not prepare the button. Try again.',
   handoffTask:'Integrate this single liquid-glass button. Confirm its target if unclear. Keep the host background, layout and actions. Use these pinned modules:',
   handoffMount:'Copy assets/glass-button.js, glass-motion.js, mount-liquid-glass.js, liquid-glass-renderer.js and LICENSE from the pinned revision. Call createLiquidGlassButton(container, config, {stage, source, requireExact:true}). Use a positioned stage with the target page’s decoded, readable pixels, displayed at center/cover. Match source, stage size, placement, browser and DPR in pixel comparisons. Verify zero pixel differences at rest, held and after drag release. If data-glass-unavailable appears, report the blocker. Wire the returned button to the project action.',
+  selectionTask:'Integrate this selection of interactive liquid-glass controls. Confirm the target if unclear. Keep the existing page background and wire controls to the project actions. Use this revision:',
+  selectionMount:'Vendor demo/replica.js, demo/demo.js, demo/demo.css, assets/glass-button.js, assets/glass-motion.js, assets/mount-liquid-glass.js, assets/liquid-glass-renderer.js and LICENSE with the same relative paths. Call await mountLiquidGlassReplica(container, config, {backdrop: hostImageURL}) from demo/replica.js. The transparent iframe uses the host image URL only as an optical source. Await frame.glassReady for the mounted document and listen for native click/input events. For matching pixels use the same background crop, stage dimensions, browser and DPR. Verify the real press, drag and release gestures. Without readable host pixels, confirm the fallback before applying it.',
   limit:'The scene supports up to five editable buttons.'
 };
 export const zh = {
@@ -32,10 +38,14 @@ export const zh = {
   icon:'图标',iconNone:'无',iconPlus:'加号',iconCheck:'勾选',iconArrow:'箭头',
   iconSearch:'搜索',iconPlay:'播放',iconHeart:'爱心',iconStar:'星标',iconDownload:'下载',
   iconSettings:'设置',iconClose:'关闭',
+  iconSparkles:'闪光',iconMail:'邮件',iconHome:'主页',iconLock:'锁',iconCamera:'相机',
+  iconBell:'通知',iconCalendar:'日历',iconBookmark:'书签',iconLink:'链接',iconEye:'查看',
+  iconClaude:'Claude',iconOpenai:'OpenAI',iconGemini:'Gemini',
+  segmentLabel0:'第一项文字',segmentLabel1:'第二项文字',segmentLabel2:'第三项文字',
   textX:'水平 (%)',textY:'垂直 (%)',textPosition:'位置',smoothing:'平滑',
   canvasTools:'选中按钮工具',canvasCopy:'复制选中按钮给 AI',deleteButton:'删除选中按钮',
   resizeButton:'调整选中按钮大小',deleted:'已删除按钮。',
-  selectionHint:'点击画布上的玻璃形状即可编辑。',
+  selectionHint:'点击控件编辑；从画布空白处拖动可框选多个。',
   shape:'形状',circle:'圆形 / 椭圆',capsule:'胶囊',rounded:'圆角矩形',square:'正方形 / 矩形',
   width:'宽度',height:'高度',widthSlider:'宽度滑杆',heightSlider:'高度滑杆',
   add:'添加形状',manualCopy:'复制下方文本',close:'关闭',
@@ -44,5 +54,7 @@ export const zh = {
   copiedSpec:'已复制，可直接粘贴给编程 AI。',copyError:'无法准备按钮，请重试。',
   handoffTask:'只接入这个液态玻璃按钮，目标不清楚时先确认。保留宿主背景、布局和原动作。使用固定版本的渲染、动效和样式：',
   handoffMount:'从该版本复制 assets/glass-button.js、glass-motion.js、mount-liquid-glass.js、liquid-glass-renderer.js 和 LICENSE。调用 createLiquidGlassButton(container, config, {stage, source, requireExact:true})。stage 使用已定位的目标容器，source 使用目标页面自己的可读取像素，并以 center/cover 显示。逐像素比对时统一背景、容器尺寸、按钮位置、浏览器和 DPR。验收静置、按住和拖动松开后的画面，要求零像素差异。若出现 data-glass-unavailable，请指出缺项。将返回的按钮接到项目动作。',
+  selectionTask:'只接入这些可交互的液态玻璃控件。目标不清楚时先确认，保留宿主背景，并连接项目动作。使用此版本：',
+  selectionMount:'按原相对路径复制 demo/replica.js、demo/demo.js、demo/demo.css、assets/glass-button.js、assets/glass-motion.js、assets/mount-liquid-glass.js、assets/liquid-glass-renderer.js 和 LICENSE。调用 demo/replica.js 的 await mountLiquidGlassReplica(container, config, {backdrop: hostImageURL})。透明 iframe 仅将宿主图片用于折射采样。用 await frame.glassReady 获取挂载完成的文档，再监听原生 click/input 事件。逐像素比对需统一背景裁剪、容器尺寸、浏览器和 DPR，验收真实按住、拖动及松开的过程。无法读取宿主背景像素时，先确认降级方案。',
   limit:'场景最多支持五个可编辑按钮。'
 };
