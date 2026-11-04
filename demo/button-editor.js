@@ -189,6 +189,7 @@ export function mountButtonEditor({root,stage,setButtonText,setButtonTypography,
     message.textContent = strings.deleted;
   });
   textTool.addEventListener('click',()=>setTextEditor(textEditor.hidden));
+  textEditor.querySelector('details').addEventListener('toggle',positionOverlay);
   text.addEventListener('input',()=>setButtonText(selected,text.value));
   for (const field of Object.values(typographyFields)) {
     field.addEventListener('input',()=>{

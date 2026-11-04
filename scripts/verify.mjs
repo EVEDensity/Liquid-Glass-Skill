@@ -366,10 +366,13 @@ try {
   await page.getByRole('button',{name:'Draw shape',exact:true}).click();
   await page.mouse.move(155,115);
   await page.mouse.down();
-  for (const [x,y] of [[300,115],[300,145],[220,145],[220,204],[155,204],[155,115]]) {
+  for (const [x,y] of [[300,115],[300,145],[220,145],[220,204],[155,204]]) {
     await page.mouse.move(x,y);
   }
-  assert.equal(await page.locator('#outline-editor line').evaluate(line=>getComputedStyle(line).visibility),'visible');
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#outline-editor line')).visibility==='visible');
+  await page.mouse.move(157,120);
+  await page.locator('#outline-editor[data-snapped]').waitFor();
+  await page.mouse.move(132,94);
   await page.mouse.up();
   const custom = page.locator('.probe[data-shape="custom"]');
   await custom.waitFor();
@@ -377,6 +380,7 @@ try {
   assert.equal(await page.evaluate(()=>document.elementFromPoint(175,165).dataset.shape),'custom');
   assert.notEqual(await page.evaluate(()=>document.elementFromPoint(260,174).dataset.shape),'custom');
   await page.locator('#text-tool').click();
+  await page.locator('#canvas-tools').screenshot({path:resolve(evidence,'compact-text-editor.png')});
   await page.locator('#label-icon').selectOption('star');
   assert.equal(await custom.locator('svg[data-glass-icon]').count(),1);
   assert.equal(await custom.textContent(),'');
@@ -384,6 +388,7 @@ try {
   await page.locator('#label-size').fill('21');
   await page.locator('#label-weight').selectOption('750');
   await page.locator('#label-family').selectOption('serif');
+  await page.locator('#text-position summary').click();
   await page.locator('#label-x').fill('28');
   await page.locator('#label-y').fill('64');
   await page.locator('#button-text').press('Enter');
@@ -391,10 +396,12 @@ try {
   const customHandoff = await page.evaluate(()=>navigator.clipboard.readText());
   const customConfig = JSON.parse(customHandoff.split(/liquid-glass\.json\r?\n/).at(-1));
   assert.equal(customConfig.button.shape,'custom');
-  assert.equal(customConfig.button.outline.length,7);
+  assert.equal(customConfig.button.outline.length,6);
+  assert.notDeepEqual(customConfig.button.outline[0],customConfig.button.outline.at(-1));
   assert.deepEqual(customConfig.button.typography,{size:21,weight:750,family:'serif',icon:'star',x:28,y:64});
   const customStage = await page.locator('#stage').boundingBox();
   const customBox = await custom.boundingBox();
+  assert.deepEqual([customBox.x,customBox.y,customBox.width,customBox.height],[155,115,145,89]);
   const customPixels = await page.screenshot({clip:customBox,style:hideEditor,path:resolve(evidence,'custom-glass-shape.png')});
   const customPage = await context.newPage();
   await customPage.route(compactURL,route=>route.fulfill({
