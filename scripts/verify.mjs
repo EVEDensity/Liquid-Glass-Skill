@@ -62,6 +62,7 @@ try {
   assert.equal(await page.evaluate(() => window.glassDemo.material.pickup), .35);
   assert.equal(await page.locator('#controls > .glass').count(), 4);
   assert.equal(await page.locator('#layouts').count(),0);
+  assert.equal(await page.locator('.canvas-caption').count(),0);
   record('The single scene opens with four interactive controls and no layout bar');
   const presetLabels=['Apple Liquid Glass','Apple clear','Thick lens','Frosted','Plain lens','Prism'];
   const materials=[];
@@ -162,12 +163,16 @@ try {
   await page.waitForFunction(()=>window.glassDemo.shapes.length===5);
   assert.equal(await page.evaluate(()=>window.glassDemo.shapes.at(-1).radius),16);
   await page.getByRole('button',{name:'中文',exact:true}).click();
+  const languageShift = () => page.locator('.language-tools').evaluate(el=>getComputedStyle(el,'::before').translate);
+  assert.notEqual(await languageShift(),'54px');
+  await page.waitForFunction(()=>parseFloat(getComputedStyle(document.querySelector('.language-tools'),'::before').translate)===0);
   assert.equal(await page.locator('html').getAttribute('lang'),'zh-CN');
   await page.getByRole('button',{name:'周',exact:true}).waitFor();
   await page.getByRole('button',{name:'编辑按钮文字',exact:true}).waitFor();
   await page.getByRole('button',{name:'复制给 AI',exact:true}).waitFor();
   assert.equal(await edited.textContent(),label);
   await page.getByRole('button',{name:'EN',exact:true}).click();
+  await page.waitForFunction(()=>parseFloat(getComputedStyle(document.querySelector('.language-tools'),'::before').translate)===54);
   await page.getByRole('button',{name:'Week',exact:true}).waitFor();
   record('Canvas selection, live text and horizontal sizing work in both editor languages');
   await page.getByRole('button',{name:'Copy for AI',exact:true}).click();

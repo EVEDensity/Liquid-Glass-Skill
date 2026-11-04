@@ -51,8 +51,8 @@ vec3 sampleSoft(vec2 p,float blur){
   float feather=max(.5,blur*1.45);
   vec3 base=textureLod(u_source,coverUV(p),log2(1.+blur*3.6)).rgb;
   float switchMask=baseMask(p,u_switchBase,feather);
-  vec3 switchColor=mix(vec3(.36,.36,.33),vec3(.90,.29,.18),u_switchOn);
-  base=mix(base,switchColor,switchMask*mix(.45,.98,u_switchOn));
+  vec3 switchColor=mix(vec3(.45,.46,.43),vec3(.90,.33,.21),u_switchOn);
+  base=mix(base,switchColor,switchMask*mix(.82,1.,u_switchOn));
   base=mix(base,vec3(.10,.13,.12),baseMask(p,u_segmentBase,feather)*.69);
   if(u_sliderTrack.w<=0.)return base;
   float r=u_sliderTrack.w*.5;
@@ -267,12 +267,16 @@ void main(){
     clear=mix(clear,caustic,join*innerFocus*facing*.80);
     // Only the thumb and selection carry a resting pale fill. The same union
     // blends that fill into the clear glass and removes the internal rim.
-    float restingFill=.92*(merged.y+merged.z)+.76*merged.w;
+    float restingFill=.92*merged.y+merged.z+.76*merged.w;
     float milk=restingFill*(1.-smoothstep(0.,1.,engagement))*(1.-join*.88);
     vec3 ivory=mix(vec3(.98,.987,.98),sampleSoft(p,2.),.13+.29*merged.w);
     float innerRim=1.-smoothstep(.35,3.6,depth);
     float selectionShoulder=merged.w*.15*exp(-depth/5.0);
     ivory=mix(ivory,vec3(1.),max(innerRim*.85,selectionShoulder));
+    // The switch rests on a clean porcelain surface, then reveals the lens on hold.
+    vec3 porcelain=mix(vec3(.945,.941,.928),vec3(.977,.914,.890),u_switchOn);
+    float porcelainRim=1.-smoothstep(1.1,3.1,depth);
+    ivory=mix(ivory,mix(porcelain,vec3(1.),porcelainRim),merged.z);
     clear=mix(clear,ivory,milk);
     // A stationary hold changes exposure and refraction; only travel adds chromatic light.
     vec2 delta=(p-contact)/contactRadius;
