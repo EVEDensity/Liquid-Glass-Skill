@@ -61,8 +61,6 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   const geometry = document.querySelector('#object-geometry');
   const empty = document.querySelector('#object-empty');
   const exportSection = document.querySelector('#object-export');
-  const inspector = document.querySelector('#presets-panel');
-  const tabs = [...inspector.querySelectorAll('[role="tab"]')];
   const text = document.querySelector('#button-text');
   const textLabel = text.previousElementSibling;
   const segmentText = document.querySelector('#segment-text');
@@ -104,26 +102,6 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     onPick(icon,iconGlyph) { updateTypography({icon,iconGlyph}); }
   });
 
-  function showInspector(id) {
-    const previous = tabs.find(tab=>tab.getAttribute('aria-selected')==='true');
-    for (const tab of tabs) {
-      const active = tab.id===id;
-      tab.setAttribute('aria-selected',String(active));
-      tab.tabIndex = active ? 0 : -1;
-      document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
-    }
-    if (previous?.id!==id) inspector.scrollTop = 0;
-  }
-  for (const [index,tab] of tabs.entries()) {
-    tab.addEventListener('click',()=>showInspector(tab.id));
-    tab.addEventListener('keydown',event=>{
-      const next = {ArrowLeft:1-index,ArrowRight:1-index,Home:0,End:tabs.length-1}[event.key];
-      if (next===undefined) return;
-      event.preventDefault();
-      showInspector(tabs[next].id);
-      tabs[next].focus();
-    });
-  }
   const segmentInputs = Array.from({length:3},(_,i)=>{
     const input = document.createElement('input');
     input.maxLength = 100;
@@ -232,7 +210,6 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
       message.textContent = '';
       sync();
     }
-    if (show && selected) showInspector('object-tab');
     showOverlay(Boolean(selected && show));
   }
   function applyDimensions() {
@@ -324,7 +301,6 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     selectionBox.hidden=true;
     if (group.length===1) select(group[0]);
     else {
-      if (group.length>1) showInspector('object-tab');
       sync();
       showOverlay(group.length>1);
     }
@@ -374,7 +350,6 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     message.textContent = strings.merged;
   });
   textTool.addEventListener('click',()=>{
-    showInspector('object-tab');
     const field = segmentText.hidden ? text : segmentInputs[0];
     field.focus();
     field.select();

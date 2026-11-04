@@ -1,6 +1,6 @@
 export const en = {
   language:'Language',title:'Liquid glass',presets:'Material preset',button:'Button',
-  editorPanels:'Editor panels',objectTab:'Object',sceneTab:'Scene',geometryTitle:'Shape and size',
+  geometryTitle:'Shape and size',
   labelTitle:'Label and icon',labelPlaceholder:'Optional label',segmentLabels:'Segment labels',controlLabel:'Control label',
   typography:'Typography',chooseIcon:'Choose icon',changeIcon:'Change icon (currently {name})',
   iconSearchLabel:'Search icons',iconPlaceholder:'Search by name or keyword',
@@ -47,7 +47,7 @@ export const en = {
 };
 export const zh = {
   language:'语言',title:'液态玻璃',presets:'玻璃材质',button:'按钮',
-  editorPanels:'编辑面板',objectTab:'对象',sceneTab:'场景',geometryTitle:'形状与尺寸',
+  geometryTitle:'形状与尺寸',
   labelTitle:'文字与图标',labelPlaceholder:'输入按钮文字，可留空',segmentLabels:'分段标签',controlLabel:'控件标签',
   typography:'字体与排版',chooseIcon:'选择图标',changeIcon:'更换图标（当前为 {name}）',
   iconSearchLabel:'搜索图标',iconPlaceholder:'输入图标名称或关键词',

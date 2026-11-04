@@ -51,83 +51,79 @@
           <button id="add-button" type="button" data-i18n="add">Add shape</button>
           <button id="add-menu" type="button" data-i18n="addMenu">Add menu</button>
         </div>
-      <div class="studio-tabs" role="tablist" aria-label="Editor panels" data-aria="editorPanels">
-        <button type="button" role="tab" id="object-tab" aria-selected="true" aria-controls="object-panel" data-i18n="objectTab">Object</button>
-        <button type="button" role="tab" id="scene-tab" aria-selected="false" aria-controls="scene-panel" tabindex="-1" data-i18n="sceneTab">Scene</button>
-      </div>
     </header>
-    <section id="object-panel" role="tabpanel" aria-labelledby="object-tab">
-      <p id="object-empty" class="selection-hint" data-i18n="selectionHint">Select an object on the canvas to edit its properties.</p>
-      <section id="object-geometry" class="inspector-section" aria-labelledby="geometry-title">
-        <h2 id="geometry-title" data-i18n="geometryTitle">Shape and size</h2>
-        <input id="button-shape" class="shape-value" type="hidden" value="circle">
-        <div class="shape-choices" role="group" aria-label="Shape" data-aria="shape"></div>
-        <div class="size-fields">
-          <div class="size-field">
-            <label for="button-width" data-i18n="width">Width</label>
-            <input id="width-range" type="range" min="44" max="400" step="1" aria-label="Width slider" data-aria="widthSlider">
-            <input id="button-width" type="number" min="44" max="400" step="any">
-            <span aria-hidden="true">px</span>
-          </div>
-          <div class="size-field">
-            <label for="button-height" data-i18n="height">Height</label>
-            <input id="height-range" type="range" min="44" max="400" step="1" aria-label="Height slider" data-aria="heightSlider">
-            <input id="button-height" type="number" min="44" max="400" step="any">
-            <span aria-hidden="true">px</span>
-          </div>
-          <div class="size-field">
-            <label for="button-rotation" data-i18n="rotation">Rotation</label>
-            <input id="rotation-range" type="range" min="-180" max="180" step="1" value="0" aria-label="Rotation slider" data-aria="rotationSlider">
-            <input id="button-rotation" type="number" min="-180" max="180" step="any" value="0">
-            <span aria-hidden="true">°</span>
-          </div>
+    <p id="object-empty" class="selection-hint" data-i18n="selectionHint">Select an object on the canvas to edit its properties.</p>
+    <section id="object-geometry" class="inspector-section" aria-labelledby="geometry-title">
+      <h2 id="geometry-title" data-i18n="geometryTitle">Shape and size</h2>
+      <input id="button-shape" class="shape-value" type="hidden" value="circle">
+      <div class="shape-choices" role="group" aria-label="Shape" data-aria="shape"></div>
+      <div class="size-fields">
+        <div class="size-field">
+          <label for="button-width" data-i18n="width">Width</label>
+          <input id="width-range" type="range" min="44" max="400" step="1" aria-label="Width slider" data-aria="widthSlider">
+          <input id="button-width" type="number" min="44" max="400" step="any">
+          <span aria-hidden="true">px</span>
         </div>
-      </section>
-      <section id="text-editor" class="inspector-section" aria-labelledby="label-title">
-        <h2 id="label-title" data-i18n="labelTitle">Label and icon</h2>
-        <label for="button-text" data-i18n="buttonText">Button text</label>
-        <input id="button-text" maxlength="100" data-placeholder="labelPlaceholder" placeholder="Optional label">
-        <div id="segment-text" hidden></div>
-        <div id="label-style">
-          <button id="open-icons" type="button" aria-haspopup="dialog" aria-controls="icon-dialog"><span class="icon-chip-preview" aria-hidden="true"></span><span data-i18n="chooseIcon">Choose icon</span><svg class="icon-chip-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
-          <details id="typography-settings"><summary data-i18n="typography">Typography</summary>
-          <div class="typography-fields">
-          <label><span data-i18n="fontSize">Size (px)</span><input id="label-size" type="number" min="8" max="72" value="15"></label>
-          <label><span data-i18n="fontWeight">Weight</span><select id="label-weight">
-            <option value="400" data-i18n="regular">Regular</option>
-            <option value="650" data-i18n="semibold">Semibold</option>
-            <option value="750" data-i18n="bold">Bold</option>
-          </select></label>
-          <label><span data-i18n="fontFamily">Typeface</span><select id="label-family">
-            <option value="system" data-i18n="fontSystem">System</option>
-            <option value="serif" data-i18n="fontSerif">Serif</option>
-            <option value="mono" data-i18n="fontMono">Monospace</option>
-          </select></label>
-          <details id="text-position">
-            <summary data-i18n="textPosition">Position</summary>
-            <div class="position-fields">
-              <label><span data-i18n="textX">Horizontal (%)</span><input id="label-x" type="number" min="0" max="100" value="50"></label>
-              <label><span data-i18n="textY">Vertical (%)</span><input id="label-y" type="number" min="0" max="100" value="50"></label>
-            </div>
-          </details>
-          </div>
-          </details>
+        <div class="size-field">
+          <label for="button-height" data-i18n="height">Height</label>
+          <input id="height-range" type="range" min="44" max="400" step="1" aria-label="Height slider" data-aria="heightSlider">
+          <input id="button-height" type="number" min="44" max="400" step="any">
+          <span aria-hidden="true">px</span>
         </div>
-      </section>
-      <div id="object-export" class="inspector-section"><button id="copy-button" type="button" data-i18n="copyJS">Copy offline JS</button></div>
+        <div class="size-field">
+          <label for="button-rotation" data-i18n="rotation">Rotation</label>
+          <input id="rotation-range" type="range" min="-180" max="180" step="1" value="0" aria-label="Rotation slider" data-aria="rotationSlider">
+          <input id="button-rotation" type="number" min="-180" max="180" step="any" value="0">
+          <span aria-hidden="true">°</span>
+        </div>
+      </div>
     </section>
-    <section id="scene-panel" role="tabpanel" aria-labelledby="scene-tab" hidden>
-      <h2 id="wallpaper-title" class="material-title" data-i18n="wallpaper">Background</h2>
+    <section id="text-editor" class="inspector-section" aria-labelledby="label-title">
+      <h2 id="label-title" data-i18n="labelTitle">Label and icon</h2>
+      <label for="button-text" data-i18n="buttonText">Button text</label>
+      <input id="button-text" maxlength="100" data-placeholder="labelPlaceholder" placeholder="Optional label">
+      <div id="segment-text" hidden></div>
+      <div id="label-style">
+        <button id="open-icons" type="button" aria-haspopup="dialog" aria-controls="icon-dialog"><span class="icon-chip-preview" aria-hidden="true"></span><span data-i18n="chooseIcon">Choose icon</span><svg class="icon-chip-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+        <details id="typography-settings"><summary data-i18n="typography">Typography</summary>
+        <div class="typography-fields">
+        <label><span data-i18n="fontSize">Size (px)</span><input id="label-size" type="number" min="8" max="72" value="15"></label>
+        <label><span data-i18n="fontWeight">Weight</span><select id="label-weight">
+          <option value="400" data-i18n="regular">Regular</option>
+          <option value="650" data-i18n="semibold">Semibold</option>
+          <option value="750" data-i18n="bold">Bold</option>
+        </select></label>
+        <label><span data-i18n="fontFamily">Typeface</span><select id="label-family">
+          <option value="system" data-i18n="fontSystem">System</option>
+          <option value="serif" data-i18n="fontSerif">Serif</option>
+          <option value="mono" data-i18n="fontMono">Monospace</option>
+        </select></label>
+        <details id="text-position">
+          <summary data-i18n="textPosition">Position</summary>
+          <div class="position-fields">
+            <label><span data-i18n="textX">Horizontal (%)</span><input id="label-x" type="number" min="0" max="100" value="50"></label>
+            <label><span data-i18n="textY">Vertical (%)</span><input id="label-y" type="number" min="0" max="100" value="50"></label>
+          </div>
+        </details>
+        </div>
+        </details>
+      </div>
+    </section>
+    <section class="inspector-section" aria-labelledby="wallpaper-title">
+      <h2 id="wallpaper-title" data-i18n="wallpaper">Background</h2>
       <div class="wallpaper-options" role="group" aria-labelledby="wallpaper-title">
         <button type="button" data-wallpaper="daisy" aria-pressed="false"><img src="../assets/wallpapers/daisy.jpg" alt=""><span data-i18n="daisy">Daisy</span></button>
         <button type="button" data-wallpaper="prism" aria-pressed="false"><img src="../assets/wallpapers/prism.jpg" alt=""><span data-i18n="prismWallpaper">Crystal</span></button>
         <button type="button" data-wallpaper="lake" aria-pressed="false"><img src="../assets/wallpapers/lake.jpg" alt=""><span data-i18n="lake">Lake</span></button>
         <button type="button" data-wallpaper="grid" aria-pressed="false"><img src="../assets/glass-grid.svg" alt=""><span data-i18n="grid">Grid</span></button>
       </div>
-      <h2 class="material-title" data-i18n="presets">Material preset</h2>
+    </section>
+    <section class="inspector-section" aria-labelledby="material-title">
+      <h2 id="material-title" data-i18n="presets">Material preset</h2>
       <div id="preset-options" role="group" aria-label="Material preset" data-aria="presets"></div>
       <p id="preset-description" aria-live="polite"></p>
     </section>
+    <div id="object-export" class="inspector-section"><button id="copy-button" type="button" data-i18n="copyJS">Copy offline JS</button></div>
     <p id="editor-message" role="status"></p>
   </aside>
   <dialog id="icon-dialog" aria-labelledby="icon-dialog-title">

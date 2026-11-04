@@ -26,10 +26,7 @@ const errors = [];
 function record(name) { checks.push(name); console.log(`PASS ${name}`); }
 async function selectWallpaper(page,name) {
   const button = page.locator(`[data-wallpaper="${name}"]`);
-  if (await button.getAttribute('aria-pressed') !== 'true') {
-    await page.locator('#scene-tab').click();
-    await button.click();
-  }
+  if (await button.getAttribute('aria-pressed') !== 'true') await button.click();
   await page.locator(`[data-wallpaper="${name}"][aria-pressed="true"]`).waitFor({state:'attached'});
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
 }
@@ -37,7 +34,10 @@ async function ready(page, wallpaper = 'grid') {
   await page.goto(url, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => window.glassDemo?.source);
   await selectWallpaper(page,wallpaper);
-  await page.locator('#object-tab').click();
+  await page.evaluate(()=>{
+    document.querySelector('#presets-panel').scrollTop = 0;
+    window.scrollTo(0,0);
+  });
 }
 async function verifySelection(context) {
   const selectionPage = await context.newPage();
@@ -64,7 +64,7 @@ async function verifySelection(context) {
   await selectionPage.getByLabel('Second segment').press('Enter');
   await selectionPage.locator('.probe').click();
   await selectionPage.locator('#text-tool').click();
-  assert.equal(await selectionPage.locator('#text-editor').evaluate(el=>el.closest('#object-panel')?.id),'object-panel');
+  assert.equal(await selectionPage.locator('#text-editor').evaluate(el=>el.parentElement.id),'presets-panel');
   assert.equal(await selectionPage.locator('#icon-dialog').isVisible(),false);
   await selectionPage.locator('#open-icons').click();
   await selectionPage.getByRole('button',{name:'All icons',exact:true}).click();
@@ -404,12 +404,15 @@ try {
   assert.equal(await page.locator('#controls > .glass').count(), 4);
   assert.equal(await page.locator('#layouts').count(),0);
   assert.equal(await page.locator('.canvas-caption').count(),0);
+  assert.equal(await page.getByRole('tab').count(),0);
+  for (const selector of ['#object-geometry','#text-editor','.wallpaper-options','#preset-options']) {
+    assert.ok(await page.locator('#presets-panel '+selector).isVisible());
+  }
   record('The single scene opens with four interactive controls and no layout bar');
   const presetLabels=['Apple Liquid Glass','Apple clear','Thick lens','Frosted','Plain lens','Prism'];
   const materials=[];
   const sceneFrames=[];
   const initialShapes=await page.evaluate(()=>window.glassDemo.shapes);
-  await page.locator('#scene-tab').click();
   for(const name of presetLabels){
     const button=page.getByRole('button',{name,exact:true});
     await button.click();
@@ -421,7 +424,6 @@ try {
   assert.deepEqual(materials.map(m=>m.name),presetLabels);
   assert.equal(new Set(sceneFrames).size,6);
   assert.deepEqual(await page.evaluate(()=>window.glassDemo.shapes),initialShapes);
-  await page.locator('#object-tab').click();
   const optics = await page.evaluate(async materials=>{
     const {GlassScene}=await import('/assets/liquid-glass-renderer.js');
     const canvas=document.createElement('canvas');

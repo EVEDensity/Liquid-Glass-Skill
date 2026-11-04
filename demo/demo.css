@@ -100,22 +100,16 @@ body {
   padding: 0 22px 24px;
   max-height: 100svh;
   overflow-y: auto;
+  scroll-padding-block-start: 124px;
   background: var(--panel);
   color: var(--panel-ink);
   border-inline-start: 1px solid var(--panel-line);
   color-scheme: light;
 }
 #presets-panel h1 { font-size: 24px; line-height: 1.2; letter-spacing: -.03em; margin: 0 0 14px; }
-.studio-header { position: sticky; top: 0; z-index: 2; padding: 20px 0 0; background: var(--panel); }
-.studio-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--panel-line); margin-top: 10px; }
-.studio-tabs button {
-  min-height: 42px; padding: 0 6px; color: var(--panel-muted); border: 0;
-  border-bottom: 2px solid transparent; background: transparent; cursor: pointer; font: 600 14px/1.2 "Segoe UI",sans-serif;
-}
-.studio-tabs button[aria-selected="true"] { color: var(--panel-accent); border-bottom-color: var(--panel-accent); }
-.material-title, .inspector-section h2 { font-size: 15px; font-weight: 650; margin: 0 0 12px; }
-#scene-panel { padding-top: 20px; }
-.wallpaper-options { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; margin-bottom: 20px; }
+.studio-header { position: sticky; top: 0; z-index: 2; padding: 20px 0 14px; border-bottom: 1px solid var(--panel-line); background: var(--panel); }
+.inspector-section h2 { font-size: 15px; font-weight: 650; margin: 0 0 12px; }
+.wallpaper-options { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; }
 .wallpaper-options button {
   display: grid; gap: 4px; padding: 4px; min-width: 0;
   border: 1px solid var(--panel-line); border-radius: 8px;
@@ -136,11 +130,11 @@ body {
   cursor: pointer;
 }
 #preset-options button[aria-pressed="true"] { border-color: var(--panel-accent); background: var(--panel-selected); color: var(--panel-ink); }
-#preset-description { margin: 10px 0 20px; color: var(--panel-muted); min-height: 2.7em; font-size: 13px; }
+#preset-description { margin: 10px 0 0; color: var(--panel-muted); min-height: 2.7em; font-size: 13px; }
 @media (max-width: 700px) {
   body { display: block; }
   #stage { min-height: 54svh; }
-  #presets-panel { max-height: none; border-inline-start: 0; border-top: 1px solid var(--panel-line); padding: 0 16px 24px; }
+  #presets-panel { max-height: none; scroll-padding-block-start: 0; border-inline-start: 0; border-top: 1px solid var(--panel-line); padding: 0 16px 24px; }
   .studio-header { position: static; }
 }
 @media (forced-colors: active) {
