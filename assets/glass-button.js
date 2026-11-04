@@ -123,6 +123,19 @@ function attachButtonOptics(button, config, {stage,source,liveSource=false,requi
   return update;
 }
 
+const glassIcons = {
+  plus:'M12 5v14M5 12h14',
+  check:'m5 12 4 4L19 6',
+  arrow:'M4 12h15m-6-6 6 6-6 6',
+  search:'M15.5 15.5 20 20M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z',
+  play:'m8 5 12 7-12 7Z',
+  heart:'M20 8.7c0 4.1-8 9.3-8 9.3s-8-5.2-8-9.3a4.2 4.2 0 0 1 8-1.8 4.2 4.2 0 0 1 8 1.8Z',
+  star:'m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z',
+  download:'M12 4v11m-4-4 4 4 4-4M5 16v4h14v-4',
+  settings:'M4 7h16M4 12h16M4 17h16M9 5v4m6 1v4m-5 1v4',
+  close:'m6 6 12 12M18 6 6 18'
+};
+
 export function applyGlassTypography(button, typography) {
   if (!typography) return;
   const limit = (value,fallback,min,max) => Number.isFinite(value)
@@ -134,8 +147,28 @@ export function applyGlassTypography(button, typography) {
     label.textContent = button.textContent;
     button.replaceChildren(label);
   }
+  label.querySelector('[data-glass-icon]')?.remove();
+  const hasIcon = Object.hasOwn(glassIcons,typography.icon);
+  if (hasIcon) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const icon = button.ownerDocument.createElementNS(ns,'svg');
+    icon.setAttribute('data-glass-icon','');
+    icon.setAttribute('viewBox','0 0 24 24');
+    icon.setAttribute('aria-hidden','true');
+    icon.setAttribute('fill','none');
+    icon.setAttribute('stroke','currentColor');
+    icon.setAttribute('stroke-width','1.8');
+    icon.setAttribute('stroke-linecap','round');
+    icon.setAttribute('stroke-linejoin','round');
+    Object.assign(icon.style,{width:'1em',height:'1em',flex:'none',transform:'translateZ(0)'});
+    const path = button.ownerDocument.createElementNS(ns,'path');
+    path.setAttribute('d',glassIcons[typography.icon]);
+    icon.append(path);
+    label.prepend(icon);
+  }
   Object.assign(label.style,{
     position:'absolute',pointerEvents:'none',width:'max-content',maxWidth:'100%',
+    display:hasIcon?'inline-flex':'',alignItems:'center',justifyContent:'center',gap:'.35em',
     transform:'translate(-50%,-50%)',
     left:limit(typography.x,50,0,100)+'%',
     top:limit(typography.y,50,0,100)+'%',
