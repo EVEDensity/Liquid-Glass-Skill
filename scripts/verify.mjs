@@ -54,6 +54,7 @@ try {
     await selectWallpaper(page,name);
     assert.equal(await page.locator('[data-wallpaper][aria-pressed="true"]').count(),1);
     wallpaperFrames.push((await page.locator('#scene').screenshot()).toString('base64'));
+    if (name === 'prism') await page.locator('#stage').screenshot({path:resolve(evidence,'demo-crisp-prism.png')});
   }
   assert.equal(new Set(wallpaperFrames).size,4);
   record('Three photo backgrounds and the grid switch both the stage and WebGL source');
@@ -736,11 +737,12 @@ try {
   record('Reusable WebGL mount redraws a host control and falls back after context loss');
 
   await context.close();
-  const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
   const phone = await mobile.newPage();phone.on('pageerror', e => errors.push(e.message));
   await ready(phone);
   assert.ok(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Mobile horizontal overflow');
   await phone.screenshot({ path: resolve(evidence, 'demo-mobile.png'), fullPage: true });
+  assert.equal(await phone.locator('#scene').evaluate(canvas=>canvas.width/canvas.clientWidth),2);
   record('390px mobile layout and reduced motion');
   await phone.setViewportSize({ width: 320, height: 740 });
   assert.ok(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), '320px horizontal overflow');

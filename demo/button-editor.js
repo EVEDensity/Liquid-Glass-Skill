@@ -23,7 +23,7 @@ function portableJS(config, sources) {
 }
 
 function aiSpec(config, strings) {
-  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/35e6e065683e52d963dc51432dc7823feee63cb2/assets/glass-button.js';
+  const runtime = 'https://github.com/EVEDensity/Liquid-Glass-Skill/blob/094aa34b66fc5163fed427e88d12394ff27122a8/assets/glass-button.js';
   return [
     strings.handoffTask,
     runtime,
