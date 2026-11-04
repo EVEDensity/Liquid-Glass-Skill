@@ -10,6 +10,22 @@
   <main id="stage">
     <canvas id="scene" aria-hidden="true"></canvas>
     <section id="controls"></section>
+    <div id="canvas-tools" hidden>
+      <div class="canvas-tool-row" role="group" aria-label="Selected button tools" data-aria="canvasTools">
+        <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" aria-expanded="false" data-aria="editText" data-title="editText">T</button>
+        <button id="canvas-copy" type="button" aria-label="Copy selected button for AI" data-aria="canvasCopy" data-title="canvasCopy">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h1"/></svg>
+        </button>
+        <button id="canvas-delete" type="button" aria-label="Delete selected button" data-aria="deleteButton" data-title="deleteButton">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v6m4-6v6"/></svg>
+        </button>
+      </div>
+      <div id="text-editor" hidden>
+        <label for="button-text" data-i18n="buttonText">Button text</label>
+        <input id="button-text" maxlength="100">
+      </div>
+    </div>
+    <button id="canvas-resize" type="button" hidden aria-label="Resize selected button" data-aria="resizeButton" data-title="resizeButton"></button>
     <div class="language-tools" role="group" aria-label="Language" data-aria="language">
       <button type="button" data-language="zh" lang="zh-CN" aria-pressed="false">中文</button>
       <button type="button" data-language="en" lang="en" aria-pressed="true">EN</button>
@@ -31,16 +47,9 @@
     <section class="button-inspector" aria-labelledby="button-title">
       <header>
         <h2 id="button-title" data-i18n="button">Button</h2>
-        <div class="inspector-actions">
-          <button id="text-tool" type="button" aria-label="Edit button text" aria-controls="text-editor" aria-expanded="false" title="Edit text" data-aria="editText" data-title="editText">T</button>
-          <button id="add-button" type="button" data-i18n="add">Add shape</button>
-        </div>
+        <button id="add-button" type="button" data-i18n="add">Add shape</button>
       </header>
       <p class="selection-hint" data-i18n="selectionHint">Click a glass shape on the canvas to edit it.</p>
-      <div id="text-editor" hidden>
-        <label for="button-text" data-i18n="buttonText">Button text</label>
-        <input id="button-text" maxlength="100">
-      </div>
       <label for="button-shape" data-i18n="shape">Shape</label>
       <select id="button-shape">
         <option value="circle" data-i18n="circle">Circle</option>

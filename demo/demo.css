@@ -141,24 +141,44 @@ body {
 @media (forced-colors: active) {
   .language-tools::before { border: 2px solid Highlight; }
 }
-.language-tools button, .inspector-actions button, #copy-button {
+.language-tools button, #add-button, #copy-button {
   min-height: 44px; min-width: 44px; padding: 6px 12px;
   border: 1px solid #d2ccbc; border-radius: 10px; background: #fff;
   color: #192529; cursor: pointer; font: inherit;
 }
 .language-tools button { border-color: transparent; background: transparent; padding-inline: 0; }
-.inspector-actions { display: flex; gap: 8px; align-items: center; }
-.inspector-actions button { display: grid; place-items: center; }
-#presets-panel :is(.inspector-actions button,#copy-button,select,input:not([type="range"])) {
+#presets-panel :is(#add-button,#copy-button,select,input:not([type="range"])) {
   background: var(--panel-raised); border-color: var(--panel-line); color: var(--panel-ink);
 }
 #presets-panel button:hover:not(:disabled) { border-color: var(--panel-accent); }
 #presets-panel :focus-visible { outline: 2px solid var(--panel-accent); outline-offset: 2px; }
 #presets-panel button:disabled { opacity: .6; cursor: default; }
-#text-tool { font-weight: 750; font-size: 20px; }
-#text-editor { margin: 4px 0 10px; }
+#canvas-tools, #canvas-resize { position: absolute; left: 0; top: 0; z-index: 5; }
+#canvas-tools {
+  padding: 4px; border: 1px solid rgb(255 255 255 / .24); border-radius: 14px;
+  background: #252823; color: #fffaf0; box-shadow: 0 5px 18px rgb(0 0 0 / .24);
+}
+.canvas-tool-row { display: flex; gap: 2px; }
+.canvas-tool-row button {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; border-radius: 9px; color: inherit; background: transparent;
+  font: 700 19px "Segoe UI",sans-serif; cursor: pointer;
+}
+.canvas-tool-row button:hover, #text-tool[aria-expanded="true"] { background: #f8f4ec; color: #332c24; }
+.canvas-tool-row svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+#canvas-tools :focus-visible, #canvas-resize:focus-visible { outline: 2px solid #f9dc9a; outline-offset: 2px; }
+#text-editor { padding: 4px 6px 6px; }
+#text-editor label { display: block; font-size: 13px; }
+#canvas-resize {
+  width: 30px; height: 30px; padding: 0; transform: translate(-50%,-50%);
+  border: 0; border-radius: 50%; background: transparent; cursor: nesw-resize; touch-action: none;
+}
+#canvas-resize::before {
+  content: ""; position: absolute; inset: 6px; border-radius: 50%;
+  border: 2px solid #252823; background: #f8f4ec; box-shadow: 0 1px 5px rgb(0 0 0 / .28);
+}
 .selection-hint { margin: 0 0 10px; color: var(--panel-muted); font-size: 13px; }
-#button-text { margin-top: 4px; }
+#button-text { display: block; width: 148px; min-height: 36px; margin-top: 4px; padding: 5px 7px; font: inherit; border: 1px solid #b5a690; border-radius: 6px; }
 .button-inspector, .export-panel { border-top: 1px solid var(--panel-line); padding-top: 16px; }
 .button-inspector header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .button-inspector h2 { margin: 0; }

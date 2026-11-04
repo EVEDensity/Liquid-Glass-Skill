@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.md': 'text/plain; charset=utf-8' };
-const port = Number(process.env.GLASS_PORT ?? 4173);
+const port = Number(process.env.GLASS_PORT ?? 58423);
 let latestHandoff;
 const server = http.createServer(async (req, res) => {
   try {

@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const evidence = resolve(root, 'evidence');
 await mkdir(evidence, { recursive: true });
-const url = process.env.GLASS_TEST_URL || 'http://127.0.0.1:4173';
+const url = process.env.GLASS_TEST_URL || 'http://127.0.0.1:58423';
 let server;
 try { if (!(await fetch(url)).ok) throw new Error(); }
 catch {
@@ -140,6 +140,15 @@ try {
   assert.equal(during.x+during.width/2,initial.x+initial.width/2);
   assert.equal(during.height,initial.height);
   assert.equal(Number(await page.locator('#button-width').inputValue()),during.width);
+  const handle = await page.locator('#canvas-resize').boundingBox();
+  await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x+handle.width/2-24,handle.y+handle.height/2+18,{steps:4});
+  await page.mouse.up();
+  const resized = await newButton.boundingBox();
+  assert.deepEqual([resized.width,resized.height],[during.width+24,during.height+18]);
+  assert.equal(resized.x+resized.width,during.x+during.width);
+  assert.equal(resized.y,during.y);
   const setSize=async(id,value)=>{
     const field=page.locator(id);
     await field.fill(String(value));
@@ -147,7 +156,8 @@ try {
   };
   await setSize('#button-width',183);
   await setSize('#button-height',74);
-  await page.locator('#presets-panel').getByRole('button',{name:'Edit button text',exact:true}).click();
+  await page.locator('#canvas-tools').getByRole('button',{name:'Edit button text',exact:true}).click();
+  assert.equal(await page.locator('#presets-panel #text-tool').count(),0);
   const label='保存 </script> & Go';
   await page.getByLabel('Button text',{exact:true}).fill(label);
   const edited=page.getByRole('button',{name:label,exact:true});
@@ -176,7 +186,7 @@ try {
   await page.waitForFunction(()=>parseFloat(getComputedStyle(document.querySelector('.language-tools'),'::before').translate)===54);
   await page.getByRole('button',{name:'Week',exact:true}).waitFor();
   record('Canvas selection, live text and horizontal sizing work in both editor languages');
-  await page.getByRole('button',{name:'Copy for AI',exact:true}).click();
+  await page.getByRole('button',{name:'Copy selected button for AI',exact:true}).click();
   await page.getByRole('status').getByText('Copied. Paste this into your coding AI.').waitFor();
   const handoff=await page.evaluate(()=>navigator.clipboard.readText());
   const spec=JSON.parse(handoff.split(/liquid-glass\.json\r?\n/).at(-1));
@@ -233,7 +243,8 @@ try {
   await opticalPage.locator('button[data-refractive]').waitFor();
   assert.deepEqual(await opticalButton.boundingBox(),editedBounds);
   const clip = {...editedBounds};
-  const originalGlass = await page.screenshot({clip});
+  const hideEditor = '#canvas-tools,#canvas-resize { visibility: hidden !important; }';
+  const originalGlass = await page.screenshot({clip,style:hideEditor});
   const exportedGlass = await opticalPage.screenshot({clip});
   const averageError = await opticalPage.evaluate(async shots=>{
     const pixels = await Promise.all(shots.map(async shot=>{
@@ -257,7 +268,7 @@ try {
   await page.mouse.move(...center);
   await page.mouse.down();
   await page.waitForFunction(()=>window.glassDemo.shapes.at(-1).press===1);
-  const referenceHeld = await page.screenshot({clip:expandedClip,path:resolve(evidence,'button-webgl-reference-held.png')});
+  const referenceHeld = await page.screenshot({clip:expandedClip,style:hideEditor,path:resolve(evidence,'button-webgl-reference-held.png')});
   const dragEnd = [center[0]+32,center[1]+18];
   await page.mouse.move(...dragEnd,{steps:5});
   await page.mouse.up();
@@ -266,7 +277,7 @@ try {
     return button.press===0 && button.motion===0 && button.stretchX===0 && button.stretchY===0;
   });
   const movedClip = {...expandedClip,x:expandedClip.x+32,y:expandedClip.y+18};
-  const referenceReleased = await page.screenshot({clip:movedClip});
+  const referenceReleased = await page.screenshot({clip:movedClip,style:hideEditor});
   await opticalPage.bringToFront();
   await opticalPage.mouse.move(...center);
   await opticalPage.mouse.down();
@@ -338,6 +349,15 @@ try {
   assert.deepEqual(replicaRequests,[]);
   await replicaPage.close();
   record('Offline JS exports one native button with exact geometry, keyboard activation, and press/drag motion');
+  await page.getByRole('button',{name:'Delete selected button',exact:true}).click();
+  await edited.waitFor({state:'detached'});
+  await page.getByRole('button',{name:'Delete selected button',exact:true}).click();
+  assert.equal(await page.locator('#controls .probe').count(),0);
+  assert.equal(await page.locator('#controls > .glass').count(),3);
+  assert.equal(await page.locator('#copy-replica').isDisabled(),true);
+  await page.locator('#add-button').click();
+  await page.locator('#canvas-tools').waitFor();
+  record('Floating toolbar deletes only the selected shape and recovers when a shape is added');
   await ready(page);
   // Sample the actual rendered selector, rather than the CSS transition or its target.
   await page.waitForFunction(()=>window.glassDemo.shapes.some(s=>s.surface==='selection'));

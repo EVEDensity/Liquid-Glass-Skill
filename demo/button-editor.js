@@ -34,7 +34,11 @@ function aiSpec(config, strings) {
   ].join('\n');
 }
 
-export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButton,snapshot,onLanguageChange}) {
+export function mountButtonEditor({root,stage,setButtonText,setButtonGeometry,addButton,removeButton,snapshot,onLanguageChange}) {
+  const canvasTools = document.querySelector('#canvas-tools');
+  const canvasCopy = document.querySelector('#canvas-copy');
+  const canvasDelete = document.querySelector('#canvas-delete');
+  const resizeHandle = document.querySelector('#canvas-resize');
   const textTool = document.querySelector('#text-tool');
   const textEditor = document.querySelector('#text-editor');
   const text = document.querySelector('#button-text');
@@ -52,15 +56,38 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
   const copySource = document.querySelector('#copy-source');
   let selected;
   let runtime;
+  let resize;
   let strings = en;
 
-  function sync() {
+  function positionOverlay() {
+    if (!selected || canvasTools.hidden) return;
+    const bounds = stage.getBoundingClientRect();
     const rect = selected.getBoundingClientRect();
-    shape.value = selected.dataset.shape;
-    syncSize(rect);
-    sizeLink.hidden = !equalSides();
+    const toolWidth = canvasTools.offsetWidth;
+    const toolHeight = canvasTools.offsetHeight;
+    const x = Math.max(6,Math.min(bounds.width-toolWidth-6,rect.left-bounds.left+(rect.width-toolWidth)/2));
+    const above = rect.top-bounds.top-toolHeight-12;
+    const y = above >= 6 ? above : Math.max(6,Math.min(bounds.height-toolHeight-6,rect.bottom-bounds.top+12));
+    canvasTools.style.translate = `${x}px ${y}px`;
+    resizeHandle.style.translate = `${Math.max(14,Math.min(bounds.width-14,rect.left-bounds.left))}px ${Math.max(14,Math.min(bounds.height-14,rect.bottom-bounds.top))}px`;
+  }
+  function showOverlay(visible) {
+    canvasTools.hidden = resizeHandle.hidden = !visible;
+    if (visible) positionOverlay();
+    else setTextEditor(false);
+  }
+  function sync() {
+    for (const control of [shape,width,height,widthRange,heightRange,copyReplica,copyJS]) control.disabled = !selected;
+    if (selected) {
+      shape.value = selected.dataset.shape;
+      syncSize(selected.getBoundingClientRect());
+    } else {
+      width.value = height.value = '';
+    }
+    sizeLink.hidden = !selected || !equalSides();
     add.disabled = root.querySelectorAll('.probe').length >= 5;
     add.title = add.disabled ? strings.limit : '';
+    positionOverlay();
   }
   function syncSize(rect) {
     width.value = Math.round(rect.width*100)/100;
@@ -68,14 +95,16 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
     widthRange.value = width.value;
     heightRange.value = height.value;
   }
-  function select(button) {
-    if (!button || selected === button) return;
-    selected?.removeAttribute('aria-current');
-    selected = button;
-    selected.setAttribute('aria-current','true');
-    text.value = selected.textContent;
-    message.textContent = '';
-    sync();
+  function select(button,show = true) {
+    if (selected !== button) {
+      selected?.removeAttribute('aria-current');
+      selected = button;
+      selected?.setAttribute('aria-current','true');
+      text.value = selected?.textContent ?? '';
+      message.textContent = '';
+      sync();
+    }
+    showOverlay(Boolean(selected && show));
   }
   function setTextEditor(open) {
     textEditor.hidden = !open;
@@ -83,13 +112,13 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
     if (open) {
       text.select();
     }
+    positionOverlay();
   }
   function equalSides() {
     return shape.value === 'circle' || shape.value === 'square';
   }
   function applyDimensions(axis = 'width') {
     const rect = selected.getBoundingClientRect();
-    const limit = (value,fallback) => Math.min(400,Math.max(44,Number.isFinite(value)?value:fallback));
     const w = limit(width.valueAsNumber,rect.width);
     const h = limit(height.valueAsNumber,rect.height);
     const linked = equalSides();
@@ -97,8 +126,50 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
     setButtonGeometry(selected,shape.value,linked ? side : w,linked ? side : h);
     syncSize(selected.getBoundingClientRect());
   }
-  root.addEventListener('pointerdown',event=>select(event.target.closest('.probe')));
-  root.addEventListener('focusin',event=>select(event.target.closest('.probe')));
+  const limit = (value,fallback) => Math.min(400,Math.max(44,Number.isFinite(value)?value:fallback));
+  function resizeCorner(rect,dx,dy) {
+    const w = limit(rect.width-dx,rect.width);
+    const h = limit(rect.height+dy,rect.height);
+    const side = Math.abs(dx)>Math.abs(dy)?w:h;
+    setButtonGeometry(selected,shape.value,equalSides()?side:w,equalSides()?side:h,true);
+    syncSize(selected.getBoundingClientRect());
+    positionOverlay();
+  }
+  resizeHandle.addEventListener('pointerdown',event=>{
+    if (event.button!==0 || !selected || resize) return;
+    resize = {id:event.pointerId,x:event.clientX,y:event.clientY,rect:selected.getBoundingClientRect()};
+    resizeHandle.setPointerCapture(event.pointerId);
+  });
+  resizeHandle.addEventListener('pointermove',event=>{
+    if (event.pointerId===resize?.id) resizeCorner(resize.rect,event.clientX-resize.x,event.clientY-resize.y);
+  });
+  for (const event of ['pointerup','pointercancel','lostpointercapture']) {
+    resizeHandle.addEventListener(event,e=>{ if (e.pointerId===resize?.id) resize=undefined; });
+  }
+  resizeHandle.addEventListener('keydown',event=>{
+    const step = event.shiftKey?16:4;
+    const direction = {ArrowLeft:[-step,0],ArrowRight:[step,0],ArrowDown:[0,step],ArrowUp:[0,-step]}[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    resizeCorner(selected.getBoundingClientRect(),...direction);
+  });
+  stage.addEventListener('pointerdown',event=>{
+    const button = event.target.closest('.probe');
+    if (button) select(button);
+    else if (!event.target.closest('#canvas-tools,#canvas-resize,.language-tools')) showOverlay(false);
+  });
+  root.addEventListener('focusin',event=>{
+    const button = event.target.closest('.probe');
+    if (button) select(button);
+  });
+  canvasDelete.addEventListener('click',()=>{
+    removeButton(selected);
+    const next = root.querySelector('.probe');
+    select(next);
+    if (next) next.focus();
+    else add.focus();
+    message.textContent = strings.deleted;
+  });
   textTool.addEventListener('click',()=>setTextEditor(textEditor.hidden));
   text.addEventListener('input',()=>setButtonText(selected,text.value));
   text.addEventListener('keydown',event=>{
@@ -125,7 +196,7 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
       copySource.select();
     }
   }
-  copyReplica.addEventListener('click',()=>{
+  function copySelected() {
     const config = snapshot(selected);
     copyText(aiSpec(config,strings),'copiedSpec');
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
@@ -134,7 +205,9 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(config)
       }).catch(()=>{});
     }
-  });
+  }
+  copyReplica.addEventListener('click',copySelected);
+  canvasCopy.addEventListener('click',copySelected);
   copyJS.addEventListener('click',async()=>{
     const config = snapshot(selected);
     copyJS.disabled = true;
@@ -145,7 +218,7 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
       runtime = undefined;
       message.textContent = strings.copyError;
     } finally {
-      copyJS.disabled = false;
+      copyJS.disabled = !selected;
     }
   });
   function setLanguage(language) {
@@ -169,5 +242,6 @@ export function mountButtonEditor({root,setButtonText,setButtonGeometry,addButto
   }
   setLanguage(localStorage.getItem('liquid-glass-language')==='zh'?'zh':'en');
   window.addEventListener('resize',sync);
-  select(root.querySelector('.probe'));
+  select(root.querySelector('.probe'),false);
+  return positionOverlay;
 }

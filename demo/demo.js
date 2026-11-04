@@ -236,6 +236,7 @@ let pieces = [];
 let drag = null;
 let frame = 0;
 let transitionUntil = 0;
+let updateEditorOverlay;
 const presses = new WeakMap();
 function showScene() {
   root.replaceChildren(...makeScene());
@@ -254,6 +255,7 @@ function activePress(piece, now) {
 }
 function draw() {
   frame = 0;
+  updateEditorOverlay?.();
   const opaque = !scene.available || matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
   stage.classList.toggle('fallback', opaque);
   document.querySelector('#scene').hidden = opaque;
@@ -559,14 +561,22 @@ if (!exported) showPreset('apple');
 showScene();
 updateStageLabels();
 if (!exported) {
-  mountButtonEditor({
-    root, setButtonText,
-    setButtonGeometry(button,shape,width,height) {
+  updateEditorOverlay = mountButtonEditor({
+    root, stage, setButtonText,
+    setButtonGeometry(button,shape,width,height,anchorCorner) {
       const state = presses.get(button);
       const before = button.getBoundingClientRect();
       setButtonGeometry(button,shape,width,height);
       const after = button.getBoundingClientRect();
-      movePiece(button,state.x+(before.width-after.width)/2,state.y+(before.height-after.height)/2);
+      const dx = before.width-after.width;
+      const dy = before.height-after.height;
+      movePiece(button,state.x+(anchorCorner?dx:dx/2),state.y+(anchorCorner?0:dy/2));
+    },
+    removeButton(button) {
+      pieces.splice(pieces.indexOf(button),1);
+      if (drag?.piece === button) drag = null;
+      button.remove();
+      schedule();
     },
     onLanguageChange(next) {
       language = next;
