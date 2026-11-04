@@ -4,6 +4,7 @@ body { min-width: 320px; background: #f8f4ec; color: #332c24; font: 15px/1.35 "S
 #stage { position: relative; min-height: 100svh; overflow: hidden; --control-spacing: clamp(96px, 19svh, 175px); background: #e5e0d6 var(--stage-wallpaper, url('../assets/glass-grid.svg')) center/cover no-repeat; }
 #scene { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #controls { position: absolute; inset: 0; touch-action: none; }
+html:not([data-glass-export]) #controls { user-select: none; }
 .glass { position: absolute; display: flex; align-items: center; justify-content: center; color: #17321f; background: transparent; border: 0; padding: 0; touch-action: none; cursor: grab; }
 .glass:active { cursor: grabbing; }
 .glass button, .segment button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }

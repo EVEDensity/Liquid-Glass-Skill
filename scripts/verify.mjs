@@ -193,6 +193,22 @@ async function verifySelection(context) {
     } finally { URL.revokeObjectURL(url); }
   },offline);
   assert.deepEqual(offlineResult,{count:3,background:''});
+  await selectionPage.bringToFront();
+  const repeatMarquee=async()=>{
+    await selectionPage.mouse.move(toggleBox.x-10,start.y);
+    await selectionPage.mouse.down();
+    await selectionPage.mouse.move(toggleBox.x+toggleBox.width+10,end.y,{steps:5});
+    await selectionPage.mouse.up();
+    assert.equal(await selectionPage.locator('[data-marquee-selected]').count(),3);
+  };
+  await repeatMarquee();
+  const sourceX=sliderBox.x+30+(sliderBox.width-60)*copiedValue/100;
+  await selectionPage.mouse.move(sourceX,centersY[1]);
+  await selectionPage.mouse.down();
+  await selectionPage.mouse.move(sliderBox.x+75,centersY[1]+8,{steps:6});
+  await selectionPage.mouse.up();
+  assert.ok(Number(await selectionPage.locator('.slider input').inputValue())<copiedValue);
+  await repeatMarquee();
   await selectionHost.close();
   await selectionPage.close();
   record('Visual SVG picker and marquee selection export three editable controls with matching rest, hold and release pixels and working drag gestures');

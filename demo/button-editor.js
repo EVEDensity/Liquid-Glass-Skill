@@ -285,6 +285,8 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
       if (hadGroup) sync();
       showOverlay(false);
     } else if (event.target===root || event.target===stage) {
+      // Claim the blank-canvas gesture before the browser starts a native selection drag.
+      event.preventDefault();
       select(null,false);
       press = undefined;
       marquee = {id:event.pointerId,x:event.clientX,y:event.clientY,active:false};
