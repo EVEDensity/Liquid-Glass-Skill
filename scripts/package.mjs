@@ -1,19 +1,30 @@
-import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { lstat, readFile, realpath, writeFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Uncompressed ZIP with CRC32, keeping packaging independent of OS and tooling.
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const include = ['SKILL.md', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'agents', 'assets', 'references', 'demo', 'scripts/serve.mjs', 'scripts/verify.mjs', 'scripts/package.mjs', 'package.json', 'package-lock.json', '.gitignore'];
-const entries = [];
-async function collect(path) {
+const root = await realpath(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
+// List release files explicitly so local additions inside runtime folders stay out.
+const include = [
+  '.gitignore', 'LICENSE', 'README.md', 'SKILL.md', 'THIRD_PARTY_NOTICES.md',
+  'package.json', 'package-lock.json', 'agents/openai.yaml',
+  'assets/LICENSE-lucide', 'assets/glass-backdrop.svg', 'assets/glass-grid.svg',
+  'assets/glass-button.js', 'assets/glass-motion.js', 'assets/liquid-glass-renderer.js',
+  'assets/liquid-glass.css', 'assets/liquid-glass.js', 'assets/mount-liquid-glass.js',
+  'assets/wallpapers/daisy.jpg', 'assets/wallpapers/lake.jpg', 'assets/wallpapers/prism.jpg',
+  'demo/index.html', 'demo/demo.css', 'demo/demo.js', 'demo/button-editor.js',
+  'demo/glass-menu.js', 'demo/icon-picker.js', 'demo/language.js', 'demo/lucide-catalog.json',
+  'demo/merge-outline.js', 'demo/outline-editor.js', 'demo/replica.js', 'demo/shape-picker.js',
+  'references/acceptance.md', 'references/design-system.md', 'references/integration.md',
+  'references/validation.md', 'scripts/package.mjs', 'scripts/serve.mjs', 'scripts/verify.mjs'
+];
+const entries = await Promise.all(include.map(async path => {
   const absolute = resolve(root, path);
-  const { stat } = await import('node:fs/promises');
-  if ((await stat(absolute)).isDirectory()) {
-    for (const name of (await readdir(absolute)).sort()) await collect(`${path}/${name}`);
-  } else entries.push({ name: `liquid-glass-ui/${path}`, data: await readFile(absolute) });
-}
-for (const path of include) await collect(path);
+  if (!(await lstat(absolute)).isFile() || await realpath(absolute) !== absolute) {
+    throw new Error(`Expected a regular release file: ${path}`);
+  }
+  return { name: `liquid-glass-ui/${path}`, data: await readFile(absolute) };
+}));
 const table = Array.from({ length: 256 }, (_, n) => {
   for (let i = 0; i < 8; i++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1;
   return n >>> 0;

@@ -1,109 +1,46 @@
 # Liquid Glass UI
 
-An open-source skill and WebGL2 renderer for movable liquid-glass controls. Glass bends the backdrop at its edge, picks up the color beneath it, and separate controls melt together when they are dragged close.
+A coding-agent skill and local editor for interactive liquid-glass buttons, switches, sliders, and segmented controls. Design a control in the browser and take its shape, typography, material, and motion into an existing page.
 
-The visual direction is informed by [Good Machines — Liquid Glass](https://goodmachines.ai/lab/liquid-glass). This repository is an independent implementation with original artwork. It does not contain that site's code or assets and is not an official Apple implementation.
+## Product demo
 
-![Playground with refractive glass controls over an original landscape](assets/preview.png)
+[Watch the 18-second demo · 宣传片 (4K MP4)](https://github.com/EVEDensity/Liquid-Glass-Skill/blob/main/docs/media/liquid-glass-ui-demo.mp4)
 
-## Contents
+The video shows refraction, glass fusion, slider motion, shape editing, and a copied design wired to a calendar's existing previous-month action.
 
-| Path | Purpose |
-| --- | --- |
-| [SKILL.md](SKILL.md) | Instructions for an AI coding agent |
-| `assets/liquid-glass-renderer.js` | WebGL2 refraction, presets, and shape merging |
-| `assets/liquid-glass.css` | Opaque and backdrop-filter fallback for controls |
-| `assets/liquid-glass.js` | Optional pointer highlight for CSS controls |
-| `assets/glass-backdrop.svg` | Original procedural backdrop |
-| `demo/` | Draggable playground |
-| [references/](references/integration.md) | Design, integration, and acceptance notes |
+## Try the editor
 
-## Preview
+Run this command from the repository root, then open [the local playground](http://localhost:58423/demo/). The editor runs with Node.js and needs no npm install.
 
 ```sh
 node scripts/serve.mjs
 ```
 
-Open the [single glass scene](http://localhost:58423/demo/). Switch among six presets from the side panel to change the same controls in place. Drag the circle onto a glass knob to merge, or across a fixed rail to see the rail refract through the circle.
-
-### Edit and copy a button
-
-Click a glass shape on the canvas to edit it. Use **T** in the panel to edit its text live. Drag the width and height sliders to preview changes around the button center, or enter precise pixel values. Switch between English and Simplified Chinese at the top left.
-
-**Copy for AI** gives your coding agent the selected button's geometry, label, and material, along with pinned modules and the integration call `createLiquidGlassButton(container, config, { stage, source, requireExact: true })`. Exact mode needs a positioned stage and readable pixels. If WebGL is blocked or becomes unavailable, the button exposes `data-glass-unavailable` and uses a plain surface. Use identical source pixels, stage size, button position, browser and display scale for pixel comparisons. Compare an isolated button away from other controls because interacting surfaces change the optical field.
-
-When using the local skill, make the selection in the main demo on port 58423. Click a control for its toolbar or drag from blank canvas to select several. **T** edits labels, including each of the segmented control's three options. Custom buttons also offer a visual SVG icon picker, deletion, and a lower-right resize handle. **Copy for AI** preserves the selected geometry, optics, labels and initial control values. The local server keeps the latest copied configuration in memory.
-
-A moving control or group uses the same gestures and rendering as the preview. Integrate the version 3 selection with `mountLiquidGlassReplica` in [demo/replica.js](demo/replica.js), or use **Copy offline JS**. Give the transparent frame its own slot and supply the host's readable backdrop URL for refraction. Await `frame.glassReady` to get the mounted document and attach the project's actions to its native controls. The export contains no wallpaper.
-
-Choose **Draw shape**, adjust smoothing, and trace a continuous outline. A dashed guide shows the remaining gap. When the stroke returns near its start, the endpoint snaps into place. The preview and export use the same fitted outline. Click the button and choose **T** to edit the text, icon, and type settings. Expand **Position** for horizontal and vertical placement.
-
-The copy icon exports a self-contained offline JavaScript module. Paste it into a project as `glass-button.js` and mount it into an existing element:
-
-```js
-import { mountLiquidGlassButton } from './glass-button.js';
-
-const button = mountLiquidGlassButton(document.querySelector('#preview'));
-button.addEventListener('click', handleClick);
-```
-
-Both exports add a native button directly to the target page. To use the demo's WebGL optics, pass your own positioned stage and its decoded image or canvas:
-
-```js
-const button = mountLiquidGlassButton(container, { stage, source });
-button.addEventListener('click', handleClick);
-// When removing the component:
-button.disposeLiquidGlass?.();
-button.remove();
-```
-
-`stage` is a positioned ancestor of `container`. Display the source in the stage with centered cover sizing to match the renderer's sampling. For a video or a changing canvas, pass `liveSource: true` and call `button.invalidateLiquidGlass()` when new pixels are available. The WebGL layer draws only the button's lens. When no readable source is available, the button uses CSS blur and rim lighting over the page.
-
-Development checks:
-
-```sh
-npm install
-npm test
-```
-
-Tests use installed Microsoft Edge, then Playwright Chromium. Set `GLASS_BROWSER_PATH` to another browser if needed. Runtime pages do not need npm.
-
-`node scripts/package.mjs` writes `dist/liquid-glass-ui.zip`.
+- Click a control to select it. Drag from an empty part of the canvas to select several.
+- Choose **Add shape** or **Draw shape**, then edit size, rotation, text, icons, and material in the right sidebar. The canvas toolbar's **T** focuses the selected control's text field.
+- Drag the glass circle across a fixed rail to see refraction, or bring it close to another glass surface to see the contours join.
+- Click **Copy for AI** in the canvas toolbar and paste the result into your coding agent. **Copy offline JS** in the sidebar exports a local JavaScript module.
 
 ## Use it as a skill
 
-Install the folder named `liquid-glass-ui` in your agent's skills directory or in the project's `.agents/skills/` directory. The folder must contain `SKILL.md` directly. In Codex, use `$liquid-glass-ui` and identify the target controls, backdrop, and the interaction you want.
+Place the folder named `liquid-glass-ui`, with [SKILL.md](SKILL.md) at its root, in your coding agent's skills directory. In Codex, run `$liquid-glass-ui` and name the controls you want to change. If you are still choosing the style, the agent can open the playground and read your next **Copy for AI** selection from the local server.
 
-The skill chooses between CSS glass for live DOM and true WebGL2 refraction for a backdrop supplied as pixels. The [integration recipes](references/integration.md) show how to attach both paths to an existing app. The demo is a reference for checking the effect.
+The clipboard and local skill use the same design configuration and runtime. For pixel comparisons, match the readable backdrop, crop, stage dimensions, placement, browser, and device scale. On arbitrary page content, use the CSS fallback.
 
-## Use the renderer
+[Integrate a button or control selection](references/integration.md) · [Material settings](references/design-system.md) · [Acceptance checks](references/acceptance.md)
 
-```js
-import { GlassScene, PRESETS } from "./assets/liquid-glass-renderer.js";
+## Development
 
-const scene = new GlassScene(canvas);
-const image = new Image();
-image.src = "./assets/glass-backdrop.svg";
-await image.decode();
-scene.setSource(image);
-scene.setMaterial(PRESETS.apple);
-scene.setShapes([
-  { x: 420, y: 640, width: 250, height: 64, radius: 32 },
-  { x: 560, y: 640, width: 64, height: 64, radius: 32 }
-]);
-scene.render();
+```sh
+npm ci
+npm test
+npm run package
 ```
 
-`x` and `y` are each shape's center in CSS pixels relative to the canvas. `PRESETS.apple` uses refraction 18, bezel 20, dispersion 0.04, blur 6, frost 0.1, vibrancy 1.35, pickup 0.35, specular 0.7, rim width 1.4, light angle -135, shadow 0.3, and merge 10. The other presets are `clear`, `thick`, `frosted`, `plain`, and `prism`.
+The tests use Microsoft Edge or Playwright Chromium. Set `GLASS_BROWSER_PATH` to use a different browser. See the [validation notes](references/validation.md) for coverage.
 
-The renderer displaces a texture you supply. It does not refract arbitrary HTML behind the canvas. For video or a live canvas, call `setSource` and `render` on each frame. Call `destroy()` on unmount.
-
-## Accessibility
-
-Labels and actions stay in DOM elements above the canvas. The canvas is hidden from assistive technology. Reduced transparency and forced colors hide the refractive canvas and show opaque controls. Targets are at least 44 by 44 CSS pixels, and the layout fits a 320px viewport.
-
-Text needs 4.5:1 contrast, and large text or essential boundaries need 3:1, measured on the actual backdrop. There is no claim of pixel parity with the reference page or of a formal WCAG certification.
+The package command writes `dist/liquid-glass-ui.zip` with the installable skill, runtime, demo, tests, and documentation. The promotional video is distributed separately from the skill package.
 
 ## License
 
-New code, docs, and original artwork are [MIT](LICENSE), copyright 2026 Liquid Glass UI contributors. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the reference-site boundary and development dependencies.
+The implementation is [MIT licensed](LICENSE). The project was visually inspired by the public [Good Machines Liquid Glass lab](https://goodmachines.ai/lab/liquid-glass). See the [third-party notices](THIRD_PARTY_NOTICES.md) for asset and dependency attribution.

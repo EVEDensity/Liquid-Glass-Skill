@@ -1,5 +1,34 @@
 # Integration
 
+## Integrate a copied design
+
+**Copy for AI** provides the design as JSON and names the compatible runtime revision. The local skill reads the same JSON from the playground. Preserve the existing page layout and connect the original actions to the mounted controls.
+
+### Single button (version 2)
+
+Use the modules named in the handoff, then mount the selected button into an existing container.
+
+```js
+import { createLiquidGlassButton } from "./glass/glass-button.js";
+
+const source = new Image();
+source.src = existingBackdropURL;
+await source.decode();
+
+const button = createLiquidGlassButton(container, config, {
+  stage, source, requireExact: true
+});
+button.addEventListener("click", handleClick);
+```
+
+`stage` is a positioned ancestor of `container`. Use the host's own readable image or canvas, with the same centered cover crop in the page and renderer. A solid host color can be supplied as a canvas filled with that color. To compare screenshots, match the pixels, stage size, position, browser, and device scale. Use the CSS fallback for page content that cannot be sampled as a texture.
+
+**Copy offline JS** supplies the same button as a self-contained module. Call its `mountLiquidGlassButton(container, options)` export with the same rendering options.
+
+### Moving control or selection (version 3)
+
+Use the modules listed in the handoff and call `mountLiquidGlassReplica(container, config, { backdrop: existingBackdropURL })`. The replica renders into a transparent frame. Await `frame.glassReady` before binding actions to the native controls in the frame. Keep the host image aligned with the replica's sampling crop.
+
 ## CSS glass for existing HTML
 
 Copy `assets/liquid-glass.css` and load it once. Add the classes to the app's existing native element.
@@ -175,4 +204,4 @@ If `scene.available` is false, or the canvas emits `glassfallback`, hide the can
 
 ## Limits
 
-The shader renders up to eight shapes. Each shape accepts `press` from 0 to 1; the Apple preset uses it to scale the control, increase refraction, and brighten the rim. The merge is a 2D smooth union of rounded rectangles, not a liquid simulation. Rotated controls are not represented accurately. The shader cannot see HTML outside its texture.
+The shader renders up to 12 glass shapes. A shape can supply a rotation in degrees and a normalized custom outline. The demo uses a `press` value from 0 to 1 to drive geometry and optical changes. Fusion blends the two-dimensional glass contours. The shader samples only the texture supplied by the host.

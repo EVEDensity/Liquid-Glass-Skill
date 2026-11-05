@@ -1,22 +1,19 @@
-# Validation record
+# Validation
 
-Validated on 2026-11-03 with Microsoft Edge driven by Playwright on Windows. The reference lab was opened for visual inspection only. Its screenshot stays in local `evidence/` and is excluded from the release archive.
+Run `npm ci` and `npm test` from the repository root. The suite uses Playwright with Microsoft Edge or Chromium. To keep a live playground's in-memory selection intact, use a different port for tests.
 
-`npm test` passed 16 checks:
+```powershell
+$env:GLASS_PORT = '4220'
+$env:GLASS_TEST_URL = 'http://127.0.0.1:4220'
+npm test
+```
 
-- WebGL2 initialization, texture upload, and shader linking.
-- The Apple preset loads refraction 18, merge 10, and the full parameter set. Thick lens changes magnification to 1.28.
-- Pointer dragging and arrow-key movement.
-- Pressing a button scales its glass and releases back.
-- Light theme, local image selection, and backdrop switching.
-- Copying the preset includes every material key.
-- A checkerboard fixture changed 8,518 pixels when refraction changed, with no WebGL error.
-- Pointer-highlight cleanup on unmount.
-- No horizontal overflow at 390px or 320px.
-- Forced colors hide the refractive canvas and keep opaque controls.
-- With WebGL2 removed, all controls remain usable.
-- Skill metadata and release files are present.
+The suite covers the following behavior.
 
-Desktop, light-theme, and mobile screenshots were reviewed. Runtime requests do not load remote fonts, libraries, or reference-site assets.
+- WebGL2 initialization, six materials, backdrop sampling, glass fusion, and fixed rails.
+- Pointer press, drag, and release for the switch, slider, segments, and lens.
+- Shape editing and rotation, visual icon selection, drawing, and group selection.
+- Clipboard and local handoff parity, standalone and group mounts, and pixel comparisons against the local demo with matching inputs.
+- Keyboard activation, 320px and 390px layouts, reduced motion, forced colors, and a usable fallback without WebGL2.
 
-Not yet validated: Safari, Firefox, a physical phone, a system-level reduced-transparency setting, a screen reader, instrumented contrast across every backdrop, 200% zoom, and GPU performance benchmarks. Passing these checks is not a WCAG certification or a claim of pixel parity with the reference lab.
+Screenshots and the verification report go to the ignored `evidence/` directory. The comparisons measure parity with this project's demo under controlled conditions.
