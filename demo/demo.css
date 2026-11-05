@@ -201,6 +201,18 @@ body {
 .shape-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
 #presets-panel .shape-actions button { min-width: 0; padding-inline: 4px; font-size: 12px; font-weight: 550; }
 #presets-panel .shape-actions #add-button { background: var(--panel-accent); color: #fff; border-color: var(--panel-accent); }
+#add-button { display: flex; align-items: center; justify-content: center; gap: 3px; }
+#add-button svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; }
+#add-button[aria-expanded="true"] svg { rotate: 180deg; }
+#add-shapes { margin-top: 10px; }
+#presets-panel:has(#add-button[aria-expanded="true"]) #object-geometry .shape-choices { display: none; }
+#presets-panel .creation-choices button {
+  min-height: 57px; align-content: center; gap: 2px; padding: 4px 1px;
+  font-size: 11px; line-height: 1.2; color: var(--panel-ink);
+}
+#presets-panel .creation-choices button svg { width: 22px; height: 22px; color: var(--panel-accent); }
+#presets-panel .creation-choices button:hover,
+#presets-panel .creation-choices button:focus-visible { background: var(--panel-selected); border-color: var(--panel-accent); }
 #outline-editor { position: absolute; inset: 0; z-index: 6; cursor: crosshair; touch-action: none; background: rgb(20 27 23 / .14); }
 #outline-editor > svg { width: 100%; height: 100%; pointer-events: none; }
 #outline-editor > svg :is(polyline,polygon) { stroke: #fffaee; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -255,7 +267,7 @@ body {
 .icon-chip-arrow { stroke: var(--panel-muted); fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 #segment-text:not([hidden]) { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; }
 .typography-fields, .position-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; margin-top: 8px; }
-.typography-fields > label:has(#label-family), #text-position { grid-column: 1 / -1; }
+#text-position { grid-column: 1 / -1; }
 #typography-settings { margin-top: 8px; }
 #text-position summary, #typography-settings > summary { min-height: 36px; padding: 9px 0; cursor: pointer; color: var(--panel-muted); font-size: 13px; }
 #canvas-resize {

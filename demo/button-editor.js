@@ -69,10 +69,10 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   const count = document.querySelector('#selection-count');
   const typographyFields = {
     size:document.querySelector('#label-size'),weight:document.querySelector('#label-weight'),
-    family:document.querySelector('#label-family'),
+    family:document.querySelector('#label-family'),tone:document.querySelector('#label-tone'),
     x:document.querySelector('#label-x'),y:document.querySelector('#label-y')
   };
-  const defaultTypography = {size:15,weight:650,family:'system',icon:'',x:50,y:50};
+  const defaultTypography = {size:15,weight:650,family:'system',tone:'default',icon:'',x:50,y:50};
   const shape = document.querySelector('#button-shape');
   const width = document.querySelector('#button-width');
   const height = document.querySelector('#button-height');
@@ -82,8 +82,11 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   const widthRange = document.querySelector('#width-range');
   const heightRange = document.querySelector('#height-range');
   const add = document.querySelector('#add-button');
+  const addShapes = document.querySelector('#add-shapes');
+  const newShape = document.querySelector('#new-shape');
   const draw = document.querySelector('#draw-shape');
   const syncShape = mountShapePicker(shape);
+  mountShapePicker(newShape,{creating:true});
   const message = document.querySelector('#editor-message');
   const dialog = document.querySelector('#copy-dialog');
   const copySource = document.querySelector('#copy-source');
@@ -179,6 +182,7 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
     }
     syncShape({custom:Boolean(selected?.glassOutline),disabled:!editable()});
     add.disabled = root.children.length >= MAX_GLASS_SHAPES;
+    if (add.disabled) showShapePicker(false);
     draw.disabled = add.disabled;
     menuTool.disabled = add.disabled || Boolean(root.querySelector('.more-glass'));
     add.title = add.disabled ? strings.limit : '';
@@ -271,6 +275,7 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   }
   stage.addEventListener('pointerdown',event=>{
     if (event.button!==0 || !event.isPrimary) return;
+    showShapePicker(false);
     const button = event.target.closest('.glass');
     if (button) {
       press = {button,started:performance.now(),x:event.clientX,y:event.clientY,moved:false};
@@ -361,7 +366,7 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   function updateTypography(patch = {}) {
     if (!editable()) return;
     const values = Object.fromEntries(Object.entries(typographyFields).map(([key,input])=>{
-      if (key==='family') return [key,input.value];
+      if (key==='family' || key==='tone') return [key,input.value];
       const value = input.value===''?defaultTypography[key]:Number(input.value);
       return [key,input.type==='number'?Math.min(Number(input.max),Math.max(Number(input.min),value)):value];
     }));
@@ -389,17 +394,41 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
   }
   rotationRange.addEventListener('input',()=>applyRotation(rotationRange.valueAsNumber));
   rotation.addEventListener('change',()=>applyRotation(rotation.valueAsNumber));
+  function showShapePicker(open) {
+    addShapes.hidden = !open;
+    add.setAttribute('aria-expanded',String(open));
+  }
   add.addEventListener('click',()=>{
     outlineEditor.stop();
-    const button = addButton();
-    if (button) select(button);
+    showShapePicker(addShapes.hidden);
+    if (!addShapes.hidden) addShapes.querySelector('[tabindex="0"]').focus({preventScroll:true});
+  });
+  addShapes.addEventListener('keydown',event=>{
+    if (event.key!=='Escape') return;
+    showShapePicker(false);
+    add.focus({preventScroll:true});
+  });
+  newShape.addEventListener('change',()=>{
+    const button = addButton({shape:newShape.value});
+    showShapePicker(false);
+    if (!button) return;
+    select(button);
+    const bounds = button.getBoundingClientRect();
+    if (add.disabled || bounds.top<0 || bounds.bottom>window.innerHeight) {
+      button.focus({preventScroll:true});
+      button.scrollIntoView({block:'nearest'});
+    } else {
+      add.focus({preventScroll:true});
+    }
   });
   menuTool.addEventListener('click',()=>{
+    showShapePicker(false);
     outlineEditor.stop();
     const menu = addMenu();
     if (menu) select(menu);
   });
   draw.addEventListener('click',()=>{
+    showShapePicker(false);
     showOverlay(false);
     outlineEditor.start();
   });

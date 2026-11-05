@@ -6,9 +6,9 @@ const shapes = [
   ['octagon','shapeOctagon'],['star','shapeStar'],['heart','shapeHeart']
 ];
 
-export function mountShapePicker(input, {drawing = false} = {}) {
+export function mountShapePicker(input, {drawing = false, creating = false} = {}) {
   const grid = input.nextElementSibling;
-  const choices = drawing ? [['assist','drawAssist'],['free','drawFree'],...shapes] : [...shapes,['custom','custom']];
+  const choices = drawing ? [['assist','drawAssist'],['free','drawFree'],...shapes] : creating ? shapes : [...shapes,['custom','custom']];
   const buttons = choices.map(([shape,label])=>{
     const button = document.createElement('button');
     button.type = 'button';
@@ -43,6 +43,11 @@ export function mountShapePicker(input, {drawing = false} = {}) {
       svg.append(path);
     }
     button.append(svg);
+    if (creating) {
+      const caption = document.createElement('span');
+      caption.dataset.i18n = shape==='circle' ? 'drawEllipse' : shape==='rounded' ? 'roundedShort' : shape==='square' ? 'squareShort' : label;
+      button.append(caption);
+    }
     button.addEventListener('click',()=>{
       input.value = shape;
       input.dispatchEvent(new Event('change'));
@@ -55,7 +60,7 @@ export function mountShapePicker(input, {drawing = false} = {}) {
       const active = button.dataset.shapeChoice===input.value;
       button.hidden = button.dataset.shapeChoice==='custom' && !custom;
       button.disabled = disabled;
-      button.setAttribute('aria-pressed',String(active));
+      if (!creating) button.setAttribute('aria-pressed',String(active));
       button.tabIndex = active ? 0 : -1;
     }
     if (!disabled && !grid.querySelector('[tabindex="0"]')) buttons.find(button=>!button.hidden).tabIndex=0;
@@ -64,7 +69,7 @@ export function mountShapePicker(input, {drawing = false} = {}) {
     const focused = grid.querySelector('[tabindex="0"]');
     if (focused) focused.tabIndex = -1;
     const next = buttons.find(button=>button.dataset.shapeChoice===input.value);
-    for (const button of buttons) button.setAttribute('aria-pressed',String(button===next));
+    if (!creating) for (const button of buttons) button.setAttribute('aria-pressed',String(button===next));
     if (next) next.tabIndex = 0;
   });
   grid.addEventListener('keydown',event=>{

@@ -668,11 +668,28 @@ if (!exported) {
     },
     addButton(config) {
       if (pieces.length >= MAX_GLASS_SHAPES) return null;
-      const offset = (pieces.length-4)*18;
-      const button = createEditableButton(config ?? {
-        shape:'capsule',width:132,height:56,
-        x:Math.max(12,Math.min(stage.clientWidth-144,stage.clientWidth/2-66+offset)),y:64+offset
-      });
+      if (config.x == null) {
+        const width = config.shape==='capsule' ? 132 : config.shape==='rounded' ? 132 : 96;
+        const height = config.shape==='capsule' ? 56 : config.shape==='rounded' ? 80 : 96;
+        const bounds = stage.getBoundingClientRect();
+        const occupied = [...pieces,stage.querySelector('.language-tools')].map(piece=>piece.getBoundingClientRect());
+        const center = (stage.clientWidth-width)/2;
+        let position = {x:Math.round(center),y:64};
+        let best = Infinity;
+        // Search around the upper center, accounting for the actual bounds of existing objects.
+        for (let y=24;y+height+16<=stage.clientHeight;y+=20) {
+          for (let x=16;x+width+16<=stage.clientWidth;x+=20) {
+            const distance = Math.hypot(x-center,(y-64)*1.25);
+            if (distance>=best || occupied.some(rect=>
+              bounds.left+x<rect.right+16 && bounds.left+x+width>rect.left-16
+              && bounds.top+y<rect.bottom+16 && bounds.top+y+height>rect.top-16)) continue;
+            best = distance;
+            position = {x,y};
+          }
+        }
+        config = {...config,width,height,...position};
+      }
+      const button = createEditableButton(config);
       root.append(button);
       pieces.push(button);
       initPiece(button);

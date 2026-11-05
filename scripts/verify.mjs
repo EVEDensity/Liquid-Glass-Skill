@@ -39,6 +39,10 @@ async function ready(page, wallpaper = 'grid') {
     window.scrollTo(0,0);
   });
 }
+async function addShape(page, shape = 'capsule') {
+  await page.locator('#add-button').click();
+  await page.locator(`#add-shapes [data-shape-choice="${shape}"]`).click();
+}
 async function verifySelection(context) {
   const selectionPage = await context.newPage();
   selectionPage.on('pageerror',error=>errors.push(error.message));
@@ -367,7 +371,7 @@ async function verifyNewShapes(context) {
   await page.locator('#keep-outline').click();
   const heart = page.locator('.probe[data-shape="custom"]').last();
   assert.equal(await heart.evaluate(button=>button.glassOutline.length),48);
-  for (let i=0;i<5;i++) await page.locator('#add-button').click();
+  for (let i=0;i<5;i++) await addShape(page);
   await page.waitForFunction(()=>window.glassDemo.shapes.length===12);
   assert.ok(await page.locator('#draw-shape').isDisabled());
   await page.close();
@@ -470,7 +474,28 @@ try {
   await page.locator('#height-range').press('ArrowRight');
   const circle = await page.locator('#controls .probe').boundingBox();
   assert.deepEqual([circle.width,circle.height],[120,121]);
-  await page.getByRole('button',{name:'Add shape',exact:true}).click();
+  const addTrigger = page.getByRole('button',{name:'Add shape',exact:true});
+  const addPicker = page.locator('#add-shapes');
+  const originalCount = await page.locator('.probe').count();
+  await addTrigger.press('Enter');
+  assert.equal(await page.locator('.probe').count(),originalCount);
+  await addPicker.locator(':focus').press('Escape');
+  assert.equal(await addPicker.isVisible(),false);
+  assert.equal(await addTrigger.evaluate(button=>button===document.activeElement),true);
+  await addTrigger.press('Enter');
+  await addPicker.locator(':focus').press('ArrowLeft');
+  await addPicker.locator(':focus').press('Enter');
+  assert.equal(await page.locator('.probe[aria-current="true"]').getAttribute('data-shape'),'circle');
+  assert.equal(await addPicker.isVisible(),false);
+  const added = page.locator('.probe[aria-current="true"]');
+  const createdBox = await added.boundingBox();
+  for (const existing of await page.locator('#controls > .glass:not([aria-current="true"])').all()) {
+    const rect = await existing.boundingBox();
+    assert.ok(createdBox.x+createdBox.width<=rect.x || rect.x+rect.width<=createdBox.x
+      || createdBox.y+createdBox.height<=rect.y || rect.y+rect.height<=createdBox.y);
+  }
+  await page.locator('#canvas-delete').click();
+  await addShape(page);
   await page.locator('#object-geometry [data-shape-choice="rounded"]').click();
   const newButton = page.locator('#controls .probe').last();
   const initial = await newButton.boundingBox();
@@ -704,7 +729,7 @@ try {
   assert.equal(await page.locator('#controls .probe').count(),0);
   assert.equal(await page.locator('#controls > .glass').count(),3);
   assert.equal(await page.locator('#copy-button').isDisabled(),true);
-  await page.locator('#add-button').click();
+  await addShape(page);
   await page.locator('#canvas-tools').waitFor();
   record('Floating toolbar deletes only the selected shape and recovers when a shape is added');
   await page.getByRole('button',{name:'Draw shape',exact:true}).click();
@@ -735,6 +760,7 @@ try {
   await page.locator('#label-size').fill('21');
   await page.locator('#label-weight').selectOption('750');
   await page.locator('#label-family').selectOption('serif');
+  await page.locator('#label-tone').selectOption('light');
   await page.locator('#text-position summary').click();
   await page.locator('#label-x').fill('28');
   await page.locator('#label-y').fill('64');
@@ -745,7 +771,7 @@ try {
   assert.equal(customConfig.button.shape,'custom');
   assert.equal(customConfig.button.outline.length,6);
   assert.notDeepEqual(customConfig.button.outline[0],customConfig.button.outline.at(-1));
-  assert.deepEqual(customConfig.button.typography,{size:21,weight:750,family:'serif',icon:'star',x:28,y:64});
+  assert.deepEqual(customConfig.button.typography,{size:21,weight:750,family:'serif',tone:'light',icon:'star',x:28,y:64});
   const customStage = await page.locator('#stage').boundingBox();
   const customBox = await custom.boundingBox();
   assert.deepEqual([customBox.x,customBox.y,customBox.width,customBox.height],[155,115,145,89]);

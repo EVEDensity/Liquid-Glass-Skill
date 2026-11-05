@@ -48,8 +48,12 @@
       <h1 id="presets-title" data-i18n="title">Liquid glass</h1>
         <div class="shape-actions">
           <button id="draw-shape" type="button" data-i18n="drawShape">Draw shape</button>
-          <button id="add-button" type="button" data-i18n="add">Add shape</button>
+          <button id="add-button" type="button" aria-expanded="false" aria-controls="add-shapes"><span data-i18n="add">Add shape</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></button>
           <button id="add-menu" type="button" data-i18n="addMenu">Add menu</button>
+        </div>
+        <div id="add-shapes" hidden>
+          <input id="new-shape" class="shape-value" type="hidden" value="capsule">
+          <div class="shape-choices creation-choices" role="group" aria-label="Choose a shape to add" data-aria="chooseShape"></div>
         </div>
     </header>
     <p id="object-empty" class="selection-hint" data-i18n="selectionHint">Select an object on the canvas to edit its properties.</p>
@@ -97,6 +101,10 @@
           <option value="system" data-i18n="fontSystem">System</option>
           <option value="serif" data-i18n="fontSerif">Serif</option>
           <option value="mono" data-i18n="fontMono">Monospace</option>
+        </select></label>
+        <label><span data-i18n="labelTone">Label color</span><select id="label-tone">
+          <option value="default" data-i18n="toneDefault">Default</option>
+          <option value="light" data-i18n="toneLight">Light</option>
         </select></label>
         <details id="text-position">
           <summary data-i18n="textPosition">Position</summary>

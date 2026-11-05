@@ -281,6 +281,8 @@ export function applyGlassTypography(button, typography) {
     top:limit(typography.y,50,0,100)+'%',
     fontSize:limit(typography.size,15,8,72)+'px',
     fontWeight:String(limit(typography.weight,650,400,750)),
+    color:typography.tone==='light'?'#fffaf0':'',
+    textShadow:typography.tone==='light'?'0 1px 3px #15202b':'',
     fontFamily:typography.family==='serif'?'Georgia, "Songti SC", SimSun, serif'
       : typography.family==='mono'?'Consolas, "Courier New", monospace':'inherit'
   });
