@@ -4,9 +4,21 @@
 
 **Design interactive glass controls and bring them into your web project.**
 
-[Demo](#demo) · [Install](#install) · [Use in Codex](#use-in-codex) · [Integration guide](references/integration.md)
+**English** | [中文](README_CN.md) | [日本語](README_JA.md)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-skill-d97757)](SKILL.md)
+[![Codex](https://img.shields.io/badge/Codex-skill-10a37f)](SKILL.md)
+
+[Demo](#demo) · [Install](#install) · [Use](#use) · [Editor](#try-the-editor) · [Integration](references/integration.md)
 
 </div>
+
+## What it does
+
+Liquid Glass UI is a skill and local editor for designing refractive buttons, switches, sliders, segmented controls, and other glass surfaces. Adjust a control's shape, text, icon, and material, then bring the design into an existing page while preserving its original layout and actions.
+
+The runtime offers two paths: CSS glass for arbitrary live DOM backgrounds, and WebGL2 refraction when the application can supply the backdrop as readable pixels. CSS blur does not refract or merge arbitrary DOM content.
 
 ## Demo
 
@@ -14,74 +26,107 @@ https://github.com/user-attachments/assets/9c0b9150-876c-46cf-9f29-7a22a7e907b4
 
 18-second product demo · [Download the 4K MP4](https://github.com/EVEDensity/Liquid-Glass-Skill/raw/refs/heads/main/docs/media/liquid-glass-ui-demo.mp4)
 
-## What it does
-
-Design refractive buttons, switches, sliders, and segmented controls in a local editor. Adjust their geometry, text, icons, and material, then carry the design into an existing page with **Copy for AI** or the Liquid Glass UI skill. The video shows the same workflow ending with an existing calendar button that still changes the month.
-
 ## Install
 
-Give your coding agent this prompt. The repository requires GitHub access.
+Built for coding agents including Claude Code and Codex. The simplest option is to give your agent the repository URL:
 
 ```text
 Install this skill for me: https://github.com/EVEDensity/Liquid-Glass-Skill
 ```
 
-Or install directly into the personal Codex skills directory.
+Or clone it into the appropriate personal skill directory. The cloned folder must contain `SKILL.md` directly. These commands require Git and access to GitHub; they assume the destination does not already exist.
 
-**Windows (PowerShell)**
+**Claude Code — macOS / Linux**
+
+```bash
+mkdir -p "$HOME/.claude/skills" && git clone https://github.com/EVEDensity/Liquid-Glass-Skill.git "$HOME/.claude/skills/liquid-glass-ui"
+```
+
+**Claude Code — Windows PowerShell**
 
 ```powershell
-$skillsDir = Join-Path $env:USERPROFILE '.agents/skills'
-New-Item -ItemType Directory -Force $skillsDir | Out-Null
-git clone https://github.com/EVEDensity/Liquid-Glass-Skill.git (Join-Path $skillsDir 'liquid-glass-ui')
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills" | Out-Null; git clone https://github.com/EVEDensity/Liquid-Glass-Skill.git "$env:USERPROFILE\.claude\skills\liquid-glass-ui"
 ```
 
-**macOS or Linux**
+**Codex — macOS / Linux**
 
-```sh
-mkdir -p "$HOME/.agents/skills"
-git clone https://github.com/EVEDensity/Liquid-Glass-Skill.git "$HOME/.agents/skills/liquid-glass-ui"
+```bash
+mkdir -p "$HOME/.agents/skills" && git clone https://github.com/EVEDensity/Liquid-Glass-Skill.git "$HOME/.agents/skills/liquid-glass-ui"
 ```
 
-## Use in Codex
+**Codex — Windows PowerShell**
 
-From the project you want to edit, invoke [`$liquid-glass-ui`](SKILL.md) and name the controls.
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills" | Out-Null; git clone https://github.com/EVEDensity/Liquid-Glass-Skill.git "$env:USERPROFILE\.agents\skills\liquid-glass-ui"
+```
+
+For a project-only Claude Code installation, use `<project>/.claude/skills/liquid-glass-ui/` instead. Start a new session if the installed skill does not appear immediately.
+
+## Use
+
+In the project you want to edit, identify the controls and ask the agent to preserve their behavior.
+
+**Claude Code**
 
 ```text
-Use $liquid-glass-ui to restyle the previous-month button in this project.
-Open the editor so I can choose the design. Keep the existing background and click behavior.
+/liquid-glass-ui Restyle the previous-month button. Open the editor so I can choose a design; keep the existing background and month navigation.
 ```
 
-| Say | What happens |
+**Codex**
+
+```text
+Use $liquid-glass-ui to restyle the previous-month button. Open the editor so I can choose a design; keep the existing background and month navigation.
+```
+
+| Request | Workflow |
 | --- | --- |
-| `Use $liquid-glass-ui for my Save button. Let me choose the design first.` | Codex opens the local playground and waits for your next **Copy for AI** selection. |
-| `Use $liquid-glass-ui to apply this copied design to the Save button.` Then paste the clipboard text. | Codex mounts the supplied design using its matching runtime and reconnects the original action. |
-| `使用 $liquid-glass-ui，把我选好的样式用到「上月」按钮上，保留背景和翻月功能。` | Codex uses your selected control design and keeps the calendar's existing month navigation. |
+| “Let me choose a glass design for my Save button.” | The skill opens the local editor and waits for a selected design before changing the target. |
+| “Apply this copied design to my Save button.” | Paste the **Copy for AI** payload; the skill uses the matching runtime and preserves the original action. |
+| “Use glass on the calendar's previous-month button.” | Name the target and keep its existing month navigation and background. |
+
+The skill asks for a design when none has been selected. See [SKILL.md](SKILL.md) and the [integration guide](references/integration.md) for the handoff and rendering constraints.
 
 ## Try the editor
 
-Run from the skill folder and open [the local playground](http://localhost:58423/demo/). It needs Node.js.
+From the cloned skill directory, run the local server and open [localhost:58423/demo/](http://localhost:58423/demo/). Node.js is required.
 
-```sh
+```bash
 node scripts/serve.mjs
 ```
 
-1. Click a control to edit it, or drag from empty canvas to select several.
-2. Pick a material, add or draw a shape, or adjust the selected control in the right sidebar.
-3. Click **Copy for AI** in the canvas toolbar. Paste the result into Codex, or let the active skill read the selection from the local server. Use **Copy offline JS** for a standalone module.
+1. Select a control, or drag from empty canvas to select several.
+2. Choose a material, add or draw a shape, and adjust text, icons, and geometry in the sidebar.
+3. Click **Copy for AI** and paste the result into your agent, or use the local handoff. Use **Copy offline JS** for a standalone module.
 
-The clipboard and skill use the same design data. For true refraction, supply readable pixels from the target backdrop. Use the CSS fallback for arbitrary DOM content. See the [integration guide](references/integration.md), [material settings](references/design-system.md), and [acceptance checks](references/acceptance.md).
+You can also use the editor's button export to copy a self-contained JavaScript module. It preserves a captured scene in a separate frame and needs WebGL2 for refraction; host content security policy must permit the frame's inline script and styles. See [integration recipes](references/integration.md).
 
-## Development
+## What you get
 
-```sh
+| Component | Purpose |
+| --- | --- |
+| [SKILL.md](SKILL.md) | Agent workflow and design handoff |
+| `demo/` | Local glass editor and offline export |
+| `assets/` | CSS glass, WebGL2 renderer, and button runtimes |
+| [references/](references/integration.md) | Integration, material, and acceptance guidance |
+
+## Requirements and development
+
+Node.js is needed to run the local editor; Git and GitHub access are needed for cloning. WebGL2 is required for texture refraction; CSS glass provides an alternative for live DOM backgrounds. The editor and runtime do not require the Playwright development dependency.
+
+```bash
 npm ci
+```
+
+```bash
 npm test
+```
+
+```bash
 npm run package
 ```
 
-Tests use Microsoft Edge or Playwright Chromium. See the [validation notes](references/validation.md) for coverage and an isolated test port. The installable archive is `dist/liquid-glass-ui.zip`.
+Tests use Microsoft Edge or Playwright Chromium. See [validation notes](references/validation.md) for coverage and an isolated test port. The installable archive is `dist/liquid-glass-ui.zip`.
 
-## License
+## License and credits
 
-[MIT](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md). Visually inspired by the [Good Machines Liquid Glass lab](https://goodmachines.ai/lab/liquid-glass).
+New project code and documentation are [MIT licensed](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md) for assets and dependencies. The visual direction is inspired by [Good Machines Liquid Glass Lab](https://goodmachines.ai/lab/liquid-glass); this project is independently implemented and is not an official Apple implementation.

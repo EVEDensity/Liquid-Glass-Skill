@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root = await realpath(resolve(dirname(fileURLToPath(import.meta.url)), '..'));
 // List release files explicitly so local additions inside runtime folders stay out.
 const include = [
-  '.gitignore', 'LICENSE', 'README.md', 'SKILL.md', 'THIRD_PARTY_NOTICES.md',
+  '.gitignore', 'LICENSE', 'README.md', 'README_CN.md', 'README_JA.md', 'SKILL.md', 'THIRD_PARTY_NOTICES.md',
   'package.json', 'package-lock.json', 'agents/openai.yaml',
   'assets/LICENSE-lucide', 'assets/glass-backdrop.svg', 'assets/glass-grid.svg',
   'assets/glass-button.js', 'assets/glass-motion.js', 'assets/liquid-glass-renderer.js',
