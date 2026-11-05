@@ -1,0 +1,51 @@
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['demo/**', 'assets/**', 'LICENSE', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage only the demo runtime
+        shell: bash
+        run: |
+          mkdir pages
+          git archive HEAD -- LICENSE assets/LICENSE-lucide \
+            assets/glass-button.js assets/glass-motion.js assets/glass-grid.svg \
+            assets/liquid-glass-renderer.js assets/mount-liquid-glass.js \
+            assets/wallpapers/daisy.jpg assets/wallpapers/lake.jpg assets/wallpapers/prism.jpg \
+            demo/index.html demo/demo.css demo/demo.js demo/button-editor.js \
+            demo/glass-menu.js demo/icon-picker.js demo/language.js demo/lucide-catalog.json \
+            demo/merge-outline.js demo/outline-editor.js demo/replica.js demo/shape-picker.js \
+            | tar -x -C pages
+          cat > pages/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <meta http-equiv="refresh" content="0; url=./demo/">
+          <title>Liquid Glass UI</title>
+          <a href="./demo/">Open the Liquid Glass UI editor</a>
+          EOF
+          touch pages/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+      - uses: actions/deploy-pages@v4
+        id: deployment
