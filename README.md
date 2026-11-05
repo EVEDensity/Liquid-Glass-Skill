@@ -1,33 +1,76 @@
+<div align="center">
+
 # Liquid Glass UI
 
-A coding-agent skill and local editor for interactive liquid-glass buttons, switches, sliders, and segmented controls. Design a control in the browser and take its shape, typography, material, and motion into an existing page.
+**Design interactive glass controls and bring them into your web project.**
 
-## Product demo
+[Demo](#demo) · [Install](#install) · [Use in Codex](#use-in-codex) · [Integration guide](references/integration.md)
 
-[Watch the 18-second demo · 宣传片 (4K MP4)](https://github.com/EVEDensity/Liquid-Glass-Skill/blob/main/docs/media/liquid-glass-ui-demo.mp4)
+</div>
 
-The video shows refraction, glass fusion, slider motion, shape editing, and a copied design wired to a calendar's existing previous-month action.
+## Demo
+
+https://github.com/user-attachments/assets/9c0b9150-876c-46cf-9f29-7a22a7e907b4
+
+18-second product demo · [Download the 4K MP4](https://github.com/EVEDensity/Liquid-Glass-Skill/raw/refs/heads/main/docs/media/liquid-glass-ui-demo.mp4)
+
+## What it does
+
+Design refractive buttons, switches, sliders, and segmented controls in a local editor. Adjust their geometry, text, icons, and material, then carry the design into an existing page with **Copy for AI** or the Liquid Glass UI skill. The video shows the same workflow ending with an existing calendar button that still changes the month.
+
+## Install
+
+Give your coding agent this prompt. The repository requires GitHub access.
+
+```text
+Install this skill for me: https://github.com/EVEDensity/Liquid-Glass-Skill
+```
+
+Or install directly into the personal Codex skills directory.
+
+**Windows (PowerShell)**
+
+```powershell
+$skillsDir = Join-Path $env:USERPROFILE '.agents/skills'
+New-Item -ItemType Directory -Force $skillsDir | Out-Null
+git clone https://github.com/EVEDensity/Liquid-Glass-Skill.git (Join-Path $skillsDir 'liquid-glass-ui')
+```
+
+**macOS or Linux**
+
+```sh
+mkdir -p "$HOME/.agents/skills"
+git clone https://github.com/EVEDensity/Liquid-Glass-Skill.git "$HOME/.agents/skills/liquid-glass-ui"
+```
+
+## Use in Codex
+
+From the project you want to edit, invoke [`$liquid-glass-ui`](SKILL.md) and name the controls.
+
+```text
+Use $liquid-glass-ui to restyle the previous-month button in this project.
+Open the editor so I can choose the design. Keep the existing background and click behavior.
+```
+
+| Say | What happens |
+| --- | --- |
+| `Use $liquid-glass-ui for my Save button. Let me choose the design first.` | Codex opens the local playground and waits for your next **Copy for AI** selection. |
+| `Use $liquid-glass-ui to apply this copied design to the Save button.` Then paste the clipboard text. | Codex mounts the supplied design using its matching runtime and reconnects the original action. |
+| `使用 $liquid-glass-ui，把我选好的样式用到「上月」按钮上，保留背景和翻月功能。` | Codex uses your selected control design and keeps the calendar's existing month navigation. |
 
 ## Try the editor
 
-Run this command from the repository root, then open [the local playground](http://localhost:58423/demo/). The editor runs with Node.js and needs no npm install.
+Run from the skill folder and open [the local playground](http://localhost:58423/demo/). It needs Node.js.
 
 ```sh
 node scripts/serve.mjs
 ```
 
-- Click a control to select it. Drag from an empty part of the canvas to select several.
-- Choose **Add shape** or **Draw shape**, then edit size, rotation, text, icons, and material in the right sidebar. The canvas toolbar's **T** focuses the selected control's text field.
-- Drag the glass circle across a fixed rail to see refraction, or bring it close to another glass surface to see the contours join.
-- Click **Copy for AI** in the canvas toolbar and paste the result into your coding agent. **Copy offline JS** in the sidebar exports a local JavaScript module.
+1. Click a control to edit it, or drag from empty canvas to select several.
+2. Pick a material, add or draw a shape, or adjust the selected control in the right sidebar.
+3. Click **Copy for AI** in the canvas toolbar. Paste the result into Codex, or let the active skill read the selection from the local server. Use **Copy offline JS** for a standalone module.
 
-## Use it as a skill
-
-Place the folder named `liquid-glass-ui`, with [SKILL.md](SKILL.md) at its root, in your coding agent's skills directory. In Codex, run `$liquid-glass-ui` and name the controls you want to change. If you are still choosing the style, the agent can open the playground and read your next **Copy for AI** selection from the local server.
-
-The clipboard and local skill use the same design configuration and runtime. For pixel comparisons, match the readable backdrop, crop, stage dimensions, placement, browser, and device scale. On arbitrary page content, use the CSS fallback.
-
-[Integrate a button or control selection](references/integration.md) · [Material settings](references/design-system.md) · [Acceptance checks](references/acceptance.md)
+The clipboard and skill use the same design data. For true refraction, supply readable pixels from the target backdrop. Use the CSS fallback for arbitrary DOM content. See the [integration guide](references/integration.md), [material settings](references/design-system.md), and [acceptance checks](references/acceptance.md).
 
 ## Development
 
@@ -37,10 +80,8 @@ npm test
 npm run package
 ```
 
-The tests use Microsoft Edge or Playwright Chromium. Set `GLASS_BROWSER_PATH` to use a different browser. See the [validation notes](references/validation.md) for coverage.
-
-The package command writes `dist/liquid-glass-ui.zip` with the installable skill, runtime, demo, tests, and documentation. The promotional video is distributed separately from the skill package.
+Tests use Microsoft Edge or Playwright Chromium. See the [validation notes](references/validation.md) for coverage and an isolated test port. The installable archive is `dist/liquid-glass-ui.zip`.
 
 ## License
 
-The implementation is [MIT licensed](LICENSE). The project was visually inspired by the public [Good Machines Liquid Glass lab](https://goodmachines.ai/lab/liquid-glass). See the [third-party notices](THIRD_PARTY_NOTICES.md) for asset and dependency attribution.
+[MIT](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md). Visually inspired by the [Good Machines Liquid Glass lab](https://goodmachines.ai/lab/liquid-glass).
