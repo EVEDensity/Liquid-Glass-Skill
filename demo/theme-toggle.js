@@ -87,23 +87,22 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
       if (reduced.matches || Math.abs(state.knobTail) < .16) state.knobTail = 0;
       state.tailX = centreX;
       state.tailTime = now;
-      const width = rect.width + 26 * press - 44 * squeeze;
-      const height = rect.height + 10 * press + 9 * squeeze - Math.min(9, Math.abs(state.knobTail) * .29);
-      const tint = Number.isFinite(toggle.glowProgress) ? toggle.glowProgress : (toggle.theme === 'dark' ? 0 : 1);
+      const width = rect.width + 19 * press - 23 * squeeze;
+      const height = rect.height + 4 * press - 7 * squeeze - Math.min(9, Math.abs(state.knobTail) * .29);
       return {
         base: {
           x: track.left - stageBox.left + track.width / 2,
           y: track.top - stageBox.top + track.height / 2,
           width: track.width, height: track.height,
           light: 90 + toggle.glowRotation, // rim light rides the arc's angle
-          tint, // slow hue drift of the resting glass
-          glow: [.455 + .545 * tint, .51 + .18 * tint, 1 - .75 * tint], // current arc color
+          tint: toggle.glowProgress,
+          glow: toggle.glowColor,
         },
         shape: {
           x: rect.left - stageBox.left + rect.width / 2,
           y: rect.top - stageBox.top + rect.height / 2,
           width, height,
-          radius: Math.min(width, height) * .40,
+          radius: Math.min(width, height) * .28,
           press, motion,
           stretchX: Math.round(state.knobTail * 10) / 10,
           contactX: rect.left + rect.width / 2, contactY: rect.top + rect.height / 2,

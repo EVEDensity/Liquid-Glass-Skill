@@ -406,6 +406,8 @@ html[data-glass-selection], html[data-glass-selection] body, html[data-glass-sel
 
 /* Theme toggle: stage chrome in the top-right corner, mirroring the language tools. */
 #theme-tools { position: absolute; inset: 16px 16px auto auto; z-index: 4; display: grid; }
+#stage:not(.fallback) #theme-tools .theme-glow { display: none; }
+#stage:not(.fallback) #theme-tools .theme-thumb { box-shadow: none; }
 @media (max-width: 700px) { #theme-tools { inset: 12px 12px auto auto; } }
 
 /* Dark theme: the toggle flips the whole editor, panels included. */

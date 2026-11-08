@@ -298,13 +298,6 @@ function draw() {
     stage.style.setProperty('--scene-dim', (1 - brightness).toFixed(3));
   }
   colorSettling = colorSettling || smoothBrightness !== brightnessTarget;
-  // The thumb's own fill lags even more: it stays milky through the travel and
-  // only settles into the dark glass afterwards.
-  const fillGoal = theme === 'dark' ? 1 : 0;
-  fillMix += (fillGoal - fillMix) * (1 - Math.exp(-brightnessDt / 420));
-  if (fillMix < .004) fillMix = 0;
-  if (fillMix > .996) fillMix = 1;
-  colorSettling = colorSettling || fillMix !== fillGoal;
   const shapes = pieces.map(piece => {
     if (piece.matches('.more-glass')) {
       const surface = piece.querySelector('.more-surface');
@@ -406,7 +399,7 @@ function draw() {
   if (opaque) return;
   if (themeControl) {
     const themeState = themeControl.sceneState(now, box);
-    bases.theme = { ...themeState.base, on: theme === 'dark', fillMix };
+    bases.theme = { ...themeState.base, on: theme === 'dark' };
     shapes.push({ ...themeState.shape, surface: 'theme' });
     if (themeState.settling) colorSettling = true;
   }
@@ -557,7 +550,6 @@ let theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
 let sceneBrightness = theme === 'dark' ? 0 : 1;
 let smoothBrightness = sceneBrightness;
 let lastBrightnessTick = null;
-let fillMix = theme === 'dark' ? 1 : 0; // the thumb's milk-to-dark-glass fill, slower than the scene
 let themeControl = null;
 const wallpapers = [...document.querySelectorAll('[data-wallpaper]')];
 let backdropRequest = 0;
