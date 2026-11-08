@@ -290,13 +290,15 @@ void main(){
   vec2 n=length(gradient)>.001?normalize(gradient):normalize(p-centre+vec2(.0001));
   float mask=1.-smoothstep(-aa,aa,field);
   float depth=max(-field,0.);
-  // The theme thumb's bright rim follows its neon arc; every other shape keeps the fixed light.
+  // The theme thumb's bright rim follows its neon arc and only lights the glow
+  // side; every other shape keeps the fixed omnidirectional light.
   float overTheme=0.;
   if(u_themeBase.w>0.)overTheme=1.-step(distance(centre,u_switchBase.xy),distance(centre,u_themeBase.xy));
   vec2 themeLight=vec2(cos(radians(u_themeLight)),sin(radians(u_themeLight)));
   float facingRim=abs(dot(n,mix(vec2(-.7071,-.7071),themeLight,overTheme)));
+  float rimBias=mix(.54+.46*facingRim,.12+.88*smoothstep(-.45,1.,dot(n,themeLight)),overTheme);
   float outline=(1.-smoothstep(.35,1.55,depth))*min(.85,u_specular)
-      *(.54+.46*facingRim);
+      *rimBias;
   if(u_clearControls>.5){
     float curve=sin(clamp(depth/18.,0.,1.)*3.141593);
     vec2 pull=(p-centre)*press*.09;
