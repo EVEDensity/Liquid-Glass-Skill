@@ -17,11 +17,13 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let pressFrame = 0;
   let pressTarget = 0;
+  let tapUntil = 0;
+  function pressGoal(now) { return pressTarget === 1 || now < tapUntil ? 1 : 0; }
   function animatePress(now) {
     pressFrame = 0;
-    const moving = stepGlassMotion(state, pressTarget, now, false, reduced.matches);
+    const moving = stepGlassMotion(state, pressGoal(now), now, false, reduced.matches);
     schedule();
-    if (moving) pressFrame = requestAnimationFrame(animatePress);
+    if (moving || now < tapUntil) pressFrame = requestAnimationFrame(animatePress);
   }
   function startPress() { if (!pressFrame) pressFrame = requestAnimationFrame(animatePress); }
   toggle.addEventListener('pointerdown', event => {
@@ -29,6 +31,12 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
     pressTarget = 1;
     state.contactX = event.clientX;
     state.contactY = event.clientY;
+    startPress();
+  });
+  // A click swells the thumb through the first half of its travel, like the switch.
+  toggle.addEventListener('click', () => {
+    if (reduced.matches) return;
+    tapUntil = performance.now() + 150;
     startPress();
   });
   toggle.addEventListener('pointermove', event => {

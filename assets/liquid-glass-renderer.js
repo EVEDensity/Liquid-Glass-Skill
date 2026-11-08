@@ -373,8 +373,8 @@ void main(){
     float switchFill=u_switchOn*(1.-overTheme);
     vec3 switchRest=mix(vec3(.945,.941,.928),vec3(.977,.914,.890),switchFill);
     vec3 themeRest=mix(
-      mix(vec3(.125,.135,.16),vec3(.10,.13,.21),u_themeTint*.6),
       mix(vec3(.971,.966,.955),vec3(.995,.93,.80),u_themeTint*.5),
+      mix(vec3(.13,.14,.20),vec3(.125,.135,.16),u_themeTint*.6),
       u_themeOn);
     vec3 porcelain=mix(switchRest,themeRest,overTheme);
     float porcelainRim=1.-smoothstep(1.1,3.1,depth);
