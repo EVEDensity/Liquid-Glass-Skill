@@ -429,8 +429,8 @@ html[data-theme="dark"] #keep-outline { background: #36452f; color: #eaf0e2; }
 html[data-theme="dark"] :focus-visible { outline-color: #9fd3ff; }
 html[data-theme="dark"] #canvas-resize::before { background: #262925; border-color: #dfe4dc; }
 html[data-theme="dark"] #icon-results { scrollbar-color: #4a554c transparent; }
-/* Fallback stage: dim the wallpaper beneath the opaque controls. */
-html[data-theme="dark"] #stage.fallback::before { content: ""; position: absolute; inset: 0; background: rgb(8 10 9 / .62); pointer-events: none; }
+/* Fallback stage: the wallpaper dims continuously with the thumb position. */
+#stage.fallback::before { content: ""; position: absolute; inset: 0; background: rgb(8 10 9 / .62); opacity: var(--scene-dim, 0); pointer-events: none; }
 html[data-theme="dark"] #stage.fallback .glass { background: rgb(30 36 32 / .92); }
 #stage.fallback .glass-theme-toggle .theme-track { background: #e6e4df; box-shadow: inset 0 1px 2px rgb(255 255 255 / .65); backdrop-filter: none; -webkit-backdrop-filter: none; }
 #stage.fallback .glass-theme-toggle .theme-thumb { background: #fbfaf7; box-shadow: 0 2px 8px rgb(15 20 30 / .3); backdrop-filter: none; -webkit-backdrop-filter: none; }

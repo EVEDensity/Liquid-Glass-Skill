@@ -274,6 +274,13 @@ function activePress(piece, now) {
 }
 function draw() {
   frame = 0;
+  // The scene brightness trails the thumb position, so dimming stays continuous.
+  const brightness = sceneProgress();
+  if (Math.abs(brightness - sceneBrightness) > .008) {
+    sceneBrightness = brightness;
+    applySceneBrightness(brightness);
+    stage.style.setProperty('--scene-dim', (1 - brightness).toFixed(3));
+  }
   updateEditorOverlay?.();
   const opaque = !scene.available || (exported?.version === 3 && !sourceReady)
     || matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
@@ -396,7 +403,7 @@ function draw() {
   scene.setSliderTrack(track);
   scene.setControlBases(bases);
   scene.setShapes(shapes);
-  scene.setMaterial({...material, appearance: theme === 'dark' ? 'dark' : 'light'});
+  scene.setMaterial({...material, appearance: brightness > .5 ? 'light' : 'dark'});
   scene.render();
   if (colorSettling) schedule();
 }
@@ -533,15 +540,26 @@ window.addEventListener('resize', schedule);
 let sourceReady = false;
 let sourceImage = null;
 let theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+let sceneBrightness = theme === 'dark' ? 0 : 1;
+let themeControl = null;
 const wallpapers = [...document.querySelectorAll('[data-wallpaper]')];
 let backdropRequest = 0;
 const themeSource = document.createElement('canvas');
-// Dark mode samples a dimmed copy of the wallpaper so the page and the glass share one source.
-function syncSource() {
+// The scene brightness follows the thumb: the wallpaper is dimmed in proportion
+// to how far the thumb sits from the light end, and the glass samples the same
+// dimmed pixels so page and glass always match.
+function sceneProgress() {
+  if (themeControl) {
+    const p = themeControl.progress;
+    if (Number.isFinite(p)) return Math.max(0, Math.min(1, p));
+  }
+  return theme === 'dark' ? 0 : 1;
+}
+function applySceneBrightness(p) {
   if (!scene.available || !sourceImage) return;
   const width = sourceImage.naturalWidth || sourceImage.width, height = sourceImage.naturalHeight || sourceImage.height;
   if (!width || !height) return;
-  if (theme !== 'dark') {
+  if (p >= .995) {
     scene.setSource(sourceImage);
     return;
   }
@@ -549,7 +567,7 @@ function syncSource() {
   themeSource.height = height;
   const context = themeSource.getContext('2d');
   context.drawImage(sourceImage, 0, 0);
-  context.fillStyle = 'rgb(8 10 9 / .62)';
+  context.fillStyle = `rgba(8, 10, 9, ${(0.62 * (1 - p)).toFixed(3)})`;
   context.fillRect(0, 0, width, height);
   scene.setSource(themeSource);
 }
@@ -559,7 +577,7 @@ async function setBackdrop(image, selected) {
     await image.decode();
     if (request !== backdropRequest) return;
     sourceImage = image;
-    syncSource();
+    applySceneBrightness(sceneProgress());
     stage.style.setProperty('--stage-wallpaper', `url("${image.src}")`);
     for (const button of wallpapers) button.setAttribute('aria-pressed',String(button === selected));
     sourceReady = true;
@@ -589,14 +607,12 @@ if (exported?.backdrop) {
 } else if (!exported) {
   selectWallpaper(wallpapers[0]);
 }
-let themeControl = null;
 if (!exported) {
   themeControl = mountThemeToggle(stage, {
     schedule,
     getStrings: () => stageLabels[language],
     onThemeChange(next) {
       theme = next;
-      syncSource();
       schedule();
     },
   });

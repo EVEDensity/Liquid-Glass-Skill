@@ -52,6 +52,10 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
   return {
     element: toggle,
     get theme() { return toggle.theme; },
+    get progress() {
+      const v = toggle.glowProgress;
+      return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : (toggle.theme === 'dark' ? 0 : 1);
+    },
     setLanguage(strings) { toggle.setGlassThemeLabel(strings.themeToggle); },
     // The thumb press grows like the switch knob, travel stretches it thin,
     // and holding it keeps squeezing the droplet narrower until release.
