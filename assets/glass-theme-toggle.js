@@ -11,6 +11,10 @@ const css = `
 .glass-theme-toggle:active { cursor: grabbing; }
 .glass-theme-toggle[aria-checked="false"] { --glow-color: rgb(255 176 64 / .95); }
 .glass-theme-toggle[aria-checked="true"] { --glow-color: rgb(116 130 255 / .95); }
+@supports (color: color-mix(in oklab, red, blue)) {
+  /* The arc hue follows the thumb across the track while dragging. */
+  .glass-theme-toggle { --glow-color: color-mix(in oklab, rgb(116 130 255 / .95), rgb(255 176 64 / .95) calc(var(--glow-progress, 0) * 100%)); }
+}
 .glass-theme-toggle .theme-track {
   position: absolute; inset: 0; border-radius: 999px;
   background: #e6e4df;
@@ -56,6 +60,10 @@ const css = `
 .glass-theme-toggle .theme-icon rect {
   transform-box: fill-box; transform-origin: center;
   transition: opacity 300ms ease var(--d, 0ms), transform 430ms cubic-bezier(.3,.7,.3,1) var(--d, 0ms);
+}
+/* Mid-drag: both icons hang as loose particle clouds around the center. */
+.glass-theme-toggle .theme-icon[data-dust] rect {
+  opacity: .55; transform: translate(calc(var(--sx, 0px) * .55), calc(var(--sy, 0px) * .55)) scale(.8);
 }
 .glass-theme-toggle .theme-icon[data-off] rect {
   opacity: 0; transform: translate(var(--sx, 0px), var(--sy, 0px)) scale(.35);
@@ -184,8 +192,21 @@ export function createGlassThemeToggle(target, config = {}) {
   let skipPointerClick = false;
   const apply = next => {
     scope.dataset.theme = next;
+    icons.moon.toggleAttribute('data-dust', false);
+    icons.sun.toggleAttribute('data-dust', false);
     icons.moon.toggleAttribute('data-off', next !== 'dark');
     icons.sun.toggleAttribute('data-off', next !== 'light');
+    toggle.style.setProperty('--glow-progress', next === 'dark' ? '0' : '1');
+  };
+  // Mid-drag the icons hang as particle clouds and the arc hue follows the thumb.
+  const previewProgress = shift => {
+    const p = Math.max(0, Math.min(1, shift / travel()));
+    toggle.style.setProperty('--glow-progress', p.toFixed(3));
+    const zone = p < .35 ? 'dark' : p > .65 ? 'light' : 'mid';
+    icons.moon.toggleAttribute('data-dust', zone === 'mid');
+    icons.sun.toggleAttribute('data-dust', zone === 'mid');
+    icons.moon.toggleAttribute('data-off', zone === 'light');
+    icons.sun.toggleAttribute('data-off', zone === 'dark');
   };
   const commit = next => {
     if (next === theme) return;
@@ -199,15 +220,17 @@ export function createGlassThemeToggle(target, config = {}) {
   };
   apply(initial);
   const travel = () => Math.max(1, toggle.clientWidth - thumb.offsetWidth - parseFloat(getComputedStyle(toggle).paddingLeft) * 2);
-  // The neon arc leans toward the direction of travel and settles back to its theme edge.
+  // The neon arc rides the leading edge of travel and settles back to its theme edge.
   const glow = thumb.querySelector('.theme-glow');
-  let glowShift = 0, glowVelocity = 0, glowFrame = 0, glowLastX = null, glowDragging = false;
+  let glowShift = 0, glowVelocity = 0, glowFrame = 0, glowLastX = null, glowDragging = false, glowDir = 0;
   function glowStep() {
     glowFrame = 0;
-    glowShift = Math.max(-85, Math.min(85, glowShift + (glowVelocity * 6 - glowShift) * .24));
+    const lean = glowDragging ? -glowDir * 70 : 0;
+    const target = Math.max(-85, Math.min(85, lean - glowVelocity * 6));
+    glowShift += (target - glowShift) * .24;
     glowVelocity *= .8;
     glow.style.setProperty('--glow-shift', glowShift.toFixed(2) + 'deg');
-    if (glowDragging || Math.abs(glowShift) > .4 || Math.abs(glowVelocity) > .05) {
+    if (glowDragging || Math.abs(glowShift) > .4) {
       glowFrame = requestAnimationFrame(glowStep);
     } else {
       glow.style.setProperty('--glow-shift', '0deg');
@@ -220,6 +243,7 @@ export function createGlassThemeToggle(target, config = {}) {
     gesture = { id: event.pointerId, start: event.clientX, initial: theme === 'dark' ? 0 : travel(), shift: theme === 'dark' ? 0 : travel(), moved: false };
     toggle.setPointerCapture(event.pointerId);
     glowDragging = true;
+    glowDir = 0;
     glowLastX = event.clientX;
     toggle.dataset.dragging = '';
     startGlow();
@@ -232,6 +256,8 @@ export function createGlassThemeToggle(target, config = {}) {
     if (!gesture.moved && Math.abs(dx) < 4) return;
     gesture.moved = true;
     gesture.shift = Math.max(0, Math.min(travel(), gesture.initial + dx));
+    glowDir = gesture.shift > gesture.initial ? 1 : gesture.shift < gesture.initial ? -1 : 0;
+    previewProgress(gesture.shift);
     thumb.style.transition = 'none';
     thumb.style.translate = gesture.shift + 'px 0';
   });
@@ -242,7 +268,9 @@ export function createGlassThemeToggle(target, config = {}) {
       thumb.style.transition = '';
       thumb.style.translate = '';
       const far = Math.abs(gesture.shift - gesture.initial) >= travel() * .4;
-      commit(cancelled ? theme : far ? (gesture.shift > gesture.initial ? 'light' : 'dark') : theme);
+      const next = cancelled || !far ? theme : gesture.shift > gesture.initial ? 'light' : 'dark';
+      if (next === theme) apply(theme);
+      else commit(next);
     }
     gesture = null;
     glowDragging = false;
