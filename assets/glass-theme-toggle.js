@@ -32,9 +32,9 @@ const css = `
   background: rgb(255 255 255 / .58);
   backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6);
   box-shadow: 0 4px 14px rgb(15 20 30 / .28), inset 0 0 0 1px rgb(255 255 255 / .62), inset 0 1px 1px rgb(255 255 255 / .8);
-  translate: 0 0; transition: translate 330ms cubic-bezier(.24,.8,.26,1), scale 700ms cubic-bezier(.3,.7,.3,1);
+  translate: 0 0; transition: translate 540ms cubic-bezier(.44,.08,.34,1), scale 700ms cubic-bezier(.3,.7,.3,1);
 }
-.glass-theme-toggle:not([data-bare]):active .theme-thumb { scale: .88 1.05; transition: translate 330ms cubic-bezier(.24,.8,.26,1), scale 260ms cubic-bezier(.3,.7,.3,1); }
+.glass-theme-toggle:not([data-bare]):active .theme-thumb { scale: .88 1.05; transition: translate 540ms cubic-bezier(.44,.08,.34,1), scale 260ms cubic-bezier(.3,.7,.3,1); }
 .glass-theme-toggle[aria-checked="true"] .theme-thumb {
   background: rgb(33 36 42 / .92);
   box-shadow: 0 4px 16px rgb(0 0 0 / .5), inset 0 0 0 1px rgb(255 255 255 / .22), inset 0 1px 1px rgb(255 255 255 / .3);

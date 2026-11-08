@@ -36,7 +36,7 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
   // A click swells the thumb through the first half of its travel, like the switch.
   toggle.addEventListener('click', () => {
     if (reduced.matches) return;
-    tapUntil = performance.now() + 150;
+    tapUntil = performance.now() + 300;
     startPress();
   });
   toggle.addEventListener('pointermove', event => {
