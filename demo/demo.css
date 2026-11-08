@@ -118,6 +118,17 @@ body {
 }
 .wallpaper-options img { display: block; width: 100%; height: 36px; object-fit: cover; border-radius: 4px; }
 .wallpaper-options button[aria-pressed="true"] { border-color: var(--panel-accent); background: var(--panel-selected); box-shadow: inset 0 0 0 1px var(--panel-accent); }
+.scene-theme { display: grid; gap: 6px; margin-top: 14px; font-size: 13px; }
+.scene-theme-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.preview-theme-options { display: flex; gap: 4px; }
+.preview-theme-options button {
+  min-height: 36px; padding: 4px 11px; border: 1px solid var(--panel-line); border-radius: 8px;
+  color: inherit; background: var(--panel-raised); font: inherit; cursor: pointer;
+}
+.preview-theme-options button[aria-pressed="true"] { border-color: var(--panel-accent); background: var(--panel-selected); }
+#preview-darkness { width: 100%; margin: 0; min-height: 26px; accent-color: var(--panel-accent); }
+#preview-darkness-value { font-variant-numeric: tabular-nums; }
+#preview-darkness-hint { margin: 0; color: var(--panel-muted); font-size: 12px; }
 #preset-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
 #preset-options button {
   min-height: 44px;
@@ -406,6 +417,8 @@ html[data-glass-selection], html[data-glass-selection] body, html[data-glass-sel
 
 /* Theme toggle: stage chrome in the top-right corner, mirroring the language tools. */
 #theme-tools { position: absolute; inset: 16px 16px auto auto; z-index: 4; display: grid; }
+#stage:not(.fallback) #theme-tools .theme-glow { display: none; }
+#stage:not(.fallback) #theme-tools .theme-thumb { box-shadow: none; }
 @media (max-width: 700px) { #theme-tools { inset: 12px 12px auto auto; } }
 
 /* Dark theme: the toggle flips the whole editor, panels included. */
@@ -431,7 +444,7 @@ html[data-theme="dark"] :focus-visible { outline-color: #9fd3ff; }
 html[data-theme="dark"] #canvas-resize::before { background: #262925; border-color: #dfe4dc; }
 html[data-theme="dark"] #icon-results { scrollbar-color: #4a554c transparent; }
 /* Fallback stage: the wallpaper dims continuously with the thumb position. */
-#stage.fallback::before { content: ""; position: absolute; inset: 0; background: rgb(8 10 9 / .62); opacity: var(--scene-dim, 0); pointer-events: none; }
+#stage.fallback::before { content: ""; position: absolute; inset: 0; background: rgb(8 10 9); opacity: var(--scene-dim, 0); pointer-events: none; }
 html[data-theme="dark"] #stage.fallback .glass { background: rgb(30 36 32 / .92); }
 #stage.fallback .glass-theme-toggle .theme-track { background: #e6e4df; box-shadow: inset 0 1px 2px rgb(255 255 255 / .65); backdrop-filter: none; -webkit-backdrop-filter: none; }
 #stage.fallback .glass-theme-toggle .theme-thumb { background: #fbfaf7; box-shadow: 0 2px 8px rgb(15 20 30 / .3); backdrop-filter: none; -webkit-backdrop-filter: none; }

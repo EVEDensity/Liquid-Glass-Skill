@@ -86,6 +86,14 @@ New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills" | Out-Null
 
 如果尚未选择设计，skill 会先询问。交接数据和渲染限制见 [SKILL.md](SKILL.md) 与 [接入指南](references/integration.md)。
 
+要直接使用演示右上角的月亮／太阳开关，在目标项目里对 Codex 说：
+
+```text
+用 $liquid-glass-ui 把现有的明暗主题开关改成演示右上角的月亮／太阳样式，接入项目原有的主题状态和记忆方式。
+```
+
+在 Claude Code 中用 `/liquid-glass-ui` 开头。已指定这款内置样式时可直接接入。普通网页可使用 CSS 版的滑动、光带和像素图标过渡。要复现演示里的端点挤压、折射和圆形玻璃交融，使用能提供背景像素的 WebGL2 场景。[明暗主题开关接入指南](references/integration.md#glass-theme-toggle)
+
 ## 体验编辑器
 
 在克隆后的 skill 目录中启动本地服务，并打开 [localhost:58423/demo/](http://localhost:58423/demo/)。需要安装 Node.js。
@@ -97,6 +105,8 @@ node scripts/serve.mjs
 1. 点击控件进行编辑，或从空白画布拖动以多选。
 2. 选择材质，添加或绘制形状，在侧栏调整文字、图标与尺寸。
 3. 点击 **Copy for AI**，将结果粘贴给助手，或使用本地交接；点击 **Copy offline JS** 可获取独立模块。
+
+在右栏「预览背景」下选「深色」，拖动「背景压暗」滑杆即可比较壁纸和折射的变化。默认 62%，可调至 0–85%。该值保存在本机预览设置里。将同样的压暗效果接入项目时，可以把百分比告诉助手。[主题开关与压暗接入](references/integration.md#glass-theme-toggle)
 
 编辑器也可导出自包含的按钮 JavaScript 模块。该导出在独立 frame 中保留捕获的场景；折射需要 WebGL2，宿主的内容安全策略还需允许 frame 内联脚本和样式。详见 [接入示例](references/integration.md)。
 
@@ -125,7 +135,7 @@ npm test
 npm run package
 ```
 
-测试使用 Microsoft Edge 或 Playwright Chromium。测试范围与隔离端口见 [验证说明](references/validation.md)。可安装的压缩包位于 `dist/liquid-glass-ui.zip`。
+以上开发命令在仓库源码目录运行。测试使用 Microsoft Edge 或 Playwright Chromium。测试范围与隔离端口见 [验证说明](references/validation.md)。安装包位于 `dist/liquid-glass-ui.zip`，解压后可直接运行 `node scripts/serve.mjs`。
 
 ## 许可与致谢
 

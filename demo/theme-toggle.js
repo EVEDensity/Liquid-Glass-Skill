@@ -4,12 +4,13 @@ import { stepGlassMotion, sampleGlassMotion } from '../assets/glass-motion.js';
 /* Mounts the page-level theme toggle and describes it as a scene shape:
    a squircle thumb over a fixed track base, with the same liquid travel
    physics as the switch knob (stretch along movement, damped settle). */
-export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings }) {
+export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings, toggleOptions }) {
   const host = stage.querySelector('#theme-tools');
   const toggle = createGlassThemeToggle(host, {
-    bare: true,
     theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
     ariaLabel: getStrings().themeToggle,
+    ...toggleOptions,
+    bare: true,
     onGlowFrame: schedule, // the WebGL rim light follows the arc frame by frame
   });
   const thumb = toggle.querySelector('.theme-thumb');
@@ -71,7 +72,7 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
       const live = Number.isFinite(toggle.glowProgress) ? toggle.glowProgress : (toggle.theme === 'dark' ? 0 : 1);
       const atWall = live <= .02 || live >= .98;
       const holdGoal = pressTarget === 1 && atWall ? 1 : 0;
-      state.hold += (holdGoal - state.hold) * (1 - Math.exp(-dt / (holdGoal ? 300 : 130)));
+      state.hold += (holdGoal - state.hold) * (1 - Math.exp(-dt / (holdGoal ? 145 : 130)));
       if (state.hold < .004) state.hold = 0;
       if (state.hold > .996) state.hold = 1;
       const squeeze = state.hold * press;
@@ -87,25 +88,25 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
       if (reduced.matches || Math.abs(state.knobTail) < .16) state.knobTail = 0;
       state.tailX = centreX;
       state.tailTime = now;
-      const width = rect.width + 26 * press - 44 * squeeze;
-      const height = rect.height + 10 * press + 9 * squeeze - Math.min(9, Math.abs(state.knobTail) * .29);
-      const tint = Number.isFinite(toggle.glowProgress) ? toggle.glowProgress : (toggle.theme === 'dark' ? 0 : 1);
+      const width = rect.width * (1 - .29 * squeeze) + 19 * press * (1 - squeeze);
+      const height = rect.height * (1 + .25 * squeeze) + 4 * press * (1 - squeeze)
+        - Math.min(9, Math.abs(state.knobTail) * .29) * (1 - squeeze);
       return {
         base: {
           x: track.left - stageBox.left + track.width / 2,
           y: track.top - stageBox.top + track.height / 2,
           width: track.width, height: track.height,
           light: 90 + toggle.glowRotation, // rim light rides the arc's angle
-          tint, // slow hue drift of the resting glass
-          glow: [.455 + .545 * tint, .51 + .18 * tint, 1 - .75 * tint], // current arc color
+          tint: toggle.glowProgress,
+          glow: toggle.glowColor,
         },
         shape: {
           x: rect.left - stageBox.left + rect.width / 2,
           y: rect.top - stageBox.top + rect.height / 2,
           width, height,
-          radius: Math.min(width, height) * .40,
+          radius: Math.min(width, height) * (.28 + .22 * squeeze),
           press, motion,
-          stretchX: Math.round(state.knobTail * 10) / 10,
+          stretchX: Math.round(state.knobTail * (1 - squeeze) * 10) / 10,
           contactX: rect.left + rect.width / 2, contactY: rect.top + rect.height / 2,
         },
         settling: state.knobTail !== 0 || (state.hold > 0 && state.hold < 1),

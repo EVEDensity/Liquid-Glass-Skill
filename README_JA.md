@@ -125,7 +125,7 @@ npm test
 npm run package
 ```
 
-テストには Microsoft Edge または Playwright Chromium を使用します。テスト範囲と分離ポートについては [検証メモ](references/validation.md) を参照してください。インストール用アーカイブは `dist/liquid-glass-ui.zip` です。
+上記の開発コマンドはリポジトリのソースディレクトリで実行します。テストには Microsoft Edge または Playwright Chromium を使用します。テスト範囲と分離ポートについては [検証メモ](references/validation.md) を参照してください。インストール用アーカイブは `dist/liquid-glass-ui.zip` です。展開したディレクトリで `node scripts/serve.mjs` を実行するとエディターが起動します。
 
 ## ライセンスと謝辞
 

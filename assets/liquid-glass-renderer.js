@@ -11,6 +11,7 @@ uniform vec2 u_size;
 uniform vec2 u_bufferSize;
 uniform vec2 u_sourceSize;
 uniform sampler2D u_source;
+uniform float u_backdropDim;
 uniform int u_count;
 uniform vec4 u_shapes[12];
 uniform float u_radii[12];
@@ -26,11 +27,10 @@ uniform vec2 u_stretch[12],u_contact[12];
 uniform vec4 u_switchBase,u_segmentBase; // center, width, height
 uniform float u_switchOn;
 uniform vec4 u_themeBase; // center, width, height
-uniform float u_themeOn;
+uniform int u_themeShape;
 uniform float u_themeLight; // rim light angle for the theme thumb
 uniform float u_themeTint; // 0 dark .. 1 light, drives the resting hue
 uniform vec3 u_themeGlow; // current arc color, bled into the thumb's rim
-uniform float u_themeFill; // 0 light milk .. 1 dark glass, trails the brightness
 uniform vec4 u_sliderTrack; // left, center Y, width, height
 uniform float u_clearControls,u_presetOptics;
 uniform float u_sliderFill; // filled track end X
@@ -64,16 +64,21 @@ float baseMask(vec2 p,vec4 box,float feather){
 vec3 sampleSoft(vec2 p,float blur){
   float feather=max(.5,blur*1.45);
   vec3 base=textureLod(u_source,coverUV(p),log2(1.+blur*3.6)).rgb;
+  base=mix(base,vec3(8.,10.,9.)/255.,u_backdropDim);
   float switchMask=baseMask(p,u_switchBase,feather);
   vec3 switchColor=mix(vec3(.45,.46,.43),vec3(.90,.33,.21),u_switchOn);
   base=mix(base,switchColor,switchMask*mix(.82,1.,u_switchOn));
   base=mix(base,vec3(.10,.13,.12),baseMask(p,u_segmentBase,feather)*.69);
-  float themeMask=baseMask(p,u_themeBase,feather);
-  if(themeMask>0.){
-    // Solid track with a subtle downward shade, so the thumb sits in a well.
-    vec3 themeTrack=mix(vec3(.902,.894,.878),vec3(.086,.09,.102),u_themeOn);
-    float ty=clamp((p.y-(u_themeBase.y-u_themeBase.w*.5))/max(u_themeBase.w,1.),0.,1.);
-    base=mix(base,themeTrack*(1.-.07*ty),themeMask);
+  if(u_themeBase.w>0.){
+    vec2 q=p-u_themeBase.xy;
+    float depth=-roundedBox(q,u_themeBase.zw*.5,u_themeBase.w*.36);
+    float coverage=smoothstep(-feather,feather,depth);
+    vec3 track=mix(vec3(.049,.051,.063),vec3(.88,.87,.84),u_themeTint);
+    float upper=1.-smoothstep(-.45,.45,q.y/u_themeBase.w);
+    float wall=exp(-max(depth,0.)/4.8);
+    track*=1.-wall*(.14+.37*upper);
+    track+=mix(.07,.26,u_themeTint)*wall*(1.-upper);
+    base=mix(base,track,coverage);
   }
   if(u_sliderTrack.w<=0.)return base;
   float r=u_sliderTrack.w*.5;
@@ -179,6 +184,7 @@ vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out
   menuWeight=0.;
   for(int i=0;i<${MAX_GLASS_SHAPES};i++){
     if(i>=u_count)break;
+    if(i==u_themeShape)continue;
     vec4 shape=u_shapes[i];
     float candidate=shapeDistance(p,i);
     if(u_surface[i]==5.){
@@ -194,7 +200,7 @@ vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out
     float press=u_press[i];
     float scale=u_sizeScale>0.?clamp(min(shape.z,shape.w)/140.,.8,1.55):1.;
     vec4 motion=vec4(shape.xy,scale,press);
-    vec3 material=vec3(float(u_surface[i]==1.),float(u_surface[i]==2.||u_surface[i]==6.),float(u_surface[i]==3.));
+    vec3 material=vec3(float(u_surface[i]==1.),float(u_surface[i]==2.),float(u_surface[i]==3.));
     if(u_surface[i]==1.)sliderPress=press;
     float lens=float(u_surface[i]==4.);
     vec2 droplet=vec2(lens,lens*min(shape.z,shape.w)*.5);
@@ -269,12 +275,65 @@ void main(){
   vec2 dome;
   vec4 merged=fieldAt(p,dynamics,contact,sliderPress,movement,junction,dome,menuWeight);
   float field=merged.x,scale=dynamics.z,press=dynamics.w;
+  bool hasTheme=u_themeShape>=0&&u_themeBase.w>0.;
+  float themeDistance=1e5,themeWeight=0.;
+  if(hasTheme){
+    themeDistance=shapeDistance(p,u_themeShape);
+    // Join the movable lens to the thumb. The track stays in the sampled backdrop.
+    float merge=dome.x>.5&&menuWeight<.5?max(u_merge,0.)*(1.+.65*max(press,u_press[u_themeShape])):0.;
+    if(merge>.001){
+      themeWeight=clamp(.5+.5*(field-themeDistance)/merge,0.,1.);
+      float neck=merge*themeWeight*(1.-themeWeight);
+      field=mix(field,themeDistance,themeWeight)-neck;
+      junction=max(junction,neck);
+    }else if(themeDistance<field){
+      field=themeDistance;
+      themeWeight=1.;
+    }
+  }
   vec2 centre=dynamics.xy;
   float contactRadius=max(30.,scale*62.);
   vec2 gradient=vec2(dFdx(field),-dFdy(field));
   float aa=menuWeight>.5?.65:max(.08,length(gradient)*.58);
   vec3 base=sampleAt(p)*(1.-u_dim);
-  float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y);
+  vec3 themeLens=vec3(0.);
+  if(hasTheme){
+    vec4 thumb=u_shapes[u_themeShape];
+    vec2 q=p-thumb.xy;
+    vec2 light=vec2(cos(radians(u_themeLight)),sin(radians(u_themeLight)));
+    float direction=dot(normalize(q/thumb.zw+vec2(.00001)),light);
+    float arc=smoothstep(.20,.39,direction);
+    float line=themeDistance-2.8;
+    float spill=arc*(.32*exp(-abs(line)/3.3)+.28*exp(-abs(line)/12.)+.16*exp(-abs(line)/27.));
+    vec3 glow=u_themeGlow;
+    vec3 core=mix(glow,vec3(1.),.76);
+    float filament=(1.-smoothstep(.34,1.05,abs(line)))*arc*smoothstep(0.,2.3,field);
+    base*=1.-.34*exp(-max(themeDistance-1.7,0.)/5.8);
+    base=mix(base,glow,spill);
+    base=mix(base,core,filament*.97);
+    if(field<aa&&themeWeight>0.){
+      vec2 n=normalize(gradient+vec2(.00001));
+      float depth=max(-field,0.);
+      float bevel=sin(clamp(depth/9.,0.,1.)*3.141593);
+      vec2 ray=p-q*.075-n*bevel*(5.+u_press[u_themeShape]*2.);
+      vec3 lens=sampleSoft(ray,1.9);
+      lens.r=sampleSoft(ray-n*bevel*.85,1.9).r;
+      lens.b=sampleSoft(ray+n*bevel*.85,1.9).b;
+      lens=mix(lens,mix(vec3(.16,.17,.21),vec3(.97,.96,.93),u_themeTint),.62);
+      float transmission=smoothstep(-.12,.96,direction);
+      lens=mix(lens,glow,transmission*(.64*exp(-depth/8.5)+.19));
+      float sheen=exp(-depth/2.6)*(.21+.37*transmission);
+      float rim=(1.-smoothstep(.08,1.15,depth))*(.16+.80*arc);
+      lens=mix(lens,core,sheen);
+      lens=mix(lens,mix(vec3(.79,.82,.89),core,arc),rim);
+      themeLens=lens;
+      if(themeWeight>=1.){
+        color=compositeGlass(base,lens,1.-smoothstep(-aa,aa,field));
+        return;
+      }
+    }
+  }
+  float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y)*(1.-themeWeight);
   if(field>aa){
     if(u_controlLayer){
       float baseCoverage=max(baseMask(p,u_switchBase,.5),baseMask(p,u_segmentBase,.5));
@@ -291,13 +350,8 @@ void main(){
   vec2 n=length(gradient)>.001?normalize(gradient):normalize(p-centre+vec2(.0001));
   float mask=1.-smoothstep(-aa,aa,field);
   float depth=max(-field,0.);
-  // The theme thumb's bright rim follows its neon arc and only lights the glow
-  // side; every other shape keeps the fixed omnidirectional light.
-  float overTheme=0.;
-  if(u_themeBase.w>0.)overTheme=1.-step(distance(centre,u_switchBase.xy),distance(centre,u_themeBase.xy));
-  vec2 themeLight=vec2(cos(radians(u_themeLight)),sin(radians(u_themeLight)));
-  float facingRim=abs(dot(n,mix(vec2(-.7071,-.7071),themeLight,overTheme)));
-  float rimBias=mix(.54+.46*facingRim,.12+.88*smoothstep(-.45,1.,dot(n,themeLight)),overTheme);
+  float facingRim=abs(dot(n,vec2(-.7071,-.7071)));
+  float rimBias=.54+.46*facingRim;
   float outline=(1.-smoothstep(.35,1.55,depth))*min(.85,u_specular)
       *rimBias;
   if(u_clearControls>.5){
@@ -364,31 +418,16 @@ void main(){
     clear=mix(clear,caustic,join*innerFocus*facing*.80);
     // Only the thumb and selection carry a resting pale fill. The same union
     // blends that fill into the clear glass and removes the internal rim.
-    // The theme thumb keeps its milk at all times: travelling must not turn it
-    // clear and reveal the refracted track edges inside the glass.
     float restingFill=.97*merged.y+merged.z+.82*merged.w;
-    float engagementTheme=engagement*(1.-overTheme);
-    float milk=restingFill*(1.-smoothstep(0.,1.,engagementTheme))*(1.-join*.88);
+    float milk=restingFill*(1.-smoothstep(0.,1.,engagement))*(1.-join*.88);
     vec3 ivory=mix(vec3(.98,.987,.98),sampleSoft(p,2.),.10+.23*merged.w);
     float innerRim=1.-smoothstep(.45,2.5,depth);
     float selectionShoulder=merged.w*.15*exp(-depth/5.0);
     ivory=mix(ivory,vec3(1.),max(innerRim*.85,selectionShoulder));
     // The switch rests on a clean porcelain surface, then reveals the lens on hold.
-    // With a theme toggle present, each knob takes its own resting fill: the switch
-    // keeps its porcelain on-color, the theme thumb turns to dark glass in dark mode.
-    float switchFill=u_switchOn*(1.-overTheme);
-    vec3 switchRest=mix(vec3(.945,.941,.928),vec3(.977,.914,.890),switchFill);
-    vec3 themeRest=mix(
-      mix(vec3(.971,.966,.955),vec3(.995,.93,.80),u_themeTint*.5),
-      mix(vec3(.13,.14,.20),vec3(.125,.135,.16),u_themeTint*.6),
-      u_themeFill);
-    vec3 porcelain=mix(switchRest,themeRest,overTheme);
+    vec3 porcelain=mix(vec3(.945,.941,.928),vec3(.977,.914,.890),u_switchOn);
     float porcelainRim=1.-smoothstep(1.1,3.1,depth);
-    // The theme thumb's edge tint only rides the glow side: the far side stays
-    // neutral, so no inner boundary line traces around the glass.
-    float glowSide=smoothstep(-.6,.8,dot(n,themeLight));
-    vec3 restRim=mix(vec3(1.),u_themeGlow,overTheme*.85*glowSide);
-    ivory=mix(ivory,mix(porcelain,restRim,porcelainRim),merged.z);
+    ivory=mix(ivory,mix(porcelain,vec3(1.),porcelainRim),merged.z);
     clear=mix(clear,ivory,milk);
     // A stationary hold changes exposure and refraction; only travel adds chromatic light.
     vec2 delta=(p-contact)/contactRadius;
@@ -413,7 +452,7 @@ void main(){
       clear=mix(clear,mix(softened,vec3(1.),edgeLight),menuWeight*.92);
     }
     clear=mix(clear,vec3(1.),outline*(1.-join*.55));
-    color=compositeGlass(base,clamp(clear,0.,1.),mask);
+    color=compositeGlass(base,clamp(mix(clear,themeLens,themeWeight),0.,1.),mask);
     return;
   }
   if(merged.y>.999){
@@ -433,7 +472,7 @@ void main(){
   }
   if(merged.y>.001)lens=mix(lens,liquidLens(p,n,field,sliderPress,false,0.),merged.y);
   vec3 outside=base*(1.-shadow);
-  color=compositeGlass(outside,clamp(lens,0.,1.),mask);
+  color=compositeGlass(outside,clamp(mix(lens,themeLens,themeWeight),0.,1.),mask);
 }`;
 
 export const PRESETS = {
@@ -507,6 +546,7 @@ export function glassOutlineClip(outline) {
 export class GlassScene {
   constructor(canvas, options = {}) {
     this.canvas=canvas; this.shapes=[]; this.sliderTrack=null; this.controlBases={}; this.material={...PRESETS.apple}; this.available=false; this.destroyed=false; this.source=null;
+    this.backdropDim=0;
     this.gl=canvas.getContext('webgl2',{alpha:options.surfaceOnly===true||options.controlLayer===true,premultipliedAlpha:false,antialias:false}); if(!this.gl)return; const gl=this.gl, shaders=[];
     try {
       for(const [type,code] of [[gl.VERTEX_SHADER,vertex],[gl.FRAGMENT_SHADER,fragment]]){const shader=gl.createShader(type);shaders.push(shader);gl.shaderSource(shader,code);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader));}
@@ -521,8 +561,8 @@ export class GlassScene {
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
       gl.activeTexture(gl.TEXTURE0);
-      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','themeBase','themeOn','themeLight','themeTint','themeGlow','themeFill','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
-      names.push('controlLayer');
+      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','themeBase','themeShape','themeLight','themeTint','themeGlow','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      names.push('controlLayer','backdropDim');
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
       gl.uniform1i(this.uniforms.exactBackdrop,options.exactBackdrop?1:0);
@@ -556,6 +596,9 @@ export class GlassScene {
     if(!this.available||this.destroyed)return false;const gl=this.gl;const width=source.videoWidth||source.naturalWidth||source.width,height=source.videoHeight||source.naturalHeight||source.height;if(!width||!height)throw new Error('Load the glass source before setSource().');
     gl.bindTexture(gl.TEXTURE_2D,this.texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,source);gl.generateMipmap(gl.TEXTURE_2D);this.sourceSize=[width,height];this.source=source;return true;
   }
+  setBackdropDim(opacity) {
+    if (Number.isFinite(opacity)) this.backdropDim=clamp(opacity,0,1);
+  }
   render(){
     if(!this.available||this.destroyed||!this.source)return;const gl=this.gl,box=this.canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
     const cssWidth=Math.max(1,box.width),cssHeight=Math.max(1,box.height);
@@ -563,6 +606,7 @@ export class GlassScene {
     const scale=Math.max(1,Math.min(dpr,Math.sqrt(2500000/(cssWidth*cssHeight))));
     const width=Math.round(cssWidth*scale),height=Math.round(cssHeight*scale);if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,cssWidth,cssHeight);gl.uniform2f(this.uniforms.bufferSize,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
+    gl.uniform1f(this.uniforms.backdropDim,this.backdropDim);
     const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24),rotation=new Float32Array(24);this.shapes.forEach((s,i)=>{const angle=s.rotation*Math.PI/180;rotation.set([Math.cos(angle),Math.sin(angle)],i*2);shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:s.surface==='menu'?5:s.surface==='theme'?6:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform2fv(this.uniforms['rotation[0]'],rotation);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
     const outlineCounts=Int32Array.from({length:MAX_GLASS_SHAPES},(_,i)=>this.shapes[i]?.outline?.length??0);
     gl.uniform1i(this.uniforms.outlines,1);
@@ -578,11 +622,10 @@ export class GlassScene {
     const {toggle,segment,theme}=this.controlBases;
     const base=(key,b)=>gl.uniform4f(this.uniforms[key],(b?.x??0),(b?.y??0),(b?.width??0),(b?.height??0));
     base('switchBase',toggle);base('segmentBase',segment);base('themeBase',theme);
-    gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);gl.uniform1f(this.uniforms.themeOn,theme?.on?1:0);
+    gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);gl.uniform1i(this.uniforms.themeShape,this.shapes.findIndex(shape=>shape.surface==='theme'));
     const themeLight=Number.isFinite(theme?.light)?theme.light:-135;
     gl.uniform1f(this.uniforms.themeLight,themeLight);
     gl.uniform1f(this.uniforms.themeTint,Number.isFinite(theme?.tint)?clamp(theme.tint,0,1):0);
-    gl.uniform1f(this.uniforms.themeFill,Number.isFinite(theme?.fillMix)?clamp(theme.fillMix,0,1):(theme?.on?1:0));
     gl.uniform3fv(this.uniforms.themeGlow,Array.isArray(theme?.glow)&&theme.glow.every(Number.isFinite)?theme.glow:[.455,.51,1]);
     const track=this.sliderTrack;
     gl.uniform4f(this.uniforms.sliderTrack,(track?.x??0),(track?.y??0),(track?.width??0),(track?.height??0));

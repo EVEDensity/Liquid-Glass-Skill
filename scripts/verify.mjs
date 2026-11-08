@@ -1126,9 +1126,17 @@ try {
       const i=((111-y)*240+x)*4;
       if(Math.abs(neutral[i]-optical[i])+Math.abs(neutral[i+1]-optical[i+1])+Math.abs(neutral[i+2]-optical[i+2])>18)neckChanges++;
     }
+    scene.setShapes([{...circle,surface:'lens'}, {...knob,surface:'theme'}]);
+    scene.setControlBases({theme:{x:143,y:56,width:102,height:50,tint:.8,light:90,glow:[1,.75,.4]}});
+    scene.setMaterial({merge:0}); scene.render();
+    const openGap = pixel(92,56);
+    const fixedTrack = pixel(176,56);
+    scene.setMaterial({merge:24}); scene.render();
+    const joinedGap = pixel(92,56);
+    const trackAfterJoin = pixel(176,56);
     const error = gl.getError();
     scene.destroy(); canvas.remove();
-    return { results, baseOn, baseOff, outsideWithBase, outsideWithMerge, noBase, neckChanges, error };
+    return { results, baseOn, baseOff, outsideWithBase, outsideWithMerge, noBase, neckChanges, openGap, joinedGap, fixedTrack, trackAfterJoin, error };
   });
   assert.equal(fusion.error, 0);
   for (const [part, difference] of Object.entries(fusion.results)) assert.ok(difference > 10, part + ' failed to form a visible bridge (' + difference + ')');
@@ -1138,6 +1146,8 @@ try {
   record('Only glass surfaces form a bridge; a fixed control base still colors the glass');
   assert.ok(fusion.neckChanges > 5, 'A joined outline must bend the sampled base at the neck (' + fusion.neckChanges + ' changed pixels)');
   record('Joined glass optically bends the fixed base at its neck');
+  assert.ok(fusion.joinedGap.some((value,i)=>Math.abs(value-fusion.openGap[i])>15), 'The theme thumb should form a visible bridge with the circle');
+  assert.deepEqual(fusion.trackAfterJoin, fusion.fixedTrack);
 
 
   // Controlled checkerboard fixture proves refraction changes pixels, not just labels.
@@ -1235,20 +1245,33 @@ try {
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
   await page.waitForFunction(() => window.glassDemo.theme === 'dark' && window.glassDemo.bases.theme?.on === true);
   await page.waitForFunction(() => getComputedStyle(document.getElementById('presets-panel')).backgroundColor !== 'rgb(247, 248, 244)');
+  await page.waitForFunction(() => window.glassDemo.bases.theme?.tint === 0);
   record('Theme toggle flips the page, the panel tokens, and the scene base');
   const themeBox = await themeToggle.boundingBox();
   const themeY = themeBox.y + themeBox.height / 2;
+  const restingThumb = await page.evaluate(()=>window.glassDemo.shapes.find(shape=>shape.surface==='theme'));
   await page.mouse.move(themeBox.x + 42, themeY);
   await page.mouse.down();
-  await page.mouse.move(themeBox.x + 102, themeY, { steps: 5 });
+  await page.waitForFunction(rest => {
+    const thumb = window.glassDemo.shapes.find(shape=>shape.surface==='theme');
+    return thumb.width < rest.width*.78 && thumb.height > rest.height*1.15;
+  }, restingThumb);
+  assert.equal(await themeToggle.getAttribute('aria-checked'), 'true');
+  await page.mouse.move(themeBox.x + 96, themeY, { steps: 5 });
+  await page.waitForFunction(() => Math.abs(window.glassDemo.bases.theme?.tint - .5) < .01);
+  assert.equal(await themeToggle.getAttribute('aria-checked'), 'true');
+  assert.equal(await themeToggle.evaluate(toggle => getComputedStyle(toggle).getPropertyValue('--glow-color').trim()), 'rgb(255 212 219 / .95)');
+  assert.deepEqual(await page.evaluate(() => window.glassDemo.bases.theme.glow), [1, 212 / 255, 219 / 255]);
   await page.mouse.up();
   assert.equal(await themeToggle.getAttribute('aria-checked'), 'false');
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+  await page.waitForFunction(() => window.glassDemo.bases.theme?.tint === 1);
   await page.mouse.move(themeBox.x + 150, themeY);
   await page.mouse.down();
   await page.mouse.move(themeBox.x + 132, themeY, { steps: 4 });
   await page.mouse.up();
   assert.equal(await themeToggle.getAttribute('aria-checked'), 'false');
+  await page.waitForFunction(() => window.glassDemo.bases.theme?.tint === 1);
   await themeToggle.focus();
   await page.keyboard.press('Space');
   assert.equal(await themeToggle.getAttribute('aria-checked'), 'true');
