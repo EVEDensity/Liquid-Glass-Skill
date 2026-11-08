@@ -273,31 +273,45 @@ void main(){
   vec2 dome;
   vec4 merged=fieldAt(p,dynamics,contact,sliderPress,movement,junction,dome,menuWeight);
   float field=merged.x,scale=dynamics.z,press=dynamics.w;
+  bool hasTheme=u_themeShape>=0&&u_themeBase.w>0.;
+  float themeDistance=1e5,themeWeight=0.;
+  if(hasTheme){
+    themeDistance=shapeDistance(p,u_themeShape);
+    // Join the movable lens to the thumb. The track stays in the sampled backdrop.
+    float merge=dome.x>.5&&menuWeight<.5?max(u_merge,0.)*(1.+.65*max(press,u_press[u_themeShape])):0.;
+    if(merge>.001){
+      themeWeight=clamp(.5+.5*(field-themeDistance)/merge,0.,1.);
+      float neck=merge*themeWeight*(1.-themeWeight);
+      field=mix(field,themeDistance,themeWeight)-neck;
+      junction=max(junction,neck);
+    }else if(themeDistance<field){
+      field=themeDistance;
+      themeWeight=1.;
+    }
+  }
   vec2 centre=dynamics.xy;
   float contactRadius=max(30.,scale*62.);
   vec2 gradient=vec2(dFdx(field),-dFdy(field));
   float aa=menuWeight>.5?.65:max(.08,length(gradient)*.58);
   vec3 base=sampleAt(p)*(1.-u_dim);
-  if(u_themeShape>=0&&u_themeBase.w>0.){
+  vec3 themeLens=vec3(0.);
+  if(hasTheme){
     vec4 thumb=u_shapes[u_themeShape];
-    float distance=shapeDistance(p,u_themeShape);
-    vec2 slope=vec2(dFdx(distance),-dFdy(distance));
-    float feather=max(.38,length(slope)*.65);
-    vec2 n=normalize(slope+vec2(.00001));
     vec2 q=p-thumb.xy;
     vec2 light=vec2(cos(radians(u_themeLight)),sin(radians(u_themeLight)));
     float direction=dot(normalize(q/thumb.zw+vec2(.00001)),light);
     float arc=smoothstep(.20,.39,direction);
-    float line=distance-2.8;
+    float line=themeDistance-2.8;
     float spill=arc*(.32*exp(-abs(line)/3.3)+.28*exp(-abs(line)/12.)+.16*exp(-abs(line)/27.));
     vec3 glow=u_themeGlow;
     vec3 core=mix(glow,vec3(1.),.76);
-    float filament=(1.-smoothstep(.34,1.05,abs(line)))*arc;
-    base*=1.-.34*exp(-max(distance-1.7,0.)/5.8);
+    float filament=(1.-smoothstep(.34,1.05,abs(line)))*arc*smoothstep(0.,2.3,field);
+    base*=1.-.34*exp(-max(themeDistance-1.7,0.)/5.8);
     base=mix(base,glow,spill);
     base=mix(base,core,filament*.97);
-    if(distance<feather){
-      float depth=max(-distance,0.);
+    if(field<aa&&themeWeight>0.){
+      vec2 n=normalize(gradient+vec2(.00001));
+      float depth=max(-field,0.);
       float bevel=sin(clamp(depth/9.,0.,1.)*3.141593);
       vec2 ray=p-q*.075-n*bevel*(5.+u_press[u_themeShape]*2.);
       vec3 lens=sampleSoft(ray,1.9);
@@ -310,11 +324,14 @@ void main(){
       float rim=(1.-smoothstep(.08,1.15,depth))*(.16+.80*arc);
       lens=mix(lens,core,sheen);
       lens=mix(lens,mix(vec3(.79,.82,.89),core,arc),rim);
-      color=compositeGlass(base,lens,1.-smoothstep(-feather,feather,distance));
-      return;
+      themeLens=lens;
+      if(themeWeight>=1.){
+        color=compositeGlass(base,lens,1.-smoothstep(-aa,aa,field));
+        return;
+      }
     }
   }
-  float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y);
+  float shadow=exp(-max(field,0.)/8.)*u_shadow*.22*(1.-merged.y)*(1.-themeWeight);
   if(field>aa){
     if(u_controlLayer){
       float baseCoverage=max(baseMask(p,u_switchBase,.5),baseMask(p,u_segmentBase,.5));
@@ -433,7 +450,7 @@ void main(){
       clear=mix(clear,mix(softened,vec3(1.),edgeLight),menuWeight*.92);
     }
     clear=mix(clear,vec3(1.),outline*(1.-join*.55));
-    color=compositeGlass(base,clamp(clear,0.,1.),mask);
+    color=compositeGlass(base,clamp(mix(clear,themeLens,themeWeight),0.,1.),mask);
     return;
   }
   if(merged.y>.999){
@@ -453,7 +470,7 @@ void main(){
   }
   if(merged.y>.001)lens=mix(lens,liquidLens(p,n,field,sliderPress,false,0.),merged.y);
   vec3 outside=base*(1.-shadow);
-  color=compositeGlass(outside,clamp(lens,0.,1.),mask);
+  color=compositeGlass(outside,clamp(mix(lens,themeLens,themeWeight),0.,1.),mask);
 }`;
 
 export const PRESETS = {

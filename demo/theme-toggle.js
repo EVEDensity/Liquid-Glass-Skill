@@ -71,7 +71,7 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
       const live = Number.isFinite(toggle.glowProgress) ? toggle.glowProgress : (toggle.theme === 'dark' ? 0 : 1);
       const atWall = live <= .02 || live >= .98;
       const holdGoal = pressTarget === 1 && atWall ? 1 : 0;
-      state.hold += (holdGoal - state.hold) * (1 - Math.exp(-dt / (holdGoal ? 300 : 130)));
+      state.hold += (holdGoal - state.hold) * (1 - Math.exp(-dt / (holdGoal ? 145 : 130)));
       if (state.hold < .004) state.hold = 0;
       if (state.hold > .996) state.hold = 1;
       const squeeze = state.hold * press;
@@ -87,8 +87,9 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
       if (reduced.matches || Math.abs(state.knobTail) < .16) state.knobTail = 0;
       state.tailX = centreX;
       state.tailTime = now;
-      const width = rect.width + 19 * press - 23 * squeeze;
-      const height = rect.height + 4 * press - 7 * squeeze - Math.min(9, Math.abs(state.knobTail) * .29);
+      const width = rect.width * (1 - .29 * squeeze) + 19 * press * (1 - squeeze);
+      const height = rect.height * (1 + .25 * squeeze) + 4 * press * (1 - squeeze)
+        - Math.min(9, Math.abs(state.knobTail) * .29) * (1 - squeeze);
       return {
         base: {
           x: track.left - stageBox.left + track.width / 2,
@@ -102,9 +103,9 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
           x: rect.left - stageBox.left + rect.width / 2,
           y: rect.top - stageBox.top + rect.height / 2,
           width, height,
-          radius: Math.min(width, height) * .28,
+          radius: Math.min(width, height) * (.28 + .22 * squeeze),
           press, motion,
-          stretchX: Math.round(state.knobTail * 10) / 10,
+          stretchX: Math.round(state.knobTail * (1 - squeeze) * 10) / 10,
           contactX: rect.left + rect.width / 2, contactY: rect.top + rect.height / 2,
         },
         settling: state.knobTail !== 0 || (state.hold > 0 && state.hold < 1),
