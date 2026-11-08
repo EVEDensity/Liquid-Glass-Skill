@@ -242,6 +242,9 @@ export function createGlassThemeToggle(target, config = {}) {
     if (theme !== sweepTheme) glowTurns += 1;
     sweepTheme = theme;
     sweepLive = false;
+    // Re-anchor at rest: dark always rests on an even turn (bottom edge),
+    // light on an odd one (top edge), whatever sequence led here.
+    glowTurns = theme === 'dark' ? Math.round(glowTurns / 2) * 2 : Math.floor(glowTurns / 2) * 2 + 1;
     glowRender();
   }
   function startGlow() {
