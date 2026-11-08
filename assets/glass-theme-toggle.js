@@ -187,6 +187,7 @@ export function createGlassThemeToggle(target, config = {}) {
     + `${pixelIcon(moonBitmap, 'theme-icon-moon')}${pixelIcon(sunBitmap, 'theme-icon-sun')}</span>`;
   const thumb = toggle.querySelector('.theme-thumb');
   const icons = { moon: toggle.querySelector('.theme-icon-moon'), sun: toggle.querySelector('.theme-icon-sun') };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let theme = initial;
   let gesture;
   let skipPointerClick = false;
@@ -227,9 +228,11 @@ export function createGlassThemeToggle(target, config = {}) {
     glowFrame = 0;
     const lean = glowDragging ? -glowDir * 70 : 0;
     const target = Math.max(-85, Math.min(85, lean - glowVelocity * 6));
-    glowShift += (target - glowShift) * .24;
+    if (reduced.matches) glowShift = target;
+    else glowShift += (target - glowShift) * .24;
     glowVelocity *= .8;
     glow.style.setProperty('--glow-shift', glowShift.toFixed(2) + 'deg');
+    config.onGlowFrame?.();
     if (glowDragging || Math.abs(glowShift) > .4) {
       glowFrame = requestAnimationFrame(glowStep);
     } else {
@@ -241,7 +244,7 @@ export function createGlassThemeToggle(target, config = {}) {
     if (event.button !== 0) return;
     skipPointerClick = false;
     gesture = { id: event.pointerId, start: event.clientX, initial: theme === 'dark' ? 0 : travel(), shift: theme === 'dark' ? 0 : travel(), moved: false };
-    toggle.setPointerCapture(event.pointerId);
+    try { toggle.setPointerCapture(event.pointerId); } catch { /* the pointer may already be gone */ }
     glowDragging = true;
     glowDir = 0;
     glowLastX = event.clientX;
@@ -298,6 +301,8 @@ export function createGlassThemeToggle(target, config = {}) {
     if (label) toggle.setAttribute('aria-label', label);
   };
   Object.defineProperty(toggle, 'theme', { get: () => theme });
+  // Current arc angle in degrees: 0 rests at the bottom edge (dark), 180 at the top (light).
+  Object.defineProperty(toggle, 'glowRotation', { get: () => (theme === 'dark' ? 0 : 180) + glowShift });
   target.append(toggle);
   return toggle;
 }

@@ -9,6 +9,7 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
     bare: true,
     theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
     ariaLabel: getStrings().themeToggle,
+    onGlowFrame: schedule, // the WebGL rim light follows the arc frame by frame
   });
   const thumb = toggle.querySelector('.theme-thumb');
   const state = { x: 0, y: 0, scale: 0, sx: 0, sy: 0, tx: 0, ty: 0, lastFrame: null };
@@ -56,6 +57,7 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
           x: track.left - stageBox.left + track.width / 2,
           y: track.top - stageBox.top + track.height / 2,
           width: track.width, height: track.height,
+          light: 90 + toggle.glowRotation, // rim light rides the arc's angle
         },
         shape: {
           x: rect.left - stageBox.left + rect.width / 2,

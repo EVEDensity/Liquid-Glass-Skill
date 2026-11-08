@@ -27,6 +27,7 @@ uniform vec4 u_switchBase,u_segmentBase; // center, width, height
 uniform float u_switchOn;
 uniform vec4 u_themeBase; // center, width, height
 uniform float u_themeOn;
+uniform float u_themeLight; // rim light angle for the theme thumb
 uniform vec4 u_sliderTrack; // left, center Y, width, height
 uniform float u_clearControls,u_presetOptics;
 uniform float u_sliderFill; // filled track end X
@@ -287,7 +288,11 @@ void main(){
   vec2 n=length(gradient)>.001?normalize(gradient):normalize(p-centre+vec2(.0001));
   float mask=1.-smoothstep(-aa,aa,field);
   float depth=max(-field,0.);
-  float facingRim=abs(dot(n,vec2(-.7071,-.7071)));
+  // The theme thumb's bright rim follows its neon arc; every other shape keeps the fixed light.
+  float overTheme=0.;
+  if(u_themeBase.w>0.)overTheme=1.-step(distance(centre,u_switchBase.xy),distance(centre,u_themeBase.xy));
+  vec2 themeLight=vec2(cos(radians(u_themeLight)),sin(radians(u_themeLight)));
+  float facingRim=abs(dot(n,mix(vec2(-.7071,-.7071),themeLight,overTheme)));
   float outline=(1.-smoothstep(.35,1.55,depth))*min(.85,u_specular)
       *(.54+.46*facingRim);
   if(u_clearControls>.5){
@@ -363,12 +368,7 @@ void main(){
     // The switch rests on a clean porcelain surface, then reveals the lens on hold.
     // With a theme toggle present, each knob takes its own resting fill: the switch
     // keeps its porcelain on-color, the theme thumb turns to dark glass in dark mode.
-    float switchFill=u_switchOn;
-    float overTheme=0.;
-    if(u_themeBase.w>0.){
-      overTheme=1.-step(distance(centre,u_switchBase.xy),distance(centre,u_themeBase.xy));
-      switchFill*=1.-overTheme;
-    }
+    float switchFill=u_switchOn*(1.-overTheme);
     vec3 switchRest=mix(vec3(.945,.941,.928),vec3(.977,.914,.890),switchFill);
     vec3 themeRest=mix(vec3(.971,.966,.955),vec3(.125,.135,.16),u_themeOn);
     vec3 porcelain=mix(switchRest,themeRest,overTheme);
@@ -506,7 +506,7 @@ export class GlassScene {
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
       gl.activeTexture(gl.TEXTURE0);
-      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','themeBase','themeOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','themeBase','themeOn','themeLight','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
       names.push('controlLayer');
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
@@ -564,6 +564,7 @@ export class GlassScene {
     const base=(key,b)=>gl.uniform4f(this.uniforms[key],(b?.x??0),(b?.y??0),(b?.width??0),(b?.height??0));
     base('switchBase',toggle);base('segmentBase',segment);base('themeBase',theme);
     gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);gl.uniform1f(this.uniforms.themeOn,theme?.on?1:0);
+    gl.uniform1f(this.uniforms.themeLight,theme?.light??-135);
     const track=this.sliderTrack;
     gl.uniform4f(this.uniforms.sliderTrack,(track?.x??0),(track?.y??0),(track?.width??0),(track?.height??0));
     gl.uniform1f(this.uniforms.presetOptics,this.material.presetOptics?1:0);
