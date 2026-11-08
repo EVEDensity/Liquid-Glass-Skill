@@ -10,12 +10,15 @@ Apply glass only to the named buttons or controls. Preserve the host background,
 
 ## Confirm the button design
 
+When the user names the demo's moon/sun theme toggle, use that built-in design directly. For example, ask Codex: `Use $liquid-glass-ui to restyle my existing light/dark toggle with the demo’s pixel moon and sun. Keep my app’s theme state and persistence.` In Claude Code, start the same request with `/liquid-glass-ui`.
+
 Use a design the user has already selected or pasted. Otherwise, open the demo at `http://localhost:58423/demo/` and ask the user to choose a control and click **Copy for AI**. Start `node scripts/serve.mjs` from the skill directory if needed. Before asking for the selection, read the baseline `copiedAt` from `GET http://localhost:58423/api/glass-handoff`. Use a newer handoff or the clipboard payload the user provides. Wait for the choice before editing the target.
 
 Pass the returned configuration directly to the matching runtime. Version 2 uses `createLiquidGlassButton` from `assets/glass-button.js`. Version 3 uses `mountLiquidGlassReplica` from `demo/replica.js` for moving controls or group selections. Use the revision specified in a clipboard handoff. Use the existing page's readable source and preserve the crop, layout, and original actions. See the [handoff integration recipes](references/integration.md#integrate-a-copied-design). When the host pixels cannot be read, explain the available fallback and confirm it before editing the target.
 
 ## Choose the rendering path
 
+- **Moon/sun theme toggle** uses `createGlassThemeToggle` from `assets/glass-theme-toggle.js`. Bind it to the host's current theme and existing persistence. Its CSS mode supports ordinary page backgrounds. To reproduce the demo's optical squeeze and fusion with a neighboring glass lens, reuse `demo/theme-toggle.js` and `assets/liquid-glass-renderer.js` with a readable backdrop, following the [theme toggle recipe](references/integration.md#glass-theme-toggle).
 - **CSS glass** fits arbitrary DOM, text, and scrolling content. Copy `assets/liquid-glass.css` for blur, tint, and a rim. Add `assets/liquid-glass.js` only if the user wants pointer highlights. CSS glass cannot bend or merge backdrop pixels.
 - **WebGL2 refraction** fits images, video, and canvases controlled by the app. Copy `assets/liquid-glass-renderer.js` and `assets/mount-liquid-glass.js`. Keep the actual controls in HTML above an `aria-hidden` canvas. Use the app's original layout and a permitted backdrop.
 - **Exported standalone button** uses `assets/glass-button.js`. Pass the positioned host stage and its decoded pixel source to reproduce the demo optics. Without a source, the same button uses CSS glass.

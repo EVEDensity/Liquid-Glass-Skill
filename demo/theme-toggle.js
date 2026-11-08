@@ -4,12 +4,13 @@ import { stepGlassMotion, sampleGlassMotion } from '../assets/glass-motion.js';
 /* Mounts the page-level theme toggle and describes it as a scene shape:
    a squircle thumb over a fixed track base, with the same liquid travel
    physics as the switch knob (stretch along movement, damped settle). */
-export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings }) {
+export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings, toggleOptions }) {
   const host = stage.querySelector('#theme-tools');
   const toggle = createGlassThemeToggle(host, {
-    bare: true,
     theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
     ariaLabel: getStrings().themeToggle,
+    ...toggleOptions,
+    bare: true,
     onGlowFrame: schedule, // the WebGL rim light follows the arc frame by frame
   });
   const thumb = toggle.querySelector('.theme-thumb');

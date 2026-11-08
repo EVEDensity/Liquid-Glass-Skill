@@ -86,6 +86,14 @@ New-Item -ItemType Directory -Force "$env:USERPROFILE\.agents\skills" | Out-Null
 
 如果尚未选择设计，skill 会先询问。交接数据和渲染限制见 [SKILL.md](SKILL.md) 与 [接入指南](references/integration.md)。
 
+要直接使用演示右上角的月亮／太阳开关，在目标项目里对 Codex 说：
+
+```text
+用 $liquid-glass-ui 把现有的明暗主题开关改成演示右上角的月亮／太阳样式，接入项目原有的主题状态和记忆方式。
+```
+
+在 Claude Code 中用 `/liquid-glass-ui` 开头。已指定这款内置样式时可直接接入。普通网页可使用 CSS 版的滑动、光带和像素图标过渡。要复现演示里的端点挤压、折射和圆形玻璃交融，使用能提供背景像素的 WebGL2 场景。[明暗主题开关接入指南](references/integration.md#glass-theme-toggle)
+
 ## 体验编辑器
 
 在克隆后的 skill 目录中启动本地服务，并打开 [localhost:58423/demo/](http://localhost:58423/demo/)。需要安装 Node.js。

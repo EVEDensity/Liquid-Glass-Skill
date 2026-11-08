@@ -201,7 +201,7 @@ export function createGlassThemeToggle(target, config = {}) {
   // and finishes its half turn after the thumb arrives.
   let glowTurns = initial === 'light' ? 1 : 0;
   let sweepTheme = theme;     // theme at the moment the open sweep began
-  let arcProgress = 0;
+  let arcTurns = glowTurns;
   let arcTime;
   let glowFrame = 0;
   let lastRot = initial === 'light' ? -180 : 0;
@@ -258,27 +258,35 @@ export function createGlassThemeToggle(target, config = {}) {
       dot.setAttribute('opacity', mix(from.opacity, to.opacity, eased).toFixed(2));
     });
   }
+  function anchorSweep() {
+    // Start the next half turn from the committed endpoint, even if the light
+    // is still catching up to that endpoint from the previous switch.
+    if (theme === sweepTheme) return;
+    glowTurns += 1;
+    sweepTheme = theme;
+  }
+
   function glowRender(now = performance.now()) {
     if (posX == null && toggle.isConnected) posX = anchorOf(theme) ? travel() : 0;
     const p = liveProgress();
-    const sweep = Math.abs(p - anchorOf(sweepTheme));
+    const targetTurns = glowTurns + Math.abs(p - anchorOf(sweepTheme));
     const elapsed = Math.min(64, now - (arcTime ?? now));
     arcTime = now;
     if (gesture) {
       // A new grab can interrupt the arc before it has caught up with the thumb.
       gesture.arcOffset *= Math.exp(-elapsed / 65);
-      arcProgress = reduced.matches ? sweep : clampUnit(sweep + gesture.arcOffset);
+      arcTurns = reduced.matches ? targetTurns : targetTurns + gesture.arcOffset;
     } else {
-      arcProgress = reduced.matches ? sweep : mix(arcProgress, sweep, 1 - Math.exp(-elapsed / arcResponseMs));
+      arcTurns = reduced.matches ? targetTurns : mix(arcTurns, targetTurns, 1 - Math.exp(-elapsed / arcResponseMs));
     }
-    if (Math.abs(arcProgress - sweep) < .006) arcProgress = sweep;
-    lastRot = -180 * (glowTurns + arcProgress);
+    if (Math.abs(arcTurns - targetTurns) < .006) arcTurns = targetTurns;
+    lastRot = -180 * arcTurns;
     glowProgressValue = p;
     glow.style.setProperty('--glow-rot', lastRot.toFixed(2) + 'deg');
     toggle.style.setProperty('--glow-progress', p.toFixed(3));
     renderColor(p);
     config.onGlowFrame?.();
-    return arcProgress !== sweep;
+    return arcTurns !== targetTurns;
   }
   // Integrates the travel spring and applies the thumb translate. Called from
   // the host's draw path so the glass shape and the DOM icon share one position
@@ -313,13 +321,7 @@ export function createGlassThemeToggle(target, config = {}) {
       travelTo(rest * travel(), 0, false);
       return;
     }
-    if (theme !== sweepTheme) glowTurns += 1;
-    sweepTheme = theme;
-    // Re-anchor at rest: dark always rests on an even turn (bottom edge),
-    // light on an odd one (top edge), whatever sequence led here.
-    glowTurns = theme === 'dark' ? Math.round(glowTurns / 2) * 2 : Math.floor(glowTurns / 2) * 2 + 1;
-    arcProgress = 0;
-    glowRender(now);
+    anchorSweep();
   }
   function startGlow() {
     if (!glowFrame) glowFrame = requestAnimationFrame(glowTick);
@@ -350,6 +352,7 @@ export function createGlassThemeToggle(target, config = {}) {
   }
   const commit = (next, travel) => {
     if (next === theme) return;
+    anchorSweep();
     if (travel) travelTo(travel.target, travel.v, travel.anticipate);
     theme = next;
     apply(theme);
@@ -368,9 +371,10 @@ export function createGlassThemeToggle(target, config = {}) {
     if (event.button !== 0 || gesture) return;
     skipPointerClick = false;
     springState = null;
+    anchorSweep();
     posX ??= anchorOf(theme) * travel();
     const start = liveProgress() * travel();
-    const arcOffset = arcProgress - Math.abs(liveProgress() - anchorOf(sweepTheme));
+    const arcOffset = arcTurns - (glowTurns + Math.abs(liveProgress() - anchorOf(sweepTheme)));
     gesture = { id: event.pointerId, startX: event.clientX, startY: event.clientY, initial: start, shift: start, moved: false, arcOffset };
     try { toggle.setPointerCapture(event.pointerId); } catch { /* the pointer may already be gone */ }
     toggle.dataset.dragging = '';

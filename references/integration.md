@@ -162,7 +162,7 @@ Verify all three states on the same grid. Holding the same value should change o
 
 ## Which parts merge
 
-Use `setControlBases({ toggle, segment, theme })` for fixed sampled surfaces. The toggle base takes `{ x, y, width, height, on }`; the segment base takes `{ x, y, width, height }`; the theme base takes the same shape as the toggle base and `on` selects its dark track color. Coordinates are CSS pixels from the canvas origin; these boxes are centered on `x, y`. Clear them with `setControlBases()`. Use `setSliderTrack` for the rail.
+Use `setControlBases({ toggle, segment, theme })` for fixed sampled surfaces. The toggle base takes `{ x, y, width, height, on }`. The segment base takes `{ x, y, width, height }`. The theme base adds `tint`, `light`, and `glow` to those geometry fields. Coordinates are CSS pixels from the canvas origin, and these boxes are centered on `x, y`. Clear them with `setControlBases()`. Use `setSliderTrack` for the rail.
 
 Give the actual knob shapes `surface: 'switch'`, `slider: true`, or `surface: 'selection'`. Use the demo’s shared liquid surface behavior for related controls. A hold enlarges the active glass, and travel stretches and thins it before it settles. Segment selection also follows a held horizontal drag and commits the nearest item on release. The renderer blends the contour and material at a junction. In the milk-to-lens mode, the neck gets stronger refraction and a soft highlight colored by the sampled backdrop. A rail is still only a sample source, so crossing it alone does not create a junction. An inactive track must not be added to `setShapes`. Its color still appears in a lens that crosses it. The demo scene makes the difference visible on an original grid.
 
@@ -185,7 +185,11 @@ The toggle is a `role="switch"` button: Space and Enter toggle it, and a pointer
 
 Style the page with the `[data-theme="light"]` and `[data-theme="dark"]` tokens from `assets/liquid-glass.css`. Keep text on glass readable in both themes, and dim a photographic backdrop instead of hiding it.
 
-To reproduce the demo optics, run the toggle in `bare: true` mode over the scene canvas and describe it like the switch: pass the track to `setControlBases({ theme: { x, y, width, height, on } })`, submit the thumb as a shape with `surface: 'theme'`, and set `appearance: 'dark'` or `'light'` in `setMaterial` so the lens haze follows the mode. The base paints the track into the sampled source, so the thumb refracts its own track; `on` also selects the track color. Darken the sampled source itself (draw the image to a canvas under a dark fill and call `setSource`) so the page and the glass share one dimmed backdrop. Without WebGL, style the bare toggle's track and thumb with opaque fallbacks keyed to the theme.
+If the host already remembers its theme, pass its current `theme` and set `persist: false`. Apply the emitted theme through the host's existing setter and call `setGlassTheme(theme)` when the host changes it elsewhere.
+
+For the demo optics, reuse `mountThemeToggle` in `demo/theme-toggle.js` and its motion dependency `assets/glass-motion.js`. Put the `#theme-tools` host above the scene canvas. Supply the host's theme options through `toggleOptions` and its setter through `onThemeChange`. Call `element.setGlassTheme(theme)` on the returned controller to sync external changes. On each draw, call `sceneState(now, stageBox)`, pass its `base` as `theme` to `setControlBases`, and append its `shape` with `surface: 'theme'` to the scene shapes. The base carries `tint` from 0 (dark) to 1 (light), `light` in degrees, and `glow` as normalized RGB. The thumb supplies the outline and end compression. A nearby shape with `surface: 'lens'` can join the thumb when the material's `merge` is positive. Hide the bare toggle's CSS glow and thumb shadow while the scene is active so the canvas draws them once.
+
+Use the host's decoded image, video, or canvas as the sampled backdrop. For a dimming effect like the demo, render the dimming into the same source the glass reads. Give the bare toggle opaque track and thumb styles when WebGL is unavailable, or mount the standalone CSS version.
 
 ## Dynamic sources
 
