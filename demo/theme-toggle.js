@@ -61,7 +61,7 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
           x: rect.left - stageBox.left + rect.width / 2,
           y: rect.top - stageBox.top + rect.height / 2,
           width, height,
-          radius: Math.min(width, height) * .34,
+          radius: Math.min(width, height) * .40,
           press, motion,
           contactX: rect.left + rect.width / 2, contactY: rect.top + rect.height / 2,
         },

@@ -64,7 +64,13 @@ vec3 sampleSoft(vec2 p,float blur){
   vec3 switchColor=mix(vec3(.45,.46,.43),vec3(.90,.33,.21),u_switchOn);
   base=mix(base,switchColor,switchMask*mix(.82,1.,u_switchOn));
   base=mix(base,vec3(.10,.13,.12),baseMask(p,u_segmentBase,feather)*.69);
-  base=mix(base,mix(vec3(.902,.894,.878),vec3(.086,.09,.102),u_themeOn),baseMask(p,u_themeBase,feather)*.96);
+  float themeMask=baseMask(p,u_themeBase,feather);
+  if(themeMask>0.){
+    // Solid track with a subtle downward shade, so the thumb sits in a well.
+    vec3 themeTrack=mix(vec3(.902,.894,.878),vec3(.086,.09,.102),u_themeOn);
+    float ty=clamp((p.y-(u_themeBase.y-u_themeBase.w*.5))/max(u_themeBase.w,1.),0.,1.);
+    base=mix(base,themeTrack*(1.-.07*ty),themeMask);
+  }
   if(u_sliderTrack.w<=0.)return base;
   float r=u_sliderTrack.w*.5;
   float start=u_sliderTrack.x+r;
@@ -355,10 +361,17 @@ void main(){
     float selectionShoulder=merged.w*.15*exp(-depth/5.0);
     ivory=mix(ivory,vec3(1.),max(innerRim*.85,selectionShoulder));
     // The switch rests on a clean porcelain surface, then reveals the lens on hold.
-    // With a theme toggle present, only the knob over the switch base takes its on-color.
+    // With a theme toggle present, each knob takes its own resting fill: the switch
+    // keeps its porcelain on-color, the theme thumb turns to dark glass in dark mode.
     float switchFill=u_switchOn;
-    if(u_themeBase.w>0.)switchFill*=step(distance(centre,u_switchBase.xy),distance(centre,u_themeBase.xy));
-    vec3 porcelain=mix(vec3(.945,.941,.928),vec3(.977,.914,.890),switchFill);
+    float overTheme=0.;
+    if(u_themeBase.w>0.){
+      overTheme=1.-step(distance(centre,u_switchBase.xy),distance(centre,u_themeBase.xy));
+      switchFill*=1.-overTheme;
+    }
+    vec3 switchRest=mix(vec3(.945,.941,.928),vec3(.977,.914,.890),switchFill);
+    vec3 themeRest=mix(vec3(.971,.966,.955),vec3(.125,.135,.16),u_themeOn);
+    vec3 porcelain=mix(switchRest,themeRest,overTheme);
     float porcelainRim=1.-smoothstep(1.1,3.1,depth);
     ivory=mix(ivory,mix(porcelain,vec3(1.),porcelainRim),merged.z);
     clear=mix(clear,ivory,milk);
