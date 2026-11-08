@@ -384,7 +384,10 @@ void main(){
       u_themeFill);
     vec3 porcelain=mix(switchRest,themeRest,overTheme);
     float porcelainRim=1.-smoothstep(1.1,3.1,depth);
-    vec3 restRim=mix(vec3(1.),u_themeGlow,overTheme*.85);
+    // The theme thumb's edge tint only rides the glow side: the far side stays
+    // neutral, so no inner boundary line traces around the glass.
+    float glowSide=smoothstep(-.6,.8,dot(n,themeLight));
+    vec3 restRim=mix(vec3(1.),u_themeGlow,overTheme*.85*glowSide);
     ivory=mix(ivory,mix(porcelain,restRim,porcelainRim),merged.z);
     clear=mix(clear,ivory,milk);
     // A stationary hold changes exposure and refraction; only travel adds chromatic light.
