@@ -387,6 +387,7 @@ function draw() {
     const themeState = themeControl.sceneState(now, box);
     bases.theme = { ...themeState.base, on: theme === 'dark' };
     shapes.push({ ...themeState.shape, surface: 'theme' });
+    if (themeState.settling) colorSettling = true;
   }
   if (outlinePreview) {
     const {x,y,width,height,outline} = outlinePreview;

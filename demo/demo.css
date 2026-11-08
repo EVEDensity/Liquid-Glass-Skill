@@ -405,8 +405,7 @@ html[data-glass-export] #stage { min-height: 0; }
 html[data-glass-selection], html[data-glass-selection] body, html[data-glass-selection] #stage { background: transparent; }
 
 /* Theme toggle: stage chrome in the top-right corner, mirroring the language tools. */
-#theme-tools { position: absolute; inset: 16px 16px auto auto; z-index: 4; display: grid; justify-items: center; gap: 10px; }
-.theme-hint { order: 2; font: 600 11px/1 "Segoe UI",sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #8b8b85; text-shadow: 0 1px 2px rgb(255 255 255 / .4); pointer-events: none; }
+#theme-tools { position: absolute; inset: 16px 16px auto auto; z-index: 4; display: grid; }
 @media (max-width: 700px) { #theme-tools { inset: 12px 12px auto auto; } }
 
 /* Dark theme: the toggle flips the whole editor, panels included. */
@@ -423,7 +422,6 @@ html[data-theme="dark"] .control-caption { background: #262925; color: #dfe4dc; 
 html[data-theme="dark"] .more-actions > :is(button,form):not(:last-child) { border-bottom-color: rgb(230 238 226 / .16); }
 html[data-theme="dark"] .more-actions > button:hover { background: rgb(28 36 30 / .55); }
 html[data-theme="dark"] .more-actions form input { background: #232622; border-color: #5c705f; color: #e8ece7; }
-html[data-theme="dark"] .theme-hint { color: #93949e; text-shadow: 0 1px 3px rgb(0 0 0 / .55); }
 html[data-theme="dark"] .outline-instructions { background: #20231e; }
 html[data-theme="dark"] .outline-instructions button { background: #2b2e29; color: #e2e6df; }
 html[data-theme="dark"] .outline-instructions select { background: #262925; color: #e2e6df; border-color: #4a4f49; }

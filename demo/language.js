@@ -45,7 +45,7 @@ export const en = {
   selectionTask:'Integrate this selection of interactive liquid-glass controls. Confirm the target if unclear. Keep the existing page background and wire controls to the project actions. Use this revision:',
   selectionMount:'Vendor demo/replica.js, demo/demo.js, demo/demo.css, demo/glass-menu.js, assets/glass-button.js, assets/glass-motion.js, assets/mount-liquid-glass.js, assets/liquid-glass-renderer.js and LICENSE with the same relative paths. Call await mountLiquidGlassReplica(container, config, {backdrop: hostImageURL}) from demo/replica.js. The transparent iframe uses the host image URL only as an optical source. Await frame.glassReady for the mounted document and listen for native click/input events or glassmenuaction for menu Copy and Share. For matching pixels use the same background crop, stage dimensions, browser and DPR. Verify the real press, drag and release gestures. Without readable host pixels, confirm the fallback before applying it.',
   limit:'The canvas supports up to 12 controls.',
-  themeToggle:'Dark mode',themeHint:'Click or drag'
+  themeToggle:'Dark mode'
 };
 export const zh = {
   language:'语言',title:'液态玻璃',presets:'玻璃材质',button:'按钮',
@@ -94,5 +94,5 @@ export const zh = {
   selectionTask:'只接入这些可交互的液态玻璃控件。目标不清楚时先确认，保留宿主背景，并连接项目动作。使用此版本：',
   selectionMount:'按原相对路径复制 demo/replica.js、demo/demo.js、demo/demo.css、demo/glass-menu.js、assets/glass-button.js、assets/glass-motion.js、assets/mount-liquid-glass.js、assets/liquid-glass-renderer.js 和 LICENSE。调用 demo/replica.js 的 await mountLiquidGlassReplica(container, config, {backdrop: hostImageURL})。透明 iframe 仅将宿主图片用于折射采样。用 await frame.glassReady 获取挂载完成的文档，再监听原生 click/input 事件。菜单的复制和分享通过 glassmenuaction 绑定。逐像素比对需统一背景裁剪、容器尺寸、浏览器和 DPR，验收真实按住、拖动及松开的过程。无法读取宿主背景像素时，先确认降级方案。',
   limit:'画布最多支持 12 个控件。',
-  themeToggle:'深色模式',themeHint:'点击或拖动'
+  themeToggle:'深色模式'
 };
