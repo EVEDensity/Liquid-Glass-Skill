@@ -289,7 +289,7 @@ function draw() {
   const brightnessDt = Math.min(64, now - (lastBrightnessTick ?? now));
   lastBrightnessTick = now;
   const brightnessTarget = sceneProgress();
-  smoothBrightness += (brightnessTarget - smoothBrightness) * (1 - Math.exp(-brightnessDt / 190));
+  smoothBrightness += (brightnessTarget - smoothBrightness) * (1 - Math.exp(-brightnessDt / 120));
   if (Math.abs(smoothBrightness - brightnessTarget) < .003) smoothBrightness = brightnessTarget;
   const brightness = smoothBrightness;
   if (Math.abs(brightness - sceneBrightness) > .008) {

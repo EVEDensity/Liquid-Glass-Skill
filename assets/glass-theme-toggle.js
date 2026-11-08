@@ -67,9 +67,21 @@ const css = `
 .glass-theme-toggle .theme-icon[data-off] rect {
   opacity: 0; transform: translate(calc(var(--sx, 0px) * .72), calc(var(--sy, 0px) * .72)) scale(.5);
 }
-/* The bare variant leaves the glass surfaces to a host scene canvas. */
-.glass-theme-toggle[data-bare] .theme-track { background: transparent; box-shadow: none; }
-.glass-theme-toggle[data-bare] .theme-thumb { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
+/* The bare variant leaves the glass surfaces to a host scene canvas, but keeps
+   the edge shadows: they read over the host backdrop and give the track depth. */
+.glass-theme-toggle[data-bare] .theme-track {
+  background: transparent;
+  box-shadow: inset 0 1px 2px rgb(255 255 255 / .65), inset 0 -2px 6px rgb(22 26 36 / .12),
+    0 16px 36px rgb(12 16 28 / .22), 0 4px 12px rgb(12 16 28 / .12);
+}
+.glass-theme-toggle[data-bare][aria-checked="true"] .theme-track {
+  box-shadow: inset 0 1px 2px rgb(255 255 255 / .10), inset 0 -3px 10px rgb(0 0 0 / .45),
+    0 16px 36px rgb(0 0 0 / .45), 0 4px 12px rgb(0 0 0 / .3);
+}
+.glass-theme-toggle[data-bare] .theme-thumb {
+  background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: 0 10px 26px rgb(8 12 22 / .32), 0 2px 8px rgb(8 12 22 / .2);
+}
 @media (prefers-reduced-motion: reduce) {
   .glass-theme-toggle .theme-thumb, .glass-theme-toggle .theme-icon rect { transition: none; }
 }

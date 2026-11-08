@@ -417,6 +417,7 @@ html[data-theme="dark"] body {
 }
 html[data-theme="dark"] #presets-panel { color-scheme: dark; }
 html[data-theme="dark"] .glass, html[data-theme="dark"] .more-surface { color: #eef2e8; }
+html[data-theme="dark"] .language-tools button { color: #e8ece7; }
 html[data-theme="dark"] .probe { color: #f2f5ee; text-shadow: 0 0 5px rgb(9 14 11 / .6), 0 0 3px rgb(9 14 11 / .6); }
 html[data-theme="dark"] .control-caption { background: #262925; color: #dfe4dc; }
 html[data-theme="dark"] .more-actions > :is(button,form):not(:last-child) { border-bottom-color: rgb(230 238 226 / .16); }
