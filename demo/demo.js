@@ -274,13 +274,6 @@ function activePress(piece, now) {
 }
 function draw() {
   frame = 0;
-  // The scene brightness trails the thumb position, so dimming stays continuous.
-  const brightness = sceneProgress();
-  if (Math.abs(brightness - sceneBrightness) > .008) {
-    sceneBrightness = brightness;
-    applySceneBrightness(brightness);
-    stage.style.setProperty('--scene-dim', (1 - brightness).toFixed(3));
-  }
   updateEditorOverlay?.();
   const opaque = !scene.available || (exported?.version === 3 && !sourceReady)
     || matchMedia('(prefers-reduced-transparency: reduce), (forced-colors: active)').matches;
@@ -291,6 +284,20 @@ function draw() {
   const bases = {};
   const now = performance.now();
   let colorSettling = false;
+  // The scene brightness trails the thumb by roughly half a second, so the
+  // whole scene keeps gently brightening after the thumb has stopped.
+  const brightnessDt = Math.min(64, now - (lastBrightnessTick ?? now));
+  lastBrightnessTick = now;
+  const brightnessTarget = sceneProgress();
+  smoothBrightness += (brightnessTarget - smoothBrightness) * (1 - Math.exp(-brightnessDt / 190));
+  if (Math.abs(smoothBrightness - brightnessTarget) < .003) smoothBrightness = brightnessTarget;
+  const brightness = smoothBrightness;
+  if (Math.abs(brightness - sceneBrightness) > .008) {
+    sceneBrightness = brightness;
+    applySceneBrightness(brightness);
+    stage.style.setProperty('--scene-dim', (1 - brightness).toFixed(3));
+  }
+  colorSettling = colorSettling || smoothBrightness !== brightnessTarget;
   const shapes = pieces.map(piece => {
     if (piece.matches('.more-glass')) {
       const surface = piece.querySelector('.more-surface');
@@ -541,6 +548,8 @@ let sourceReady = false;
 let sourceImage = null;
 let theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
 let sceneBrightness = theme === 'dark' ? 0 : 1;
+let smoothBrightness = sceneBrightness;
+let lastBrightnessTick = null;
 let themeControl = null;
 const wallpapers = [...document.querySelectorAll('[data-wallpaper]')];
 let backdropRequest = 0;
