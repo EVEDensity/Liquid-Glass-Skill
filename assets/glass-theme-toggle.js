@@ -141,6 +141,8 @@ function pixels(rows) {
 
 const mix = (a, b, p) => a + (b - a) * p;
 const clampUnit = p => Math.max(0, Math.min(1, p));
+const travelTimeScale = 1.85;
+const arcResponseMs = 145;
 const moonPixels = pixels(moonBitmap);
 const sunPixels = pixels(sunBitmap);
 const pixelCount = Math.max(moonPixels.length, sunPixels.length);
@@ -195,10 +197,12 @@ export function createGlassThemeToggle(target, config = {}) {
   let gesture;
   let skipPointerClick = false;
 
-  // The arc's angle is a pure function of the thumb's position: it advances one half
-  // turn (always the same way around) per crossing, riding the leading edge.
+  // Follow the pointer during a drag. On release the arc trails the spring
+  // and finishes its half turn after the thumb arrives.
   let glowTurns = initial === 'light' ? 1 : 0;
   let sweepTheme = theme;     // theme at the moment the open sweep began
+  let arcProgress = 0;
+  let arcTime;
   let glowFrame = 0;
   let lastRot = initial === 'light' ? -180 : 0;
   let glowProgressValue = initial === 'light' ? 1 : 0;
@@ -224,7 +228,6 @@ export function createGlassThemeToggle(target, config = {}) {
     const p = posX / travel();
     return Number.isFinite(p) ? Math.max(0, Math.min(1, p)) : anchorOf(theme);
   }
-  function glowDragging() { return Boolean(gesture); }
   function renderColor(p) {
     if (p === renderedProgress) return;
     renderedProgress = p;
@@ -255,17 +258,27 @@ export function createGlassThemeToggle(target, config = {}) {
       dot.setAttribute('opacity', mix(from.opacity, to.opacity, eased).toFixed(2));
     });
   }
-  function glowRender() {
+  function glowRender(now = performance.now()) {
     if (posX == null && toggle.isConnected) posX = anchorOf(theme) ? travel() : 0;
     const p = liveProgress();
     const sweep = Math.abs(p - anchorOf(sweepTheme));
-    lastRot = -180 * (glowTurns + sweep);
-    if (!Number.isFinite(lastRot)) lastRot = anchorOf(theme) ? -180 : 0;
+    const elapsed = Math.min(64, now - (arcTime ?? now));
+    arcTime = now;
+    if (gesture) {
+      // A new grab can interrupt the arc before it has caught up with the thumb.
+      gesture.arcOffset *= Math.exp(-elapsed / 65);
+      arcProgress = reduced.matches ? sweep : clampUnit(sweep + gesture.arcOffset);
+    } else {
+      arcProgress = reduced.matches ? sweep : mix(arcProgress, sweep, 1 - Math.exp(-elapsed / arcResponseMs));
+    }
+    if (Math.abs(arcProgress - sweep) < .006) arcProgress = sweep;
+    lastRot = -180 * (glowTurns + arcProgress);
     glowProgressValue = p;
     glow.style.setProperty('--glow-rot', lastRot.toFixed(2) + 'deg');
     toggle.style.setProperty('--glow-progress', p.toFixed(3));
     renderColor(p);
     config.onGlowFrame?.();
+    return arcProgress !== sweep;
   }
   // Integrates the travel spring and applies the thumb translate. Called from
   // the host's draw path so the glass shape and the DOM icon share one position
@@ -273,7 +286,7 @@ export function createGlassThemeToggle(target, config = {}) {
   function advanceTravel(now) {
     if (!springState) return;
     if (now - springState.last < 2) return;
-    const dt = Math.min(.034, Math.max(.001, (now - springState.last) / 1000));
+    const dt = Math.min(.034, (now - springState.last) / 1000) / travelTimeScale;
     springState.last = now;
     let { x, v, target } = springState;
     for (let i = 0; i < 3; i++) {
@@ -289,15 +302,15 @@ export function createGlassThemeToggle(target, config = {}) {
   }
   function glowTick() {
     glowFrame = 0;
-    advanceTravel(performance.now());
-    glowRender();
-    if (glowDragging() || springState) { glowFrame = requestAnimationFrame(glowTick); return; }
+    const now = performance.now();
+    advanceTravel(now);
+    const arcMoving = glowRender(now);
+    if (gesture || springState || arcMoving) { startGlow(); return; }
     const rest = anchorOf(theme);
     if (Math.abs(liveProgress() - rest) >= .004) {
       // The thumb is still travelling toward its rest position — and if it was
       // ever left stranded mid-track with no spring, send it to the anchor.
-      if (!springState) travelTo(rest * travel(), 0, false);
-      glowFrame = requestAnimationFrame(glowTick);
+      travelTo(rest * travel(), 0, false);
       return;
     }
     if (theme !== sweepTheme) glowTurns += 1;
@@ -305,7 +318,8 @@ export function createGlassThemeToggle(target, config = {}) {
     // Re-anchor at rest: dark always rests on an even turn (bottom edge),
     // light on an odd one (top edge), whatever sequence led here.
     glowTurns = theme === 'dark' ? Math.round(glowTurns / 2) * 2 : Math.floor(glowTurns / 2) * 2 + 1;
-    glowRender();
+    arcProgress = 0;
+    glowRender(now);
   }
   function startGlow() {
     if (!glowFrame) glowFrame = requestAnimationFrame(glowTick);
@@ -356,7 +370,8 @@ export function createGlassThemeToggle(target, config = {}) {
     springState = null;
     posX ??= anchorOf(theme) * travel();
     const start = liveProgress() * travel();
-    gesture = { id: event.pointerId, startX: event.clientX, startY: event.clientY, initial: start, shift: start, moved: false };
+    const arcOffset = arcProgress - Math.abs(liveProgress() - anchorOf(sweepTheme));
+    gesture = { id: event.pointerId, startX: event.clientX, startY: event.clientY, initial: start, shift: start, moved: false, arcOffset };
     try { toggle.setPointerCapture(event.pointerId); } catch { /* the pointer may already be gone */ }
     toggle.dataset.dragging = '';
     startGlow();
@@ -386,7 +401,9 @@ export function createGlassThemeToggle(target, config = {}) {
       const next = cancelled || !far ? theme : gesture.shift > gesture.initial ? 'light' : 'dark';
       const target = next === 'dark' ? 0 : travel();
       // The drag's momentum carries into the spring; no anticipation here.
-      const velocity = cancelled ? 0 : dragVel;
+      const pause = performance.now() - gesture.lastT;
+      const limit = travel() * 5;
+      const velocity = cancelled ? 0 : Math.max(-limit, Math.min(limit, dragVel)) * Math.exp(-pause / 85);
       if (next === theme) travelTo(target, velocity, false);
       else commit(next, { target, v: velocity, anticipate: false });
       dragVel = 0;
