@@ -53,7 +53,11 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
       const press = state.scale || 0;
       const dt = Math.min(64, now - (state.holdTime ?? now));
       state.holdTime = now;
-      const holdGoal = pressTarget === 1 ? 1 : 0;
+      // The squeeze only builds when the thumb is pinned against an end of the
+      // track (its rest position counts): travelling leaves room, so it relaxes.
+      const live = Number.isFinite(toggle.glowProgress) ? toggle.glowProgress : (toggle.theme === 'dark' ? 0 : 1);
+      const atWall = live <= .02 || live >= .98;
+      const holdGoal = pressTarget === 1 && atWall ? 1 : 0;
       state.hold += (holdGoal - state.hold) * (1 - Math.exp(-dt / (holdGoal ? 300 : 130)));
       if (state.hold < .004) state.hold = 0;
       if (state.hold > .996) state.hold = 1;
