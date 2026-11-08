@@ -50,7 +50,7 @@ const css = `
 }
 .glass-theme-toggle[aria-checked="false"] .theme-glow { --glow-base: 180deg; }
 .glass-theme-toggle[data-dragging] .theme-glow { transition: none; }
-.glass-theme-toggle .theme-icon { grid-area: 1 / 1; width: 40px; height: 40px; color: #45413a; }
+.glass-theme-toggle .theme-icon { grid-area: 1 / 1; width: 48px; height: 48px; color: #45413a; }
 .glass-theme-toggle .theme-icon-moon { color: #f4efe1; filter: drop-shadow(0 0 6px rgb(206 214 255 / .95)); }
 .glass-theme-toggle .theme-icon-sun { filter: drop-shadow(0 0 4px rgb(255 208 138 / .55)); }
 .glass-theme-toggle .theme-icon rect {
@@ -83,39 +83,51 @@ const css = `
 }
 `;
 
-/* Original pixel art (14x14): dithered crescent moon with a sparkle, rayed sun.
+/* Original pixel art (20x20): dithered crescent moon with a sparkle, rayed sun.
    '#' full pixel, '+' half-lit dither, 'o' bright sparkle. */
 const moonBitmap = [
-  '...........o..',
-  '...........o..',
-  '....+.....ooo.',
-  '...++..o..o...',
-  '..#++.....o...',
-  '.##++.....o...',
-  '.##++....o....',
-  '.##++.........',
-  '.####+........',
-  '.###+++.......',
-  '.##########++.',
-  '..########++..',
-  '...######++...',
-  '....####++....',
+  '....................',
+  '..........o...o.....',
+  '..............o.....',
+  '............ooooo...',
+  '......##+.....o.....',
+  '....###+......o.....',
+  '...####.+.+.....o...',
+  '...####+.+..........',
+  '..#####.+...........',
+  '..#####+............',
+  '..#####.+.+.........',
+  '..######.+..........',
+  '..#######.+.+.......',
+  '..#######+.+.+.+....',
+  '..#########.+.+.....',
+  '...############.....',
+  '....##########......',
+  '.....########.......',
+  '........##..........',
+  '....................',
 ];
 const sunBitmap = [
-  '..............',
-  '.##..##....##.',
-  '.##..##....##.',
-  '..............',
-  '.....####.....',
-  '....######....',
-  '.##.######.##.',
-  '.##.######.##.',
-  '....######....',
-  '.....####.....',
-  '..............',
-  '.##..##....##.',
-  '.##..##....##.',
-  '..............',
+  '....................',
+  '....................',
+  '.........##.........',
+  '...##....##....##...',
+  '...##....##....##...',
+  '....................',
+  '......########......',
+  '......########......',
+  '......########......',
+  '..##..########..##..',
+  '..##..########..##..',
+  '..##..########..##..',
+  '......########......',
+  '......########......',
+  '....................',
+  '...##....##....##...',
+  '...##....##....##...',
+  '.........##.........',
+  '....................',
+  '....................',
 ];
 
 function pixelIcon(rows, className) {
@@ -136,7 +148,7 @@ function pixelIcon(rows, className) {
       dots.push(`<rect x="${x}" y="${y}" width="1.06" height="1.06"${opacity}${sparkle} style="--sx:${sx}px;--sy:${sy}px;--d:${delay}ms"/>`);
     }
   });
-  return `<svg class="theme-icon ${className}" viewBox="0 0 14 14" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor">${dots.join('')}</svg>`;
+  return `<svg class="theme-icon ${className}" viewBox="0 0 20 20" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor">${dots.join('')}</svg>`;
 }
 
 export function createGlassThemeToggle(target, config = {}) {
