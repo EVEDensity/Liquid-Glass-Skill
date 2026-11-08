@@ -250,27 +250,29 @@ export function createGlassThemeToggle(target, config = {}) {
     icons.sun.toggleAttribute('data-off', zone === 'dark');
     config.onGlowFrame?.();
   }
+  // Integrates the travel spring and applies the thumb translate. Called from
+  // the host's draw path so the glass shape and the DOM icon share one position
+  // per frame; later calls within the same frame are no-ops.
+  function advanceTravel(now) {
+    if (!springState) return;
+    if (now - springState.last < 2) return;
+    const dt = Math.min(.034, Math.max(.001, (now - springState.last) / 1000));
+    springState.last = now;
+    let { x, v, target } = springState;
+    for (let i = 0; i < 3; i++) {
+      const h = dt / 3;
+      v += (380 * (target - x) - 22 * v) * h;
+      x += v * h;
+    }
+    if (Math.abs(x - target) < .4 && Math.abs(v) < 12) { x = target; v = 0; springState = null; }
+    else springState = { x, v, target, last: now };
+    posX = x;
+    elasticDy *= Math.exp(-dt / .06);
+    setThumbTranslate();
+  }
   function glowTick() {
     glowFrame = 0;
-    const now = performance.now();
-    if (springState) {
-      // Damped spring toward the committed end: the anticipation velocity pulls
-      // the thumb back first, then it shoots through and wobbles once, like the
-      // reference. Integrated in sub-steps for stability.
-      const dt = Math.min(.034, Math.max(.001, (now - springState.last) / 1000));
-      springState.last = now;
-      let { x, v, target } = springState;
-      for (let i = 0; i < 3; i++) {
-        const h = dt / 3;
-        v += (380 * (target - x) - 22 * v) * h;
-        x += v * h;
-      }
-      if (Math.abs(x - target) < .4 && Math.abs(v) < 12) { x = target; v = 0; springState = null; }
-      else springState = { x, v, target, last: now };
-      posX = x;
-      elasticDy *= Math.exp(-dt / .06);
-      setThumbTranslate();
-    }
+    advanceTravel(performance.now());
     glowRender();
     if (glowDragging() || springState) { glowFrame = requestAnimationFrame(glowTick); return; }
     const rest = anchorOf(theme);
@@ -386,6 +388,7 @@ export function createGlassThemeToggle(target, config = {}) {
   Object.defineProperty(toggle, 'glowRotation', { get: () => lastRot });
   // Live position of the thumb across the track, 0 dark .. 1 light.
   Object.defineProperty(toggle, 'glowProgress', { get: () => glowProgressValue });
+  toggle.advanceTravel = advanceTravel;
   target.append(toggle);
   return toggle;
 }

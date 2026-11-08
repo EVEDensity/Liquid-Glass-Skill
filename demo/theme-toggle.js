@@ -60,6 +60,7 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
     // The thumb press grows like the switch knob, travel stretches it thin,
     // and holding it keeps squeezing the droplet narrower until release.
     sceneState(now, stageBox) {
+      toggle.advanceTravel(now); // keep the DOM thumb and the glass on one position
       const track = toggle.querySelector('.theme-track').getBoundingClientRect();
       const rect = thumb.getBoundingClientRect();
       const press = state.scale || 0;
