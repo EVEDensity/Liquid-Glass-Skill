@@ -564,7 +564,8 @@ export class GlassScene {
     const base=(key,b)=>gl.uniform4f(this.uniforms[key],(b?.x??0),(b?.y??0),(b?.width??0),(b?.height??0));
     base('switchBase',toggle);base('segmentBase',segment);base('themeBase',theme);
     gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);gl.uniform1f(this.uniforms.themeOn,theme?.on?1:0);
-    gl.uniform1f(this.uniforms.themeLight,theme?.light??-135);
+    const themeLight=Number.isFinite(theme?.light)?theme.light:-135;
+    gl.uniform1f(this.uniforms.themeLight,themeLight);
     const track=this.sliderTrack;
     gl.uniform4f(this.uniforms.sliderTrack,(track?.x??0),(track?.y??0),(track?.width??0),(track?.height??0));
     gl.uniform1f(this.uniforms.presetOptics,this.material.presetOptics?1:0);
