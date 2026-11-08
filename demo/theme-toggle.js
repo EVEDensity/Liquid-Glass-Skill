@@ -13,7 +13,7 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
     onGlowFrame: schedule, // the WebGL rim light follows the arc frame by frame
   });
   const thumb = toggle.querySelector('.theme-thumb');
-  const state = { x: 0, y: 0, scale: 0, sx: 0, sy: 0, tx: 0, ty: 0, lastFrame: null, tailX: null, tailTime: null, knobTail: 0 };
+  const state = { x: 0, y: 0, scale: 0, sx: 0, sy: 0, tx: 0, ty: 0, lastFrame: null, tailX: null, tailTime: null, knobTail: 0, hold: 0, holdTime: null };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let pressFrame = 0;
   let pressTarget = 0;
@@ -45,11 +45,19 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
     element: toggle,
     get theme() { return toggle.theme; },
     setLanguage(strings) { toggle.setGlassThemeLabel(strings.themeToggle); },
-    // The thumb press grows like the switch knob, and travel stretches it thin.
+    // The thumb press grows like the switch knob, travel stretches it thin,
+    // and holding it keeps squeezing the droplet narrower until release.
     sceneState(now, stageBox) {
       const track = toggle.querySelector('.theme-track').getBoundingClientRect();
       const rect = thumb.getBoundingClientRect();
       const press = state.scale || 0;
+      const dt = Math.min(64, now - (state.holdTime ?? now));
+      state.holdTime = now;
+      const holdGoal = pressTarget === 1 ? 1 : 0;
+      state.hold += (holdGoal - state.hold) * (1 - Math.exp(-dt / (holdGoal ? 300 : 130)));
+      if (state.hold < .004) state.hold = 0;
+      if (state.hold > .996) state.hold = 1;
+      const squeeze = state.hold * press;
       const centreX = rect.left + rect.width / 2;
       const motion = sampleGlassMotion(state, centreX, rect.top + rect.height / 2, now, reduced.matches);
       // Keep the tail's sample separate from sampleGlassMotion's contact sample.
@@ -62,8 +70,8 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
       if (reduced.matches || Math.abs(state.knobTail) < .16) state.knobTail = 0;
       state.tailX = centreX;
       state.tailTime = now;
-      const width = rect.width + 26 * press;
-      const height = rect.height + 10 * press - Math.min(9, Math.abs(state.knobTail) * .29);
+      const width = rect.width + 26 * press - 44 * squeeze;
+      const height = rect.height + 10 * press + 9 * squeeze - Math.min(9, Math.abs(state.knobTail) * .29);
       return {
         base: {
           x: track.left - stageBox.left + track.width / 2,
@@ -80,7 +88,7 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
           stretchX: Math.round(state.knobTail * 10) / 10,
           contactX: rect.left + rect.width / 2, contactY: rect.top + rect.height / 2,
         },
-        settling: state.knobTail !== 0,
+        settling: state.knobTail !== 0 || (state.hold > 0 && state.hold < 1),
       };
     },
   };
