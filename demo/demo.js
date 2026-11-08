@@ -3,6 +3,7 @@ import { GlassScene, PRESETS, MAX_GLASS_SHAPES, normalizeGlassOutline, glassOutl
 import { mountButtonEditor } from './button-editor.js';
 import { applyGlassTypography } from '../assets/glass-button.js';
 import { createGlassMenu } from './glass-menu.js';
+import { mountThemeToggle } from './theme-toggle.js';
 
 const exportNode = document.querySelector('#glass-button-config');
 const exported = exportNode ? JSON.parse(exportNode.textContent) : null;
@@ -10,8 +11,8 @@ let material = exported?.material ?? { ...PRESETS.apple, clearControls: true };
 let language = exported?.language === 'zh' ? 'zh' : 'en';
 let presetKey = 'apple';
 const stageLabels = {
-  en: { button:'Glass button', switch:'Glass setting', slider:'Glass level', period:'Period', periods:['Day','Week','Month'] },
-  zh: { button:'玻璃按钮', switch:'玻璃开关', slider:'玻璃滑块', period:'时间范围', periods:['日','周','月'] }
+  en: { button:'Glass button', switch:'Glass setting', slider:'Glass level', period:'Period', periods:['Day','Week','Month'], themeToggle:'Dark mode' },
+  zh: { button:'玻璃按钮', switch:'玻璃开关', slider:'玻璃滑块', period:'时间范围', periods:['日','周','月'], themeToggle:'深色模式' }
 };
 const chinesePresets = {
   apple: ['苹果液态玻璃','柔化背景细节，边缘带有轻微折射。'],
@@ -382,6 +383,11 @@ function draw() {
     });
   });
   if (opaque) return;
+  if (themeControl) {
+    const themeState = themeControl.sceneState(now, box);
+    bases.theme = { ...themeState.base, on: theme === 'dark' };
+    shapes.push({ ...themeState.shape, surface: 'theme' });
+  }
   if (outlinePreview) {
     const {x,y,width,height,outline} = outlinePreview;
     shapes.push({x:x+width/2,y:y+height/2,width,height,outline});
@@ -389,7 +395,7 @@ function draw() {
   scene.setSliderTrack(track);
   scene.setControlBases(bases);
   scene.setShapes(shapes);
-  scene.setMaterial(material);
+  scene.setMaterial({...material, appearance: theme === 'dark' ? 'dark' : 'light'});
   scene.render();
   if (colorSettling) schedule();
 }
@@ -524,14 +530,35 @@ for (const query of ['(prefers-reduced-transparency: reduce)', '(forced-colors: 
 document.querySelector('#scene').addEventListener('glassfallback', schedule);
 window.addEventListener('resize', schedule);
 let sourceReady = false;
+let sourceImage = null;
+let theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
 const wallpapers = [...document.querySelectorAll('[data-wallpaper]')];
 let backdropRequest = 0;
+const themeSource = document.createElement('canvas');
+// Dark mode samples a dimmed copy of the wallpaper so the page and the glass share one source.
+function syncSource() {
+  if (!scene.available || !sourceImage) return;
+  const width = sourceImage.naturalWidth || sourceImage.width, height = sourceImage.naturalHeight || sourceImage.height;
+  if (!width || !height) return;
+  if (theme !== 'dark') {
+    scene.setSource(sourceImage);
+    return;
+  }
+  themeSource.width = width;
+  themeSource.height = height;
+  const context = themeSource.getContext('2d');
+  context.drawImage(sourceImage, 0, 0);
+  context.fillStyle = 'rgb(8 10 9 / .62)';
+  context.fillRect(0, 0, width, height);
+  scene.setSource(themeSource);
+}
 async function setBackdrop(image, selected) {
   const request = ++backdropRequest;
   try {
     await image.decode();
     if (request !== backdropRequest) return;
-    if (scene.available) scene.setSource(image);
+    sourceImage = image;
+    syncSource();
     stage.style.setProperty('--stage-wallpaper', `url("${image.src}")`);
     for (const button of wallpapers) button.setAttribute('aria-pressed',String(button === selected));
     sourceReady = true;
@@ -561,6 +588,18 @@ if (exported?.backdrop) {
 } else if (!exported) {
   selectWallpaper(wallpapers[0]);
 }
+let themeControl = null;
+if (!exported) {
+  themeControl = mountThemeToggle(stage, {
+    schedule,
+    getStrings: () => stageLabels[language],
+    onThemeChange(next) {
+      theme = next;
+      syncSource();
+      schedule();
+    },
+  });
+}
 const options = document.querySelector('#preset-options');
 const presetDescription = document.querySelector('#preset-description');
 function updatePresetLabels() {
@@ -572,6 +611,7 @@ function updatePresetLabels() {
 }
 function updateStageLabels() {
   for (const menu of root.querySelectorAll('.more-glass')) menu.setGlassMenuLanguage(language);
+  themeControl?.setLanguage(stageLabels[language]);
   const labels = stageLabels[language];
   for (const piece of root.querySelectorAll('.switch,.slider,.segment')) {
     const custom = piece.glassLabels ?? [];
@@ -667,7 +707,7 @@ if (!exported) {
       updatePresetLabels();
     },
     addButton(config) {
-      if (pieces.length >= MAX_GLASS_SHAPES) return null;
+      if (pieces.length >= MAX_GLASS_SHAPES - (themeControl ? 1 : 0)) return null;
       if (config.x == null) {
         const width = config.shape==='capsule' ? 132 : config.shape==='rounded' ? 132 : 96;
         const height = config.shape==='capsule' ? 56 : config.shape==='rounded' ? 80 : 96;
@@ -701,7 +741,7 @@ if (!exported) {
       if (pieces.length >= MAX_GLASS_SHAPES || root.querySelector('.more-glass')) return;
       const menu = createGlassMenu('',schedule);
       menu.style.right = '18px';
-      menu.style.top = '76px';
+      menu.style.top = '140px';
       root.append(menu);
       pieces.push(menu);
       initPiece(menu);
@@ -746,5 +786,5 @@ if (!exported) {
     }
   });
 }
-window.glassDemo = { get available() { return scene.available; }, get material() { return { ...material }; }, get source() { return sourceReady; }, get slider() { const knob = scene.shapes.find(shape => shape.slider); return knob && { knob: { ...knob }, track: { ...scene.sliderTrack } }; }, get shapes() { return scene.shapes.map(shape => ({ ...shape })); }, get bases() { return structuredClone(scene.controlBases); } };
+window.glassDemo = { get available() { return scene.available; }, get material() { return { ...material }; }, get source() { return sourceReady; }, get theme() { return theme; }, get slider() { const knob = scene.shapes.find(shape => shape.slider); return knob && { knob: { ...knob }, track: { ...scene.sliderTrack } }; }, get shapes() { return scene.shapes.map(shape => ({ ...shape })); }, get bases() { return structuredClone(scene.controlBases); } };
 if (exported) document.dispatchEvent(new Event('glassready'));

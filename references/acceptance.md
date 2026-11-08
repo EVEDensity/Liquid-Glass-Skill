@@ -6,6 +6,8 @@ Check these on the integrated page, not only in the bundled demo.
 
 - Draggable glass moves by pointer and has a keyboard equivalent. Fixed controls retain their native behavior.
 - A tap activates the intended control. Dragging beyond the movement threshold does not also trigger the click action.
+- A theme toggle flips the page theme on click and on a drag past roughly 40 percent of its travel; a shorter drag snaps back without changing the theme. Space and Enter toggle it, `role="switch"` reflects the state, and the choice survives a reload.
+- Toggling the theme re-renders the glass against the dimmed backdrop: the thumb refracts its own track in both modes, and no control becomes unreadable after the flip.
 - In the demo, the circle joins the switch knob, slider knob, and selected segment. Crossing the colored switch base, the slider rail, or the unselected segment track only refracts that layer; the circle retains its own outline.
 
 ## Rendering

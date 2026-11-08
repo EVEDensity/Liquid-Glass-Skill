@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Liquid Glass UI</title>
+  <script>try { var t = localStorage.getItem('liquid-glass-theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <link rel="stylesheet" href="./demo.css">
 </head>
 <body>
@@ -41,6 +42,9 @@
     <div class="language-tools" role="group" aria-label="Language" data-aria="language">
       <button type="button" data-language="zh" lang="zh-CN" aria-pressed="false">中文</button>
       <button type="button" data-language="en" lang="en" aria-pressed="true">EN</button>
+    </div>
+    <div id="theme-tools">
+      <span class="theme-hint" data-i18n="themeHint" aria-hidden="true">Click or drag</span>
     </div>
   </main>
   <aside id="presets-panel" aria-labelledby="presets-title">

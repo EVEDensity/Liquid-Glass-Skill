@@ -9,12 +9,14 @@ const include = [
   '.gitignore', 'LICENSE', 'README.md', 'README_CN.md', 'README_JA.md', 'SKILL.md', 'THIRD_PARTY_NOTICES.md',
   'package.json', 'package-lock.json', 'agents/openai.yaml',
   'assets/LICENSE-lucide', 'assets/glass-backdrop.svg', 'assets/glass-grid.svg',
-  'assets/glass-button.js', 'assets/glass-motion.js', 'assets/liquid-glass-renderer.js',
-  'assets/liquid-glass.css', 'assets/liquid-glass.js', 'assets/mount-liquid-glass.js',
+  'assets/glass-button.js', 'assets/glass-motion.js', 'assets/glass-theme-toggle.js',
+  'assets/liquid-glass-renderer.js', 'assets/liquid-glass.css', 'assets/liquid-glass.js',
+  'assets/mount-liquid-glass.js',
   'assets/wallpapers/daisy.jpg', 'assets/wallpapers/lake.jpg', 'assets/wallpapers/prism.jpg',
   'demo/index.html', 'demo/demo.css', 'demo/demo.js', 'demo/button-editor.js',
   'demo/glass-menu.js', 'demo/icon-picker.js', 'demo/language.js', 'demo/lucide-catalog.json',
   'demo/merge-outline.js', 'demo/outline-editor.js', 'demo/replica.js', 'demo/shape-picker.js',
+  'demo/theme-toggle.js',
   'references/acceptance.md', 'references/design-system.md', 'references/integration.md',
   'references/validation.md', 'scripts/package.mjs', 'scripts/serve.mjs', 'scripts/verify.mjs'
 ];

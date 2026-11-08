@@ -1,6 +1,6 @@
 ---
 name: liquid-glass-ui
-description: Implement, restyle, or debug interactive liquid glass in web interfaces. Use for refractive buttons, switches, sliders, segmented controls, toolbars, and floating surfaces with press, drag, or merge behavior. Choose CSS glass for arbitrary page content or WebGL2 refraction for a backdrop the app can supply as pixels.
+description: Implement, restyle, or debug interactive liquid glass in web interfaces. Use for refractive buttons, switches, sliders, segmented controls, theme toggles, toolbars, and floating surfaces with press, drag, or merge behavior. Choose CSS glass for arbitrary page content or WebGL2 refraction for a backdrop the app can supply as pixels.
 license: MIT
 ---
 
@@ -31,4 +31,4 @@ Read [integration](references/integration.md) for runnable wiring and the shape 
 4. Drive shape updates from the app's input and animation state. Keep track positions and hit targets stable. Apply stretch along the direction of travel and ease it out after release. Honor reduced motion.
 5. Check the actual target page with contrasting backdrop detail. Inspect idle, press, travel, and release as applicable. Verify keyboard and touch operation, mobile layout, and a readable fallback. Mention any visual or browser limits supported by the checks.
 
-Run `node scripts/serve.mjs` from this folder and open `http://localhost:58423/demo/` to try the bundled switch, slider, segmented control, and lens with six presets. The materials are independently implemented and tuned against the public Good Machines demo.
+Run `node scripts/serve.mjs` from this folder and open `http://localhost:58423/demo/` to try the bundled switch, slider, segmented control, light/dark theme toggle, and lens with six presets. The materials are independently implemented and tuned against the public Good Machines demo.

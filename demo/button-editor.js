@@ -181,7 +181,8 @@ export function mountButtonEditor({root,stage,setButtonText,setControlLabels,set
       width.value = height.value = '';
     }
     syncShape({custom:Boolean(selected?.glassOutline),disabled:!editable()});
-    add.disabled = root.children.length >= MAX_GLASS_SHAPES;
+    // The page-level theme toggle always occupies one of the scene's shape slots.
+    add.disabled = root.children.length >= MAX_GLASS_SHAPES - 1;
     if (add.disabled) showShapePicker(false);
     draw.disabled = add.disabled;
     menuTool.disabled = add.disabled || Boolean(root.querySelector('.more-glass'));

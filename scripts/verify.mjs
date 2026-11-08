@@ -54,7 +54,7 @@ async function verifySelection(context) {
   const centersY = controlBoxes.map(box=>box.y+box.height/2);
   assert.ok(centersY[1]-centersY[0]>=130);
   assert.equal(centersY[2]-centersY[1],centersY[1]-centersY[0]);
-  await selectionPage.getByRole('switch').click();
+  await selectionPage.getByRole('switch', { name: 'Glass setting' }).click();
   await selectionPage.locator('#text-tool').click();
   await selectionPage.locator('#button-text').fill('Night mode');
   await selectionPage.locator('#button-text').press('Enter');
@@ -198,7 +198,7 @@ async function verifySelection(context) {
   await mouse.down();
   await mouse.move(segmentBox.x+segmentBox.width*.84,centersY[2],{steps:8});
   await mouse.up();
-  assert.equal(await mountedControls.getByRole('switch').getAttribute('aria-checked'),String(!config.items[0].on));
+  assert.equal(await mountedControls.locator('.switch').getAttribute('aria-checked'),String(!config.items[0].on));
   assert.equal(await mountedControls.getByRole('button',{name:'Month'}).getAttribute('aria-pressed'),'true');
   // Drive the source controls to the same values without relying on timing of two drag trajectories.
   await selectionPage.evaluate(value=>{
@@ -371,7 +371,13 @@ async function verifyNewShapes(context) {
   await page.locator('#keep-outline').click();
   const heart = page.locator('.probe[data-shape="custom"]').last();
   assert.equal(await heart.evaluate(button=>button.glassOutline.length),48);
-  for (let i=0;i<5;i++) await addShape(page);
+  // The theme toggle reserves one shape slot, so the canvas fills at eleven objects.
+  for (let i=0;i<5;i++) {
+    if (!(await page.locator('#add-button').isEnabled())) break;
+    const before = await page.evaluate(() => window.glassDemo.shapes.length);
+    await addShape(page);
+    await page.waitForFunction(count => window.glassDemo.shapes.length > count, before);
+  }
   await page.waitForFunction(()=>window.glassDemo.shapes.length===12);
   assert.ok(await page.locator('#draw-shape').isDisabled());
   await page.close();
@@ -542,8 +548,8 @@ try {
   await page.locator('#button-text').press('Enter');
   const editedBounds=await edited.boundingBox();
   assert.deepEqual([editedBounds.width,editedBounds.height],[183,74]);
-  await page.waitForFunction(()=>window.glassDemo.shapes.length===5);
-  assert.equal(await page.evaluate(()=>window.glassDemo.shapes.at(-1).radius),16);
+  await page.waitForFunction(()=>window.glassDemo.shapes.length===6);
+  assert.equal(await page.evaluate(()=>window.glassDemo.shapes.at(-2).radius),16);
   await page.getByRole('button',{name:'中文',exact:true}).click();
   const languageShift = () => page.locator('.language-tools').evaluate(el=>getComputedStyle(el,'::before').translate);
   assert.notEqual(await languageShift(),'54px');
@@ -639,14 +645,14 @@ try {
   await page.bringToFront();
   await page.mouse.move(...center);
   await page.mouse.down();
-  await page.waitForFunction(()=>window.glassDemo.shapes.at(-1).press===1);
+  await page.waitForFunction(()=>window.glassDemo.shapes.at(-2).press===1);
   assert.equal(await page.locator('#canvas-tools').isVisible(),false);
   const referenceHeld = await page.screenshot({clip:expandedClip,style:hideEditor,path:resolve(evidence,'button-webgl-reference-held.png')});
   const dragEnd = [center[0]+32,center[1]+18];
   await page.mouse.move(...dragEnd,{steps:5});
   await page.mouse.up();
   await page.waitForFunction(()=>{
-    const button = window.glassDemo.shapes.at(-1);
+    const button = window.glassDemo.shapes.at(-2);
     return button.press===0 && button.motion===0 && button.stretchX===0 && button.stretchY===0;
   });
   const movedClip = {...expandedClip,x:expandedClip.x+32,y:expandedClip.y+18};
@@ -1008,7 +1014,7 @@ try {
 
 
   await ready(page);
-  await page.waitForFunction(() => window.glassDemo.source && window.glassDemo.shapes.length === 4);
+  await page.waitForFunction(() => window.glassDemo.source && window.glassDemo.shapes.length === 5);
   const testScene = () => page.evaluate(() => ({ shapes: window.glassDemo.shapes, bases: window.glassDemo.bases }));
   const toggleProbe = page.getByRole('switch', {name:'Glass setting'});
   const toggleBox = await toggleProbe.boundingBox();
@@ -1031,28 +1037,28 @@ try {
   },oldKnob.x);
   record('Switch drag previews only the knob and commits once on release');
   const beforeDrag = await testScene();
-  assert.deepEqual(beforeDrag.shapes.map(shape => shape.surface ?? (shape.slider ? 'slider' : 'glass')), ['switch', 'slider', 'selection', 'lens']);
+  assert.deepEqual(beforeDrag.shapes.map(shape => shape.surface ?? (shape.slider ? 'slider' : 'glass')), ['switch', 'slider', 'selection', 'lens', 'theme']);
   assert.equal(beforeDrag.bases.toggle.width, 102);
   assert.equal(beforeDrag.bases.segment.width, 432);
   const probe = page.locator('.probe');
   const probeBox = await probe.boundingBox();
   await page.mouse.click(probeBox.x+60,probeBox.y+60);
-  await page.waitForFunction(()=>window.glassDemo.shapes.at(-1).press>.5);
-  await page.waitForFunction(()=>window.glassDemo.shapes.at(-1).press===0);
+  await page.waitForFunction(()=>window.glassDemo.shapes.at(-2).press>.5);
+  await page.waitForFunction(()=>window.glassDemo.shapes.at(-2).press===0);
   await page.mouse.move(probeBox.x + 60, probeBox.y + 60);
   await page.mouse.down();
-  await page.waitForFunction(() => window.glassDemo.shapes.at(-1).press===1);
-  const enlargedLens=await page.evaluate(()=>window.glassDemo.shapes.at(-1));
+  await page.waitForFunction(() => window.glassDemo.shapes.at(-2).press===1);
+  const enlargedLens=await page.evaluate(()=>window.glassDemo.shapes.at(-2));
   assert.ok(enlargedLens.width >= beforeDrag.shapes[3].width*1.29);
   assert.equal(enlargedLens.width,enlargedLens.height);
   await page.mouse.move(probeBox.x + 25, probeBox.y + 100);
   await page.waitForFunction(() => {
-    const circle = window.glassDemo.shapes.at(-1);
+    const circle = window.glassDemo.shapes.at(-2);
     return Math.hypot(circle.stretchX, circle.stretchY) > 8;
   });
   await page.mouse.up();
   await page.waitForFunction(() => {
-    const circle = window.glassDemo.shapes.at(-1);
+    const circle = window.glassDemo.shapes.at(-2);
     return circle.press === 0 && circle.stretchX === 0 && circle.stretchY === 0;
   });
   const afterDrag = await testScene();
@@ -1214,6 +1220,47 @@ try {
   assert.equal(mounted.activations,1);
   record('Reusable WebGL mount redraws a host control and falls back after context loss');
 
+  // Glass theme toggle: one control flips the page theme, the material appearance, and the source.
+  await ready(page, 'grid');
+  const themeToggle = page.locator('.glass-theme-toggle');
+  assert.equal(await themeToggle.count(), 1);
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme || 'light'), 'light');
+  await page.waitForFunction(() => {
+    const shapes = window.glassDemo.shapes;
+    return shapes.some(shape => shape.surface === 'theme' && shape.width > 10)
+      && (window.glassDemo.bases.theme?.width ?? 0) > 10;
+  });
+  await themeToggle.click();
+  assert.equal(await themeToggle.getAttribute('aria-checked'), 'true');
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
+  await page.waitForFunction(() => window.glassDemo.theme === 'dark' && window.glassDemo.bases.theme?.on === true);
+  await page.waitForFunction(() => getComputedStyle(document.getElementById('presets-panel')).backgroundColor !== 'rgb(247, 248, 244)');
+  record('Theme toggle flips the page, the panel tokens, and the scene base');
+  const themeBox = await themeToggle.boundingBox();
+  const themeY = themeBox.y + themeBox.height / 2;
+  await page.mouse.move(themeBox.x + 42, themeY);
+  await page.mouse.down();
+  await page.mouse.move(themeBox.x + 102, themeY, { steps: 5 });
+  await page.mouse.up();
+  assert.equal(await themeToggle.getAttribute('aria-checked'), 'false');
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+  await page.mouse.move(themeBox.x + 150, themeY);
+  await page.mouse.down();
+  await page.mouse.move(themeBox.x + 132, themeY, { steps: 4 });
+  await page.mouse.up();
+  assert.equal(await themeToggle.getAttribute('aria-checked'), 'false');
+  await themeToggle.focus();
+  await page.keyboard.press('Space');
+  assert.equal(await themeToggle.getAttribute('aria-checked'), 'true');
+  record('Theme toggle drag commits past the threshold and the keyboard toggles it');
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForFunction(() => window.glassDemo?.source);
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
+  await page.evaluate(() => localStorage.removeItem('liquid-glass-theme'));
+  await page.locator('.glass-theme-toggle').click();
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+  record('Theme choice persists across reload and returns to light');
+
   await context.close();
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
   const phone = await mobile.newPage();phone.on('pageerror', e => errors.push(e.message));
@@ -1244,6 +1291,9 @@ try {
   await fallbackPage.keyboard.press('End');
   assert.equal(await fallbackRange.inputValue(), '100');
   await fallbackPage.waitForFunction(() => document.querySelector('.slider').style.getPropertyValue('--thumb-x') === '386px');
+  await fallbackPage.locator('.glass-theme-toggle').click();
+  assert.equal(await fallbackPage.evaluate(() => document.documentElement.dataset.theme), 'dark');
+  await fallbackPage.evaluate(() => localStorage.removeItem('liquid-glass-theme'));
   record('WebGL unavailable: controls remain usable');
   await fallback.close();
   const skill=await readFile(resolve(root,'SKILL.md'),'utf8');

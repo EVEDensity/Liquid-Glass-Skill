@@ -403,3 +403,40 @@ body:has(#icon-dialog[open], .more-glass[data-menu-open], #text-editor:focus-wit
 html[data-glass-export] body { display: block; min-width: 0; }
 html[data-glass-export] #stage { min-height: 0; }
 html[data-glass-selection], html[data-glass-selection] body, html[data-glass-selection] #stage { background: transparent; }
+
+/* Theme toggle: stage chrome in the top-right corner, mirroring the language tools. */
+#theme-tools { position: absolute; inset: 16px 16px auto auto; z-index: 4; display: grid; justify-items: center; gap: 10px; }
+.theme-hint { order: 2; font: 600 11px/1 "Segoe UI",sans-serif; letter-spacing: .16em; text-transform: uppercase; color: #8b8b85; text-shadow: 0 1px 2px rgb(255 255 255 / .4); pointer-events: none; }
+@media (max-width: 700px) { #theme-tools { inset: 12px 12px auto auto; } }
+
+/* Dark theme: the toggle flips the whole editor, panels included. */
+html[data-theme="dark"] { color-scheme: dark; }
+html[data-theme="dark"] body {
+  background: #141614; color: #e6e9e4;
+  --panel: #1c1e1c; --panel-raised: #262926; --panel-line: #3b403b;
+  --panel-ink: #e8ece7; --panel-muted: #9ba69d; --panel-accent: #8fd0a8; --panel-selected: #2b392f;
+}
+html[data-theme="dark"] #presets-panel { color-scheme: dark; }
+html[data-theme="dark"] .glass, html[data-theme="dark"] .more-surface { color: #eef2e8; }
+html[data-theme="dark"] .probe { color: #f2f5ee; text-shadow: 0 0 5px rgb(9 14 11 / .6), 0 0 3px rgb(9 14 11 / .6); }
+html[data-theme="dark"] .control-caption { background: #262925; color: #dfe4dc; }
+html[data-theme="dark"] .more-actions > :is(button,form):not(:last-child) { border-bottom-color: rgb(230 238 226 / .16); }
+html[data-theme="dark"] .more-actions > button:hover { background: rgb(28 36 30 / .55); }
+html[data-theme="dark"] .more-actions form input { background: #232622; border-color: #5c705f; color: #e8ece7; }
+html[data-theme="dark"] .theme-hint { color: #93949e; text-shadow: 0 1px 3px rgb(0 0 0 / .55); }
+html[data-theme="dark"] .outline-instructions { background: #20231e; }
+html[data-theme="dark"] .outline-instructions button { background: #2b2e29; color: #e2e6df; }
+html[data-theme="dark"] .outline-instructions select { background: #262925; color: #e2e6df; border-color: #4a4f49; }
+html[data-theme="dark"] #keep-outline { background: #36452f; color: #eaf0e2; }
+html[data-theme="dark"] :focus-visible { outline-color: #9fd3ff; }
+html[data-theme="dark"] #canvas-resize::before { background: #262925; border-color: #dfe4dc; }
+html[data-theme="dark"] #icon-results { scrollbar-color: #4a554c transparent; }
+/* Fallback stage: dim the wallpaper beneath the opaque controls. */
+html[data-theme="dark"] #stage.fallback::before { content: ""; position: absolute; inset: 0; background: rgb(8 10 9 / .62); pointer-events: none; }
+html[data-theme="dark"] #stage.fallback .glass { background: rgb(30 36 32 / .92); }
+#stage.fallback .glass-theme-toggle .theme-track { background: #d8d5cf; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .5); backdrop-filter: none; -webkit-backdrop-filter: none; }
+#stage.fallback .glass-theme-toggle .theme-thumb { background: #fbfaf7; box-shadow: 0 2px 8px rgb(15 20 30 / .3); backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-theme="dark"] #stage.fallback .glass-theme-toggle .theme-track { background: #1a1b1e; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .16); }
+html[data-theme="dark"] #stage.fallback .glass-theme-toggle .theme-thumb { background: #e9e8e4; }
+html[data-theme="dark"] #stage.fallback .glass.switch { background: #2a2c29; }
+html[data-theme="dark"] #stage.fallback .glass.segment { background: #202322; }

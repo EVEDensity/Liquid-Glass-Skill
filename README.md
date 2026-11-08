@@ -16,7 +16,7 @@
 
 ## What it does
 
-Liquid Glass UI is a skill and local editor for designing refractive buttons, switches, sliders, segmented controls, and other glass surfaces. Adjust a control's shape, text, icon, and material, then bring the design into an existing page while preserving its original layout and actions.
+Liquid Glass UI is a skill and local editor for designing refractive buttons, switches, sliders, segmented controls, light/dark theme toggles, and other glass surfaces. Adjust a control's shape, text, icon, and material, then bring the design into an existing page while preserving its original layout and actions.
 
 The runtime offers two paths: CSS glass for arbitrary live DOM backgrounds, and WebGL2 refraction when the application can supply the backdrop as readable pixels. CSS blur does not refract or merge arbitrary DOM content.
 

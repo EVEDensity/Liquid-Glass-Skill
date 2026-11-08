@@ -26,6 +26,10 @@ The playground uses the original cool landscape: `#173746`, `#36596a`, and `#f7f
 
 Use one sans-serif family already available on the system. Keep headings tight and body copy under 70 characters.
 
+## Light and dark themes
+
+A theme toggle flips a `data-theme` attribute, and every surface follows it. Keep both token sets defined together: `assets/liquid-glass.css` defaults to the dark values and overrides them under `[data-theme="light"]`. A dark page needs more than inverted panel colors: dim a photographic backdrop so the glass samples the same darkened pixels the page shows, switch `appearance` to `dark` in `setMaterial`, and re-check text contrast on glass in both modes. The theme toggle component owns the attribute, the persisted choice, and the aria state; the app only reacts to `glassthemechange`.
+
 ## Fallback appearance
 
-Without refraction, controls become opaque rounded surfaces with the same size, labels, and hit areas. The layout must not depend on the WebGL canvas.
+Without refraction, controls become opaque rounded surfaces with the same size, labels, and hit areas. The layout must not depend on the WebGL canvas. The theme toggle keeps working in the fallback: its track and thumb switch to opaque fills that follow the current theme.

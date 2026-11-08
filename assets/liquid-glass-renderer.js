@@ -25,6 +25,8 @@ uniform int u_outlineCount[${MAX_GLASS_SHAPES}];
 uniform vec2 u_stretch[12],u_contact[12];
 uniform vec4 u_switchBase,u_segmentBase; // center, width, height
 uniform float u_switchOn;
+uniform vec4 u_themeBase; // center, width, height
+uniform float u_themeOn;
 uniform vec4 u_sliderTrack; // left, center Y, width, height
 uniform float u_clearControls,u_presetOptics;
 uniform float u_sliderFill; // filled track end X
@@ -62,6 +64,7 @@ vec3 sampleSoft(vec2 p,float blur){
   vec3 switchColor=mix(vec3(.45,.46,.43),vec3(.90,.33,.21),u_switchOn);
   base=mix(base,switchColor,switchMask*mix(.82,1.,u_switchOn));
   base=mix(base,vec3(.10,.13,.12),baseMask(p,u_segmentBase,feather)*.69);
+  base=mix(base,mix(vec3(.902,.894,.878),vec3(.086,.09,.102),u_themeOn),baseMask(p,u_themeBase,feather)*.96);
   if(u_sliderTrack.w<=0.)return base;
   float r=u_sliderTrack.w*.5;
   float start=u_sliderTrack.x+r;
@@ -181,7 +184,7 @@ vec4 fieldAt(vec2 p,out vec4 dynamics,out vec2 contact,out float sliderPress,out
     float press=u_press[i];
     float scale=u_sizeScale>0.?clamp(min(shape.z,shape.w)/140.,.8,1.55):1.;
     vec4 motion=vec4(shape.xy,scale,press);
-    vec3 material=vec3(float(u_surface[i]==1.),float(u_surface[i]==2.),float(u_surface[i]==3.));
+    vec3 material=vec3(float(u_surface[i]==1.),float(u_surface[i]==2.||u_surface[i]==6.),float(u_surface[i]==3.));
     if(u_surface[i]==1.)sliderPress=press;
     float lens=float(u_surface[i]==4.);
     vec2 droplet=vec2(lens,lens*min(shape.z,shape.w)*.5);
@@ -352,7 +355,10 @@ void main(){
     float selectionShoulder=merged.w*.15*exp(-depth/5.0);
     ivory=mix(ivory,vec3(1.),max(innerRim*.85,selectionShoulder));
     // The switch rests on a clean porcelain surface, then reveals the lens on hold.
-    vec3 porcelain=mix(vec3(.945,.941,.928),vec3(.977,.914,.890),u_switchOn);
+    // With a theme toggle present, only the knob over the switch base takes its on-color.
+    float switchFill=u_switchOn;
+    if(u_themeBase.w>0.)switchFill*=step(distance(centre,u_switchBase.xy),distance(centre,u_themeBase.xy));
+    vec3 porcelain=mix(vec3(.945,.941,.928),vec3(.977,.914,.890),switchFill);
     float porcelainRim=1.-smoothstep(1.1,3.1,depth);
     ivory=mix(ivory,mix(porcelain,vec3(1.),porcelainRim),merged.z);
     clear=mix(clear,ivory,milk);
@@ -487,7 +493,7 @@ export class GlassScene {
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
       gl.activeTexture(gl.TEXTURE0);
-      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','themeBase','themeOn','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
       names.push('controlLayer');
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
@@ -503,10 +509,10 @@ export class GlassScene {
     this.sliderTrack=track && [track.x,track.y,track.width,track.height,track.fillX].every(Number.isFinite)
       && track.width>0 && track.height>0 ? {...track,height:Math.min(track.height,track.width)} : null;
   }
-  setControlBases({ toggle, segment } = {}){
+  setControlBases({ toggle, segment, theme } = {}){
     const copy = box => box && [box.x,box.y,box.width,box.height].every(Number.isFinite)
       && box.width>0 && box.height>0 ? {...box} : null;
-    this.controlBases={toggle:copy(toggle),segment:copy(segment)};
+    this.controlBases={toggle:copy(toggle),segment:copy(segment),theme:copy(theme)};
   }
   setMaterial(values={}){
     if(typeof values.presetOptics==='boolean')this.material.presetOptics=values.presetOptics;
@@ -529,7 +535,7 @@ export class GlassScene {
     const scale=Math.max(1,Math.min(dpr,Math.sqrt(2500000/(cssWidth*cssHeight))));
     const width=Math.round(cssWidth*scale),height=Math.round(cssHeight*scale);if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,cssWidth,cssHeight);gl.uniform2f(this.uniforms.bufferSize,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
-    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24),rotation=new Float32Array(24);this.shapes.forEach((s,i)=>{const angle=s.rotation*Math.PI/180;rotation.set([Math.cos(angle),Math.sin(angle)],i*2);shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:s.surface==='menu'?5:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform2fv(this.uniforms['rotation[0]'],rotation);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
+    const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24),rotation=new Float32Array(24);this.shapes.forEach((s,i)=>{const angle=s.rotation*Math.PI/180;rotation.set([Math.cos(angle),Math.sin(angle)],i*2);shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:s.surface==='menu'?5:s.surface==='theme'?6:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform2fv(this.uniforms['rotation[0]'],rotation);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
     const outlineCounts=Int32Array.from({length:MAX_GLASS_SHAPES},(_,i)=>this.shapes[i]?.outline?.length??0);
     gl.uniform1i(this.uniforms.outlines,1);
     gl.uniform1iv(this.uniforms['outlineCount[0]'],outlineCounts);
@@ -541,9 +547,10 @@ export class GlassScene {
       gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,64,MAX_GLASS_SHAPES,gl.RG,gl.FLOAT,vertices);
       gl.activeTexture(gl.TEXTURE0);
     }
-    const {toggle,segment}=this.controlBases;
+    const {toggle,segment,theme}=this.controlBases;
     const base=(key,b)=>gl.uniform4f(this.uniforms[key],(b?.x??0),(b?.y??0),(b?.width??0),(b?.height??0));
-    base('switchBase',toggle);base('segmentBase',segment);gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);
+    base('switchBase',toggle);base('segmentBase',segment);base('themeBase',theme);
+    gl.uniform1f(this.uniforms.switchOn,toggle?.on?1:0);gl.uniform1f(this.uniforms.themeOn,theme?.on?1:0);
     const track=this.sliderTrack;
     gl.uniform4f(this.uniforms.sliderTrack,(track?.x??0),(track?.y??0),(track?.width??0),(track?.height??0));
     gl.uniform1f(this.uniforms.presetOptics,this.material.presetOptics?1:0);
