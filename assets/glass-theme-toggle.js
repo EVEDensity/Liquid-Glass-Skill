@@ -344,7 +344,7 @@ export function createGlassThemeToggle(target, config = {}) {
     dragVel = dragVel * .5 + (gesture.shift - (gesture.lastShift ?? gesture.initial)) / dt * 1000 * .5;
     gesture.lastShift = gesture.shift;
     gesture.lastT = now;
-    elasticDy = Math.max(-18, Math.min(18, (event.clientY - gesture.startY) * .22));
+    elasticDy = Math.max(-7, Math.min(7, (event.clientY - gesture.startY) * .08));
     posX = gesture.shift;
     setThumbTranslate();
     startGlow();
@@ -362,6 +362,9 @@ export function createGlassThemeToggle(target, config = {}) {
       dragVel = 0;
     }
     gesture = null;
+    // The vertical pull is a held-gesture effect: always level out on release.
+    elasticDy = 0;
+    setThumbTranslate();
     startGlow();
   }
   toggle.addEventListener('pointerup', event => finish(event, false));
