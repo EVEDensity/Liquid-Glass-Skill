@@ -32,9 +32,9 @@ const css = `
   background: rgb(255 255 255 / .58);
   backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6);
   box-shadow: 0 4px 14px rgb(15 20 30 / .28), inset 0 0 0 1px rgb(255 255 255 / .62), inset 0 1px 1px rgb(255 255 255 / .8);
-  translate: 0 0; transition: translate 540ms cubic-bezier(.44,.08,.34,1), scale 700ms cubic-bezier(.3,.7,.3,1);
+  translate: 0 0; transition: scale 700ms cubic-bezier(.3,.7,.3,1);
 }
-.glass-theme-toggle:not([data-bare]):active .theme-thumb { scale: .88 1.05; transition: translate 540ms cubic-bezier(.44,.08,.34,1), scale 260ms cubic-bezier(.3,.7,.3,1); }
+.glass-theme-toggle:not([data-bare]):active .theme-thumb { scale: .88 1.05; transition: scale 260ms cubic-bezier(.3,.7,.3,1); }
 .glass-theme-toggle[aria-checked="true"] .theme-thumb {
   background: rgb(33 36 42 / .92);
   box-shadow: 0 4px 16px rgb(0 0 0 / .5), inset 0 0 0 1px rgb(255 255 255 / .22), inset 0 1px 1px rgb(255 255 255 / .3);
@@ -201,6 +201,10 @@ export function createGlassThemeToggle(target, config = {}) {
   let glowFrame = 0;
   let lastRot = initial === 'light' ? -180 : 0;
   let glowProgressValue = initial === 'light' ? 1 : 0;
+  let posX = null;            // live thumb translate X in px, JS-animated
+  let springState = null;     // { x, v, target, last } while travelling
+  let elasticDy = 0;          // vertical elastic pull while held
+  let dragVel = 0;            // drag velocity in px/s, carried into release
   const anchorOf = t => t === 'dark' ? 0 : 1;
   const travel = () => {
     // The toggle may be measured before insertion: never let geometry go NaN.
@@ -208,16 +212,18 @@ export function createGlassThemeToggle(target, config = {}) {
     const pad = parseFloat(getComputedStyle(toggle).paddingLeft) || 0;
     return Math.max(1, toggle.clientWidth - thumb.offsetWidth - pad * 2);
   };
+  const setThumbTranslate = () => {
+    thumb.style.translate = posX + 'px ' + elasticDy.toFixed(1) + 'px';
+  };
 
   function liveProgress() {
-    if (gesture && glowDragging()) return Math.max(0, Math.min(1, gesture.shift / travel()));
-    if (!toggle.isConnected) return anchorOf(theme);
-    const tx = parseFloat(getComputedStyle(thumb).translate) || 0;
-    const p = tx / travel();
+    if (posX == null) return anchorOf(theme);
+    const p = posX / travel();
     return Number.isFinite(p) ? Math.max(0, Math.min(1, p)) : anchorOf(theme);
   }
   function glowDragging() { return Boolean(gesture); }
   function glowRender() {
+    if (posX == null && toggle.isConnected) posX = anchorOf(theme) ? travel() : 0;
     const p = liveProgress();
     const sweep = Math.abs(p - anchorOf(sweepTheme));
     lastRot = -180 * (glowTurns + sweep);
@@ -234,8 +240,27 @@ export function createGlassThemeToggle(target, config = {}) {
   }
   function glowTick() {
     glowFrame = 0;
+    const now = performance.now();
+    if (springState) {
+      // Damped spring toward the committed end: the anticipation velocity pulls
+      // the thumb back first, then it shoots through and wobbles once, like the
+      // reference. Integrated in sub-steps for stability.
+      const dt = Math.min(.034, Math.max(.001, (now - springState.last) / 1000));
+      springState.last = now;
+      let { x, v, target } = springState;
+      for (let i = 0; i < 3; i++) {
+        const h = dt / 3;
+        v += (380 * (target - x) - 22 * v) * h;
+        x += v * h;
+      }
+      if (Math.abs(x - target) < .4 && Math.abs(v) < 12) { x = target; v = 0; springState = null; }
+      else springState = { x, v, target, last: now };
+      posX = x;
+      elasticDy *= Math.exp(-dt / .06);
+      setThumbTranslate();
+    }
     glowRender();
-    if (glowDragging()) { glowFrame = requestAnimationFrame(glowTick); return; }
+    if (glowDragging() || springState) { glowFrame = requestAnimationFrame(glowTick); return; }
     const rest = anchorOf(theme);
     if (Math.abs(liveProgress() - rest) >= .004) {
       // The thumb is still travelling toward its rest position.
@@ -258,8 +283,21 @@ export function createGlassThemeToggle(target, config = {}) {
   const apply = next => {
     scope.dataset.theme = next;
   };
-  const commit = next => {
+  // Spring the thumb to an end. An anticipation kick (initial velocity away from
+  // the target) matches the reference's pull-back-then-shoot travel.
+  function travelTo(target, v0, anticipate) {
+    if (posX == null) posX = anchorOf(theme) ? travel() : 0;
+    const dir = Math.sign(target - posX) || 1;
+    const v = anticipate && !reduced.matches ? -dir * 750 : v0;
+    // Pin the current position inline BEFORE the theme class flips, or the
+    // class's rest translate would snap the thumb instantly.
+    setThumbTranslate();
+    springState = { x: posX, v, target, last: performance.now() };
+    startGlow();
+  }
+  const commit = (next, travel) => {
     if (next === theme) return;
+    if (travel) travelTo(travel.target, travel.v, travel.anticipate);
     theme = next;
     apply(theme);
     toggle.setAttribute('aria-checked', String(theme === 'dark'));
@@ -286,21 +324,28 @@ export function createGlassThemeToggle(target, config = {}) {
     const dx = event.clientX - gesture.startX;
     if (!gesture.moved && Math.abs(dx) < 4) return;
     gesture.moved = true;
+    const now = performance.now();
     gesture.shift = Math.max(0, Math.min(travel(), gesture.initial + dx));
-    const dy = Math.max(-18, Math.min(18, (event.clientY - gesture.startY) * .22));
-    thumb.style.translate = gesture.shift + 'px ' + dy.toFixed(1) + 'px';
+    const dt = Math.max(8, now - (gesture.lastT ?? event.timeStamp));
+    dragVel = dragVel * .5 + (gesture.shift - (gesture.lastShift ?? gesture.initial)) / dt * 1000 * .5;
+    gesture.lastShift = gesture.shift;
+    gesture.lastT = now;
+    elasticDy = Math.max(-18, Math.min(18, (event.clientY - gesture.startY) * .22));
+    posX = gesture.shift;
+    setThumbTranslate();
+    startGlow();
   });
   function finish(event, cancelled) {
     if (gesture?.id !== event.pointerId) return;
     if (gesture.moved) {
       skipPointerClick = true;
-      thumb.style.transition = '';
-      delete toggle.dataset.dragging; // re-enable the travel transition before releasing the override
+      delete toggle.dataset.dragging;
       const far = Math.abs(gesture.shift - gesture.initial) >= travel() * .4;
       const next = cancelled || !far ? theme : gesture.shift > gesture.initial ? 'light' : 'dark';
-      if (next === theme) apply(theme);
-      else commit(next);
-      thumb.style.translate = '';
+      const target = next === 'dark' ? 0 : travel();
+      // The drag's momentum carries into the spring; no anticipation here.
+      commit(next, { target, v: cancelled ? 0 : dragVel, anticipate: false });
+      dragVel = 0;
     }
     gesture = null;
     startGlow();
@@ -313,15 +358,12 @@ export function createGlassThemeToggle(target, config = {}) {
       skipPointerClick = false;
       return;
     }
-    commit(theme === 'dark' ? 'light' : 'dark');
+    commit(theme === 'dark' ? 'light' : 'dark', { target: theme === 'dark' ? travel() : 0, v: 0, anticipate: true });
     skipPointerClick = false;
   });
   toggle.setGlassTheme = next => {
     if (next !== theme) {
-      theme = next;
-      apply(theme);
-      toggle.setAttribute('aria-checked', String(theme === 'dark'));
-      startGlow();
+      commit(next, { target: next === 'dark' ? 0 : travel(), v: 0, anticipate: true });
     }
   };
   toggle.setGlassThemeLabel = label => {
