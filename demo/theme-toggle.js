@@ -72,12 +72,15 @@ export function mountThemeToggle(stage, { schedule, onThemeChange, getStrings })
       state.tailTime = now;
       const width = rect.width + 26 * press - 44 * squeeze;
       const height = rect.height + 10 * press + 9 * squeeze - Math.min(9, Math.abs(state.knobTail) * .29);
+      const tint = Number.isFinite(toggle.glowProgress) ? toggle.glowProgress : (toggle.theme === 'dark' ? 0 : 1);
       return {
         base: {
           x: track.left - stageBox.left + track.width / 2,
           y: track.top - stageBox.top + track.height / 2,
           width: track.width, height: track.height,
           light: 90 + toggle.glowRotation, // rim light rides the arc's angle
+          tint, // slow hue drift of the resting glass
+          glow: [.455 + .545 * tint, .51 + .18 * tint, 1 - .75 * tint], // current arc color
         },
         shape: {
           x: rect.left - stageBox.left + rect.width / 2,

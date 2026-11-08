@@ -200,6 +200,7 @@ export function createGlassThemeToggle(target, config = {}) {
   let sweepLive = false;      // a sweep is being tracked
   let glowFrame = 0;
   let lastRot = initial === 'light' ? -180 : 0;
+  let glowProgressValue = initial === 'light' ? 1 : 0;
   const anchorOf = t => t === 'dark' ? 0 : 1;
   const travel = () => {
     // The toggle may be measured before insertion: never let geometry go NaN.
@@ -221,6 +222,7 @@ export function createGlassThemeToggle(target, config = {}) {
     const sweep = Math.abs(p - anchorOf(sweepTheme));
     lastRot = -180 * (glowTurns + sweep);
     if (!Number.isFinite(lastRot)) lastRot = anchorOf(theme) ? -180 : 0;
+    glowProgressValue = p;
     glow.style.setProperty('--glow-rot', lastRot.toFixed(2) + 'deg');
     toggle.style.setProperty('--glow-progress', p.toFixed(3));
     const zone = p < .35 ? 'dark' : p > .65 ? 'light' : 'mid';
@@ -328,6 +330,8 @@ export function createGlassThemeToggle(target, config = {}) {
   Object.defineProperty(toggle, 'theme', { get: () => theme });
   // Current arc angle in degrees, cumulative; 0 rests at the bottom (dark) edge.
   Object.defineProperty(toggle, 'glowRotation', { get: () => lastRot });
+  // Live position of the thumb across the track, 0 dark .. 1 light.
+  Object.defineProperty(toggle, 'glowProgress', { get: () => glowProgressValue });
   target.append(toggle);
   return toggle;
 }
