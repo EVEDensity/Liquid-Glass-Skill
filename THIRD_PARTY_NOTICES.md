@@ -8,10 +8,10 @@ The icon picker includes [Lucide](https://lucide.dev/icons/) interface icons and
 
 The searchable catalog in `demo/lucide-catalog.json` contains SVG geometry and search tags from `lucide-static@1.68.0`. The accompanying upstream license is in `assets/LICENSE-lucide`.
 
-`assets/glass-backdrop.svg` is original artwork. The preview wallpapers in `assets/wallpapers/` are used by the demo and appear in the project video. Copied button designs exclude these wallpapers.
+The preview wallpapers in `assets/wallpapers/` are used by the demo and appear in the project video. Copied button designs exclude these wallpapers.
 
 Development-only packages:
 
 - Playwright and Playwright Core, Apache License 2.0. They are not required to run the demo or use the skill.
 
-The skill archive excludes the promotional video and local test output.
+The skill archive includes the local editor and its runtime. Development scripts, the promotional video, and local test output stay in the source checkout.

@@ -283,21 +283,21 @@ function draw() {
   let track = null;
   const bases = {};
   const now = performance.now();
-  let colorSettling = false;
   // The scene brightness trails the thumb by roughly half a second, so the
   // whole scene keeps gently brightening after the thumb has stopped.
   const brightnessDt = Math.min(64, now - (lastBrightnessTick ?? now));
   lastBrightnessTick = now;
   const brightnessTarget = sceneProgress();
-  smoothBrightness += (brightnessTarget - smoothBrightness) * (1 - Math.exp(-brightnessDt / 120));
+  smoothBrightness = reduced.matches ? brightnessTarget
+    : smoothBrightness + (brightnessTarget - smoothBrightness) * (1 - Math.exp(-brightnessDt / 120));
   if (Math.abs(smoothBrightness - brightnessTarget) < .003) smoothBrightness = brightnessTarget;
   const brightness = smoothBrightness;
-  if (Math.abs(brightness - sceneBrightness) > .008) {
-    sceneBrightness = brightness;
-    applySceneBrightness(brightness);
-    stage.style.setProperty('--scene-dim', (1 - brightness).toFixed(3));
+  if (themeControl) {
+    const dim = darkBackdropOpacity * (1 - brightness);
+    scene.setBackdropDim(dim);
+    stage.style.setProperty('--scene-dim', dim.toFixed(3));
   }
-  colorSettling = colorSettling || smoothBrightness !== brightnessTarget;
+  let colorSettling = brightness !== brightnessTarget;
   const shapes = pieces.map(piece => {
     if (piece.matches('.more-glass')) {
       const surface = piece.querySelector('.more-surface');
@@ -545,48 +545,22 @@ for (const query of ['(prefers-reduced-transparency: reduce)', '(forced-colors: 
 document.querySelector('#scene').addEventListener('glassfallback', schedule);
 window.addEventListener('resize', schedule);
 let sourceReady = false;
-let sourceImage = null;
 let theme = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
-let sceneBrightness = theme === 'dark' ? 0 : 1;
-let smoothBrightness = sceneBrightness;
+let smoothBrightness = theme === 'dark' ? 0 : 1;
+let darkBackdropOpacity = .62;
 let lastBrightnessTick = null;
 let themeControl = null;
 const wallpapers = [...document.querySelectorAll('[data-wallpaper]')];
 let backdropRequest = 0;
-const themeSource = document.createElement('canvas');
-// The scene brightness follows the thumb: the wallpaper is dimmed in proportion
-// to how far the thumb sits from the light end, and the glass samples the same
-// dimmed pixels so page and glass always match.
 function sceneProgress() {
-  if (themeControl) {
-    const p = themeControl.progress;
-    if (Number.isFinite(p)) return Math.max(0, Math.min(1, p));
-  }
-  return theme === 'dark' ? 0 : 1;
-}
-function applySceneBrightness(p) {
-  if (!scene.available || !sourceImage) return;
-  const width = sourceImage.naturalWidth || sourceImage.width, height = sourceImage.naturalHeight || sourceImage.height;
-  if (!width || !height) return;
-  if (p >= .995) {
-    scene.setSource(sourceImage);
-    return;
-  }
-  themeSource.width = width;
-  themeSource.height = height;
-  const context = themeSource.getContext('2d');
-  context.drawImage(sourceImage, 0, 0);
-  context.fillStyle = `rgba(8, 10, 9, ${(0.62 * (1 - p)).toFixed(3)})`;
-  context.fillRect(0, 0, width, height);
-  scene.setSource(themeSource);
+  return themeControl?.progress ?? (theme === 'dark' ? 0 : 1);
 }
 async function setBackdrop(image, selected) {
   const request = ++backdropRequest;
   try {
     await image.decode();
     if (request !== backdropRequest) return;
-    sourceImage = image;
-    applySceneBrightness(sceneProgress());
+    scene.setSource(image);
     stage.style.setProperty('--stage-wallpaper', `url("${image.src}")`);
     for (const button of wallpapers) button.setAttribute('aria-pressed',String(button === selected));
     sourceReady = true;
@@ -617,14 +591,39 @@ if (exported?.backdrop) {
   selectWallpaper(wallpapers[0]);
 }
 if (!exported) {
+  const themeModes = [...document.querySelectorAll('[data-preview-theme]')];
+  const darkness = document.querySelector('#preview-darkness');
+  const darknessValue = document.querySelector('#preview-darkness-value');
+  const darknessKey = 'liquid-glass-preview-darkness';
+  function showTheme() {
+    for (const button of themeModes) button.setAttribute('aria-pressed', String(button.dataset.previewTheme === theme));
+    darkness.disabled = theme !== 'dark';
+  }
+  function readDarkness() {
+    darkBackdropOpacity = darkness.valueAsNumber / 100;
+    darknessValue.value = darkness.value + '%';
+    schedule();
+  }
+  try {
+    const saved = localStorage.getItem(darknessKey);
+    if (saved !== null) darkness.value = saved;
+  } catch { /* storage unavailable */ }
+  readDarkness();
+  showTheme();
+  darkness.addEventListener('input', readDarkness);
+  darkness.addEventListener('change', () => {
+    try { localStorage.setItem(darknessKey, darkness.value); } catch { /* storage unavailable */ }
+  });
   themeControl = mountThemeToggle(stage, {
     schedule,
     getStrings: () => stageLabels[language],
     onThemeChange(next) {
       theme = next;
+      showTheme();
       schedule();
     },
   });
+  for (const button of themeModes) button.addEventListener('click', () => themeControl.element.setGlassTheme(button.dataset.previewTheme));
 }
 const options = document.querySelector('#preset-options');
 const presetDescription = document.querySelector('#preset-description');

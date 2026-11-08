@@ -125,7 +125,7 @@ npm test
 npm run package
 ```
 
-Tests use Microsoft Edge or Playwright Chromium. See [validation notes](references/validation.md) for coverage and an isolated test port. The installable archive is `dist/liquid-glass-ui.zip`.
+Run these development commands from the repository checkout. Tests use Microsoft Edge or Playwright Chromium. See [validation notes](references/validation.md) for coverage and an isolated test port. The installable archive is `dist/liquid-glass-ui.zip`. After extracting it, run `node scripts/serve.mjs` to open the editor.
 
 ## License and credits
 

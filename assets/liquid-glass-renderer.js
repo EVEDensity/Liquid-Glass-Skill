@@ -11,6 +11,7 @@ uniform vec2 u_size;
 uniform vec2 u_bufferSize;
 uniform vec2 u_sourceSize;
 uniform sampler2D u_source;
+uniform float u_backdropDim;
 uniform int u_count;
 uniform vec4 u_shapes[12];
 uniform float u_radii[12];
@@ -63,6 +64,7 @@ float baseMask(vec2 p,vec4 box,float feather){
 vec3 sampleSoft(vec2 p,float blur){
   float feather=max(.5,blur*1.45);
   vec3 base=textureLod(u_source,coverUV(p),log2(1.+blur*3.6)).rgb;
+  base=mix(base,vec3(8.,10.,9.)/255.,u_backdropDim);
   float switchMask=baseMask(p,u_switchBase,feather);
   vec3 switchColor=mix(vec3(.45,.46,.43),vec3(.90,.33,.21),u_switchOn);
   base=mix(base,switchColor,switchMask*mix(.82,1.,u_switchOn));
@@ -544,6 +546,7 @@ export function glassOutlineClip(outline) {
 export class GlassScene {
   constructor(canvas, options = {}) {
     this.canvas=canvas; this.shapes=[]; this.sliderTrack=null; this.controlBases={}; this.material={...PRESETS.apple}; this.available=false; this.destroyed=false; this.source=null;
+    this.backdropDim=0;
     this.gl=canvas.getContext('webgl2',{alpha:options.surfaceOnly===true||options.controlLayer===true,premultipliedAlpha:false,antialias:false}); if(!this.gl)return; const gl=this.gl, shaders=[];
     try {
       for(const [type,code] of [[gl.VERTEX_SHADER,vertex],[gl.FRAGMENT_SHADER,fragment]]){const shader=gl.createShader(type);shaders.push(shader);gl.shaderSource(shader,code);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader));}
@@ -559,7 +562,7 @@ export class GlassScene {
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
       gl.activeTexture(gl.TEXTURE0);
       const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','themeBase','themeShape','themeLight','themeTint','themeGlow','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
-      names.push('controlLayer');
+      names.push('controlLayer','backdropDim');
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
       gl.uniform1i(this.uniforms.exactBackdrop,options.exactBackdrop?1:0);
@@ -593,6 +596,9 @@ export class GlassScene {
     if(!this.available||this.destroyed)return false;const gl=this.gl;const width=source.videoWidth||source.naturalWidth||source.width,height=source.videoHeight||source.naturalHeight||source.height;if(!width||!height)throw new Error('Load the glass source before setSource().');
     gl.bindTexture(gl.TEXTURE_2D,this.texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,source);gl.generateMipmap(gl.TEXTURE_2D);this.sourceSize=[width,height];this.source=source;return true;
   }
+  setBackdropDim(opacity) {
+    if (Number.isFinite(opacity)) this.backdropDim=clamp(opacity,0,1);
+  }
   render(){
     if(!this.available||this.destroyed||!this.source)return;const gl=this.gl,box=this.canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
     const cssWidth=Math.max(1,box.width),cssHeight=Math.max(1,box.height);
@@ -600,6 +606,7 @@ export class GlassScene {
     const scale=Math.max(1,Math.min(dpr,Math.sqrt(2500000/(cssWidth*cssHeight))));
     const width=Math.round(cssWidth*scale),height=Math.round(cssHeight*scale);if(this.canvas.width!==width||this.canvas.height!==height){this.canvas.width=width;this.canvas.height=height;}gl.viewport(0,0,width,height);gl.useProgram(this.program);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,this.texture);
     gl.uniform1i(this.uniforms.source,0);gl.uniform2f(this.uniforms.size,cssWidth,cssHeight);gl.uniform2f(this.uniforms.bufferSize,width,height);gl.uniform2fv(this.uniforms.sourceSize,this.sourceSize);gl.uniform1i(this.uniforms.count,this.shapes.length);
+    gl.uniform1f(this.uniforms.backdropDim,this.backdropDim);
     const shapes=new Float32Array(48),radii=new Float32Array(12),press=new Float32Array(12),surfaces=new Float32Array(12),motions=new Float32Array(12),stretch=new Float32Array(24),contacts=new Float32Array(24),rotation=new Float32Array(24);this.shapes.forEach((s,i)=>{const angle=s.rotation*Math.PI/180;rotation.set([Math.cos(angle),Math.sin(angle)],i*2);shapes.set([s.x,s.y,s.width,s.height],i*4);radii[i]=s.radius;press[i]=s.press;motions[i]=s.motion;surfaces[i]=s.slider?1:s.surface==='switch'?2:s.surface==='selection'?3:s.surface==='lens'?4:s.surface==='menu'?5:s.surface==='theme'?6:0;stretch.set([s.stretchX,s.stretchY],i*2);contacts.set([s.contactX,s.contactY],i*2);});gl.uniform4fv(this.uniforms['shapes[0]'],shapes);gl.uniform1fv(this.uniforms['radii[0]'],radii);gl.uniform2fv(this.uniforms['rotation[0]'],rotation);gl.uniform1fv(this.uniforms['press[0]'],press);gl.uniform1fv(this.uniforms['surface[0]'],surfaces);gl.uniform1fv(this.uniforms['motion[0]'],motions);gl.uniform2fv(this.uniforms['stretch[0]'],stretch);gl.uniform2fv(this.uniforms['contact[0]'],contacts);
     const outlineCounts=Int32Array.from({length:MAX_GLASS_SHAPES},(_,i)=>this.shapes[i]?.outline?.length??0);
     gl.uniform1i(this.uniforms.outlines,1);

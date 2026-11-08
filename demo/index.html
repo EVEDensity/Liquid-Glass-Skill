@@ -127,6 +127,21 @@
         <button type="button" data-wallpaper="lake" aria-pressed="false"><img src="../assets/wallpapers/lake.jpg" alt=""><span data-i18n="lake">Lake</span></button>
         <button type="button" data-wallpaper="grid" aria-pressed="false"><img src="../assets/glass-grid.svg" alt=""><span data-i18n="grid">Grid</span></button>
       </div>
+      <div class="scene-theme">
+        <div class="scene-theme-header">
+          <span id="preview-theme-label" data-i18n="previewTheme">Preview theme</span>
+          <div class="preview-theme-options" role="group" aria-labelledby="preview-theme-label">
+            <button type="button" data-preview-theme="light" aria-pressed="true" data-i18n="previewLight">Light</button>
+            <button type="button" data-preview-theme="dark" aria-pressed="false" data-i18n="previewDark">Dark</button>
+          </div>
+        </div>
+        <div class="scene-theme-header">
+          <label for="preview-darkness" data-i18n="previewDarkness">Backdrop dimming</label>
+          <output id="preview-darkness-value" for="preview-darkness" aria-live="off">62%</output>
+        </div>
+        <input id="preview-darkness" type="range" min="0" max="85" value="62" disabled aria-describedby="preview-darkness-hint">
+        <p id="preview-darkness-hint" data-i18n="previewDarknessHint">Applies to the dark backdrop and its refraction.</p>
+      </div>
     </section>
     <section class="inspector-section" aria-labelledby="material-title">
       <h2 id="material-title" data-i18n="presets">Material preset</h2>

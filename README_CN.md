@@ -106,6 +106,8 @@ node scripts/serve.mjs
 2. 选择材质，添加或绘制形状，在侧栏调整文字、图标与尺寸。
 3. 点击 **Copy for AI**，将结果粘贴给助手，或使用本地交接；点击 **Copy offline JS** 可获取独立模块。
 
+在右栏「预览背景」下选「深色」，拖动「背景压暗」滑杆即可比较壁纸和折射的变化。默认 62%，可调至 0–85%。该值保存在本机预览设置里。将同样的压暗效果接入项目时，可以把百分比告诉助手。[主题开关与压暗接入](references/integration.md#glass-theme-toggle)
+
 编辑器也可导出自包含的按钮 JavaScript 模块。该导出在独立 frame 中保留捕获的场景；折射需要 WebGL2，宿主的内容安全策略还需允许 frame 内联脚本和样式。详见 [接入示例](references/integration.md)。
 
 ## 项目包含
@@ -133,7 +135,7 @@ npm test
 npm run package
 ```
 
-测试使用 Microsoft Edge 或 Playwright Chromium。测试范围与隔离端口见 [验证说明](references/validation.md)。可安装的压缩包位于 `dist/liquid-glass-ui.zip`。
+以上开发命令在仓库源码目录运行。测试使用 Microsoft Edge 或 Playwright Chromium。测试范围与隔离端口见 [验证说明](references/validation.md)。安装包位于 `dist/liquid-glass-ui.zip`，解压后可直接运行 `node scripts/serve.mjs`。
 
 ## 许可与致谢
 
