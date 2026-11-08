@@ -225,13 +225,14 @@ export function createGlassThemeToggle(target, config = {}) {
   const travel = () => Math.max(1, toggle.clientWidth - thumb.offsetWidth - parseFloat(getComputedStyle(toggle).paddingLeft) * 2);
   // The neon arc rides the leading edge of travel and settles back to its theme edge.
   const glow = thumb.querySelector('.theme-glow');
-  let glowShift = 0, glowVelocity = 0, glowFrame = 0, glowLastX = null, glowDragging = false, glowDir = 0;
+  let glowShift = 0, glowVelocity = 0, glowFrame = 0, glowLastX = null, glowDragging = false;
   let glowSpin = initial === 'light' ? -180 : 0;
   glow.style.setProperty('--glow-spin', glowSpin + 'deg');
   function glowStep() {
     glowFrame = 0;
-    const lean = glowDragging ? -glowDir * 70 : 0;
-    const target = Math.max(-85, Math.min(85, lean - glowVelocity * 6));
+    // The arc always advances the same way around the thumb, whichever way it travels.
+    const lean = glowDragging ? -70 : 0;
+    const target = Math.max(-85, Math.min(85, lean - Math.abs(glowVelocity) * 6));
     if (reduced.matches) glowShift = target;
     else glowShift += (target - glowShift) * .24;
     glowVelocity *= .8;
@@ -250,7 +251,6 @@ export function createGlassThemeToggle(target, config = {}) {
     gesture = { id: event.pointerId, start: event.clientX, initial: theme === 'dark' ? 0 : travel(), shift: theme === 'dark' ? 0 : travel(), moved: false };
     try { toggle.setPointerCapture(event.pointerId); } catch { /* the pointer may already be gone */ }
     glowDragging = true;
-    glowDir = 0;
     glowLastX = event.clientX;
     toggle.dataset.dragging = '';
     startGlow();
@@ -263,7 +263,6 @@ export function createGlassThemeToggle(target, config = {}) {
     if (!gesture.moved && Math.abs(dx) < 4) return;
     gesture.moved = true;
     gesture.shift = Math.max(0, Math.min(travel(), gesture.initial + dx));
-    glowDir = gesture.shift > gesture.initial ? 1 : gesture.shift < gesture.initial ? -1 : 0;
     previewProgress(gesture.shift);
     thumb.style.transition = 'none';
     thumb.style.translate = gesture.shift + 'px 0';
