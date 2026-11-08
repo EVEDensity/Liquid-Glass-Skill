@@ -32,7 +32,7 @@ const css = `
   background: rgb(255 255 255 / .58);
   backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6);
   box-shadow: 0 4px 14px rgb(15 20 30 / .28), inset 0 0 0 1px rgb(255 255 255 / .62), inset 0 1px 1px rgb(255 255 255 / .8);
-  translate: 0 0; transition: translate 340ms cubic-bezier(.22,.78,.22,1);
+  translate: 0 0; transition: translate 330ms cubic-bezier(.24,.8,.26,1);
 }
 .glass-theme-toggle[aria-checked="true"] .theme-thumb {
   background: rgb(33 36 42 / .92);
@@ -43,30 +43,29 @@ const css = `
   position: absolute; inset: -5px; border-radius: calc(var(--gtt-radius) + 5px);
   border: 5px solid transparent; border-bottom-color: var(--glow-color);
   pointer-events: none;
-  filter: blur(1.6px) drop-shadow(0 0 7px var(--glow-color)) drop-shadow(0 0 20px var(--glow-color)) drop-shadow(0 0 40px var(--glow-color));
-  rotate: calc(var(--glow-base, 0deg) + var(--glow-shift, 0deg));
-  transition: rotate 460ms cubic-bezier(.22,.78,.22,1);
+  filter: blur(1.4px) drop-shadow(0 0 8px var(--glow-color)) drop-shadow(0 0 24px var(--glow-color)) drop-shadow(0 0 58px var(--glow-color));
+  rotate: calc(var(--glow-spin, 0deg) + var(--glow-shift, 0deg));
+  transition: rotate 620ms cubic-bezier(.25,.8,.25,1);
 }
 .glass-theme-toggle .theme-glow::before {
   content: ""; position: absolute; inset: -1px; border-radius: inherit;
   border: 2px solid transparent; border-bottom-color: rgb(255 255 255 / .85);
   filter: blur(.5px);
 }
-.glass-theme-toggle[aria-checked="false"] .theme-glow { --glow-base: 180deg; }
 .glass-theme-toggle[data-dragging] .theme-glow { transition: none; }
 .glass-theme-toggle .theme-icon { grid-area: 1 / 1; width: 48px; height: 48px; color: #45413a; }
 .glass-theme-toggle .theme-icon-moon { color: #f4efe1; filter: drop-shadow(0 0 6px rgb(206 214 255 / .95)); }
 .glass-theme-toggle .theme-icon-sun { filter: drop-shadow(0 0 4px rgb(255 208 138 / .55)); }
 .glass-theme-toggle .theme-icon rect {
   transform-box: fill-box; transform-origin: center;
-  transition: opacity 300ms ease var(--d, 0ms), transform 430ms cubic-bezier(.3,.7,.3,1) var(--d, 0ms);
+  transition: opacity 170ms ease var(--d, 0ms), transform 230ms cubic-bezier(.3,.7,.3,1) var(--d, 0ms);
 }
 /* Mid-drag: both icons hang as loose particle clouds around the center. */
 .glass-theme-toggle .theme-icon[data-dust] rect {
   opacity: .55; transform: translate(calc(var(--sx, 0px) * .55), calc(var(--sy, 0px) * .55)) scale(.8);
 }
 .glass-theme-toggle .theme-icon[data-off] rect {
-  opacity: 0; transform: translate(var(--sx, 0px), var(--sy, 0px)) scale(.35);
+  opacity: 0; transform: translate(calc(var(--sx, 0px) * .72), calc(var(--sy, 0px) * .72)) scale(.5);
 }
 /* The bare variant leaves the glass surfaces to a host scene canvas. */
 .glass-theme-toggle[data-bare] .theme-track { background: transparent; box-shadow: none; }
@@ -150,7 +149,7 @@ function pixelIcon(rows, className) {
       const distance = 8 + seed * 15;
       const sx = (Math.cos(angle) * distance).toFixed(1);
       const sy = (Math.sin(angle) * distance).toFixed(1);
-      const delay = Math.round(seed * 240);
+      const delay = Math.round(seed * 110);
       const opacity = cell === '+' ? ' fill-opacity=".45"' : '';
       const sparkle = cell === 'o' ? ' fill="#ffffff"' : '';
       dots.push(`<rect x="${x}" y="${y}" width="1.06" height="1.06"${opacity}${sparkle} style="--sx:${sx}px;--sy:${sy}px;--d:${delay}ms"/>`);
@@ -213,6 +212,9 @@ export function createGlassThemeToggle(target, config = {}) {
     if (next === theme) return;
     theme = next;
     apply(theme);
+    // The arc always sweeps around the leading edge: keep spinning one way.
+    glowSpin -= 180;
+    glow.style.setProperty('--glow-spin', glowSpin + 'deg');
     toggle.setAttribute('aria-checked', String(theme === 'dark'));
     if (config.persist !== false) {
       try { scope.ownerDocument?.defaultView?.localStorage?.setItem(storageKey, theme); } catch { /* storage unavailable */ }
@@ -224,6 +226,8 @@ export function createGlassThemeToggle(target, config = {}) {
   // The neon arc rides the leading edge of travel and settles back to its theme edge.
   const glow = thumb.querySelector('.theme-glow');
   let glowShift = 0, glowVelocity = 0, glowFrame = 0, glowLastX = null, glowDragging = false, glowDir = 0;
+  let glowSpin = initial === 'light' ? -180 : 0;
+  glow.style.setProperty('--glow-spin', glowSpin + 'deg');
   function glowStep() {
     glowFrame = 0;
     const lean = glowDragging ? -glowDir * 70 : 0;
@@ -293,6 +297,10 @@ export function createGlassThemeToggle(target, config = {}) {
     skipPointerClick = false;
   });
   toggle.setGlassTheme = next => {
+    if (next !== theme) {
+      glowSpin -= 180;
+      glow.style.setProperty('--glow-spin', glowSpin + 'deg');
+    }
     theme = next;
     toggle.setAttribute('aria-checked', String(theme === 'dark'));
     apply(theme);
@@ -301,8 +309,8 @@ export function createGlassThemeToggle(target, config = {}) {
     if (label) toggle.setAttribute('aria-label', label);
   };
   Object.defineProperty(toggle, 'theme', { get: () => theme });
-  // Current arc angle in degrees: 0 rests at the bottom edge (dark), 180 at the top (light).
-  Object.defineProperty(toggle, 'glowRotation', { get: () => (theme === 'dark' ? 0 : 180) + glowShift });
+  // Current arc angle in degrees, cumulative: 0 rests at the bottom (dark) edge.
+  Object.defineProperty(toggle, 'glowRotation', { get: () => glowSpin + glowShift });
   target.append(toggle);
   return toggle;
 }
