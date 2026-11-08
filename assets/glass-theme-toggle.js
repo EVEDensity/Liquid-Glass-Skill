@@ -165,7 +165,7 @@ function pixelIcon(rows, className) {
       const delay = Math.round((1 - x / columns) * 140 + seed * 60);
       const opacity = cell === '+' ? ' fill-opacity=".45"' : '';
       const sparkle = cell === 'o' ? ' fill="#ffffff"' : '';
-      dots.push(`<rect x="${x}" y="${y}" width="1.06" height="1.06"${opacity}${sparkle} style="--sx:${sx}px;--sy:${sy}px;--d:${delay}ms"/>`);
+      dots.push(`<rect x="${x + .06}" y="${y + .06}" width=".88" height=".88"${opacity}${sparkle} style="--sx:${sx}px;--sy:${sy}px;--d:${delay}ms"/>`);
     }
   });
   return `<svg class="theme-icon ${className}" viewBox="0 0 20 20" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor">${dots.join('')}</svg>`;
@@ -277,7 +277,9 @@ export function createGlassThemeToggle(target, config = {}) {
     if (glowDragging() || springState) { glowFrame = requestAnimationFrame(glowTick); return; }
     const rest = anchorOf(theme);
     if (Math.abs(liveProgress() - rest) >= .004) {
-      // The thumb is still travelling toward its rest position.
+      // The thumb is still travelling toward its rest position — and if it was
+      // ever left stranded mid-track with no spring, send it to the anchor.
+      if (!springState) travelTo(rest, 0, false);
       glowFrame = requestAnimationFrame(glowTick);
       return;
     }
