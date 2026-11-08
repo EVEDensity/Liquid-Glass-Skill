@@ -30,6 +30,7 @@ uniform float u_themeOn;
 uniform float u_themeLight; // rim light angle for the theme thumb
 uniform float u_themeTint; // 0 dark .. 1 light, drives the resting hue
 uniform vec3 u_themeGlow; // current arc color, bled into the thumb's rim
+uniform float u_themeFill; // 0 light milk .. 1 dark glass, trails the brightness
 uniform vec4 u_sliderTrack; // left, center Y, width, height
 uniform float u_clearControls,u_presetOptics;
 uniform float u_sliderFill; // filled track end X
@@ -363,8 +364,11 @@ void main(){
     clear=mix(clear,caustic,join*innerFocus*facing*.80);
     // Only the thumb and selection carry a resting pale fill. The same union
     // blends that fill into the clear glass and removes the internal rim.
+    // The theme thumb keeps its milk at all times: travelling must not turn it
+    // clear and reveal the refracted track edges inside the glass.
     float restingFill=.97*merged.y+merged.z+.82*merged.w;
-    float milk=restingFill*(1.-smoothstep(0.,1.,engagement))*(1.-join*.88);
+    float engagementTheme=engagement*(1.-overTheme);
+    float milk=restingFill*(1.-smoothstep(0.,1.,engagementTheme))*(1.-join*.88);
     vec3 ivory=mix(vec3(.98,.987,.98),sampleSoft(p,2.),.10+.23*merged.w);
     float innerRim=1.-smoothstep(.45,2.5,depth);
     float selectionShoulder=merged.w*.15*exp(-depth/5.0);
@@ -377,7 +381,7 @@ void main(){
     vec3 themeRest=mix(
       mix(vec3(.971,.966,.955),vec3(.995,.93,.80),u_themeTint*.5),
       mix(vec3(.13,.14,.20),vec3(.125,.135,.16),u_themeTint*.6),
-      u_themeOn);
+      u_themeFill);
     vec3 porcelain=mix(switchRest,themeRest,overTheme);
     float porcelainRim=1.-smoothstep(1.1,3.1,depth);
     vec3 restRim=mix(vec3(1.),u_themeGlow,overTheme*.85);
@@ -514,7 +518,7 @@ export class GlassScene {
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
       gl.activeTexture(gl.TEXTURE0);
-      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','themeBase','themeOn','themeLight','themeTint','themeGlow','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
+      const names=['outlines','outlineCount[0]','surfaceOnly','exactBackdrop','size','bufferSize','sourceSize','source','count','shapes[0]','radii[0]','rotation[0]','press[0]','surface[0]','motion[0]','stretch[0]','contact[0]','sliderTrack','sliderFill','clearControls','presetOptics','switchBase','segmentBase','switchOn','themeBase','themeOn','themeLight','themeTint','themeGlow','themeFill','refraction','bezel','magnify','dispersion','edge','sizeScale','blur','frost','vibrancy','brightness','dim','appearance','pickup','tintAmount','tint','specular','rimWidth','lightAngle','shadow','merge'];
       names.push('controlLayer');
       this.uniforms=Object.fromEntries(names.map(name=>[name,gl.getUniformLocation(this.program,`u_${name}`)]));
       gl.uniform1i(this.uniforms.surfaceOnly,options.surfaceOnly?1:0);
@@ -575,6 +579,7 @@ export class GlassScene {
     const themeLight=Number.isFinite(theme?.light)?theme.light:-135;
     gl.uniform1f(this.uniforms.themeLight,themeLight);
     gl.uniform1f(this.uniforms.themeTint,Number.isFinite(theme?.tint)?clamp(theme.tint,0,1):0);
+    gl.uniform1f(this.uniforms.themeFill,Number.isFinite(theme?.fillMix)?clamp(theme.fillMix,0,1):(theme?.on?1:0));
     gl.uniform3fv(this.uniforms.themeGlow,Array.isArray(theme?.glow)&&theme.glow.every(Number.isFinite)?theme.glow:[.455,.51,1]);
     const track=this.sliderTrack;
     gl.uniform4f(this.uniforms.sliderTrack,(track?.x??0),(track?.y??0),(track?.width??0),(track?.height??0));
